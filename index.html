@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جمالك الخارجي | متجر الجمال</title>
+    <meta name="description" content="متجر متخصص في منتجات الجمال والعناية بالشعر والبشرة">
+    <meta name="keywords" content="جمال, عناية, شعر, بشرة, تسوق">
+
+    <!-- React 18 -->
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@remix-run/router@1.6.3/dist/router.umd.min.js"></script>
+    <script src="https://unpkg.com/react-router@6.4.5/dist/umd/react-router.production.min.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.4.5/dist/umd/react-router-dom.production.min.js"></script>
+
+    <!-- Babel -->
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
+
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- Google Fonts: Cairo for Arabic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <style type="text/tailwindcss">
+        @layer theme {
+        :root {
+            --primary: #8E5465; /* Dark mauve/brown - Restored */
+            --secondary: #D8A7B1; /* Lighter pink accent - Restored */
+            --accent: #5D3A44; /* Darker mauve for accent (mapped to old text-dark/hover) */
+            --bg-light: #F9E8E8; /* Very light background - Restored */
+            --bg-card: #F2D5D5; /* Slightly darker pink for cards/sections - Restored */
+            --text-dark: #5D3A44; /* Dark text color - Restored */
+            --white: #ffffff;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+        }
+    }
+    
+    @layer components {
+        .btn-primary {
+            @apply bg-[var(--primary)] text-white px-6 py-2 rounded shadow-md hover:bg-opacity-90 transition-all duration-300 font-bold;
+        }
+        .section-title {
+            @apply text-2xl md:text-3xl font-bold text-center text-[var(--text-dark)] mb-8 bg-[var(--primary)] text-white py-2 px-8 rounded-full inline-block;
+        }
+        /* Custom shape for the hero background if needed, though simple gradients work too */
+    }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <!-- App Entry -->
+    <script src="utils/firebase.js"></script>
+    <script type="text/babel" src="utils/data.js"></script>
+    <script type="text/babel" src="components/WhatsAppFloat.js"></script>
+    <script type="text/babel" src="components/Header.js"></script>
+    <script type="text/babel" src="components/Hero.js"></script>
+    <script type="text/babel" src="components/Features.js"></script>
+    <script type="text/babel" src="components/ProductCard.js"></script>
+    <script type="text/babel" src="components/ProductGrid.js"></script>
+    <script type="text/babel" src="components/CategoriesPage.js"></script>
+    <script type="text/babel" src="components/CategoryPage.js"></script>
+    <script type="text/babel" src="components/ProductPage.js"></script>
+    <script type="text/babel" src="components/CheckoutPage.js"></script>
+    <script type="text/babel" src="components/AdminPage.js"></script>
+    <script type="text/babel" src="components/ContactPage.js"></script>
+    <script type="text/babel" src="components/Footer.js"></script>
+    <script type="text/babel" src="app.js"></script>
+</body>
+
+</html>
