@@ -79,6 +79,7 @@ function App() {
     const [cart, setCart] = React.useState([]);
     // Cart Drawer State
     const [isCartOpen, setIsCartOpen] = React.useState(false);
+    const [lastAddedId, setLastAddedId] = React.useState(null);
 
     React.useEffect(() => {
         const initializeData = async () => {
@@ -157,6 +158,7 @@ function App() {
 
         // Global Add To Cart (Available anywhere)
         window.addToCart = (product) => {
+            setLastAddedId(product.id);
             setCart(prev => {
                 const existing = prev.find(p => p.id === product.id);
                 if (existing) {
@@ -202,7 +204,7 @@ function App() {
             <ScrollToTop />
 
             {/* Cart Drawer - Global Overlay */}
-            {window.CartSidebar && <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} />}
+            {window.CartSidebar && <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} lastAddedId={lastAddedId} />}
 
             <Layout cartCount={cartCount}>
                 <Routes>

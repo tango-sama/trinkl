@@ -1,5 +1,6 @@
-function CartSidebar({ isOpen, onClose, cart = [] }) {
+function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
     const { Link } = ReactRouterDOM;
+    const itemRefs = React.useRef({});
 
     const total = cart.reduce((acc, item) => {
         if (!item) return acc;
@@ -7,21 +8,28 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
         return acc + (price * (item.quantity || 1));
     }, 0);
 
+    // Scroll to last added item with a slight delay to ensure drawer is visible
+    React.useEffect(() => {
+        if (isOpen && lastAddedId && itemRefs.current[lastAddedId]) {
+            setTimeout(() => {
+                itemRefs.current[lastAddedId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }, [isOpen, lastAddedId]);
+
     // Back Button Handling & Escape Key
     React.useEffect(() => {
         if (!isOpen) return;
 
-        // Push history state to allow "Back" to close the drawer
         window.history.pushState({ cartOpen: true }, '');
 
         const handlePopState = (e) => {
-            // If user presses back, we close the drawer
             onClose();
         };
 
         const handleEsc = (e) => {
             if (e.key === 'Escape') {
-                window.history.back(); // Trigger popstate to close
+                window.history.back();
             }
         };
 
@@ -31,20 +39,11 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
         return () => {
             window.removeEventListener('popstate', handlePopState);
             window.removeEventListener('keydown', handleEsc);
-
-            // If we are closing via X button (not back), history is still forward.
-            // We need to revert it.
-            // However, checking history state correctly is tricky purely in cleanup.
-            // A safer, simpler heuristic: 
-            // If the current state matches what we pushed, go back.
             if (window.history.state?.cartOpen) {
                 window.history.back();
             }
         };
-    }, [isOpen]); // Only re-run when open state changes
-
-    // We render always to allow animation out, but control visibility with pointer-events
-    // Note: z-index 100
+    }, [isOpen]);
 
     return (
         <div
@@ -57,8 +56,6 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
             ></div>
 
             {/* Slider Panel */}
-            {/* RTL: Translate X Full moves to Right (if dir is rtl)? No, standard CSS Transform X is physical. */}
-            {/* To slide from Right: Start at translate-x-full (Right), move to 0. */}
             <div
                 className={`
                     relative w-[85%] md:w-full md:max-w-sm bg-white h-full shadow-2xl flex flex-col 
@@ -95,12 +92,24 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
                     ) : (
                         cart.map((item, idx) => {
                             if (!item) return null;
+                            const isLastAdded = item.id === lastAddedId;
                             return (
-                                <div key={idx} className="flex gap-3 items-center bg-white p-3 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
-                                    <div className="w-20 h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 relative">
+                                <div
+                                    key={idx}
+                                    ref={el => itemRefs.current[item.id] = el}
+                                    className={`
+                                        flex gap-3 items-center p-3 rounded-2xl border shadow-sm transition-all duration-500 group relative overflow-hidden
+                                        ${isLastAdded
+                                            ? 'bg-green-50 border-green-300 ring-2 ring-green-100 scale-[1.02] shadow-md'
+                                            : 'bg-white border-gray-100 hover:shadow-md'}
+                                    `}
+                                >
+                                    {isLastAdded && <div className="absolute inset-0 bg-green-200/20 animate-pulse pointer-events-none"></div>}
+
+                                    <div className="w-20 h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 relative bg-white">
                                         <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                                     </div>
-                                    <div className="flex-grow min-w-0 flex flex-col justify-between h-20 py-1">
+                                    <div className="flex-grow min-w-0 flex flex-col justify-between h-20 py-1 relative z-10">
                                         <h3 className="font-bold text-sm text-[var(--text-dark)] line-clamp-2 leading-tight">{item.title}</h3>
 
                                         <div className="flex justify-between items-end mt-2">
@@ -110,7 +119,7 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
                                     </div>
                                     <button
                                         onClick={() => window.removeFromCart && window.removeFromCart(item.id)}
-                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors self-center"
+                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors self-center relative z-10"
                                         title="حذف"
                                     >
                                         <div className="icon-trash-2 text-xl"></div>
