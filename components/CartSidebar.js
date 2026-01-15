@@ -13,14 +13,10 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
             if (e.key === 'Escape') onClose();
         };
         if (isOpen) {
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
             window.addEventListener('keydown', handleEsc);
-        } else {
-            document.body.style.overflow = 'unset';
         }
         return () => {
             window.removeEventListener('keydown', handleEsc);
-            document.body.style.overflow = 'unset';
         };
     }, [isOpen, onClose]);
 
@@ -34,8 +30,8 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
                 onClick={onClose}
             ></div>
 
-            {/* Slider Panel - Right side (Flex start in RTL) */}
-            <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col transform transition-transform duration-300">
+            {/* Slider Panel - Mobile: 85% width, Desktop: max-w-sm */}
+            <div className="relative w-[85%] md:w-full md:max-w-sm bg-white h-full shadow-2xl flex flex-col transform transition-transform duration-300 animate-slide-in-right dir-rtl border-l border-gray-100">
                 {/* Header */}
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 shadow-sm z-10">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-[var(--text-dark)]">
