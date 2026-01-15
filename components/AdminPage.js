@@ -960,9 +960,9 @@ function AdminPage() {
                 </div>
             )}
 
-            {currentView === 'products' && <ProductsView />}
+            {currentView === 'products' && ProductsView()}
 
-            {currentView === 'categories' && <CategoriesView />}
+            {currentView === 'categories' && CategoriesView()}
 
             {currentView === 'site' && <SiteSettingsView />}
         </div>
