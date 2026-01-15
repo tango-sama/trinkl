@@ -135,10 +135,21 @@ function AdminPage() {
     const [selectedProducts, setSelectedProducts] = React.useState(new Set());
     const [isDeleting, setIsDeleting] = React.useState(false);
 
-    // Filtered Products (Derived)
-    const filteredProducts = productFilter === 'all'
-        ? products
-        : products.filter(p => p.category === productFilter);
+    // Filtered and Sorted Products
+    const filteredProducts = React.useMemo(() => {
+        const getSortTime = (p) => p.lastModified || p.id;
+        // Create a sorted copy
+        const sorted = [...products].sort((a, b) => {
+            // Ensure numbers for comparison
+            const tA = Number(getSortTime(a)) || 0;
+            const tB = Number(getSortTime(b)) || 0;
+            return tB - tA;
+        });
+
+        return productFilter === 'all'
+            ? sorted
+            : sorted.filter(p => p.category === productFilter);
+    }, [products, productFilter]);
 
     const ITEMS_PER_PAGE = 20;
     const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -206,11 +217,12 @@ function AdminPage() {
         if (!productInlineEditForm.title || !productInlineEditForm.price) return alert('يرجى ملء كافة التفاصيل');
 
         try {
+            const updatedProduct = { ...productInlineEditForm, lastModified: Date.now() };
             // Update Firestore
-            await window.db.updateDocument('products', productInlineEditId, productInlineEditForm);
+            await window.db.updateDocument('products', productInlineEditId, updatedProduct);
 
             // Update Local Admin State
-            const updatedProducts = products.map(p => p.id === productInlineEditId ? productInlineEditForm : p);
+            const updatedProducts = products.map(p => p.id === productInlineEditId ? updatedProduct : p);
             setProducts(updatedProducts);
 
             // Update Global State
@@ -326,10 +338,11 @@ function AdminPage() {
         try {
             if (editingProductId) {
                 // Update Existing Product
-                await window.db.updateDocument('products', editingProductId, newProductForm);
+                const updatedProduct = { ...newProductForm, lastModified: Date.now() };
+                await window.db.updateDocument('products', editingProductId, updatedProduct);
 
                 // Update Local State
-                const updatedList = products.map(p => p.id === editingProductId ? { ...p, ...newProductForm } : p);
+                const updatedList = products.map(p => p.id === editingProductId ? { ...p, ...updatedProduct } : p);
                 setProducts(updatedList);
                 window.products = updatedList;
 
@@ -339,6 +352,7 @@ function AdminPage() {
                 // Add New Product
                 const newProduct = {
                     id: Date.now(),
+                    lastModified: Date.now(),
                     ...newProductForm
                 };
                 await window.db.addDocument('products', newProduct);
