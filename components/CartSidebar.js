@@ -7,31 +7,65 @@ function CartSidebar({ isOpen, onClose, cart = [] }) {
         return acc + (price * (item.quantity || 1));
     }, 0);
 
-    // Close on escape key
+    // Back Button Handling & Escape Key
     React.useEffect(() => {
-        const handleEsc = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        if (isOpen) {
-            window.addEventListener('keydown', handleEsc);
-        }
-        return () => {
-            window.removeEventListener('keydown', handleEsc);
-        };
-    }, [isOpen, onClose]);
+        if (!isOpen) return;
 
-    if (!isOpen) return null;
+        // Push history state to allow "Back" to close the drawer
+        window.history.pushState({ cartOpen: true }, '');
+
+        const handlePopState = (e) => {
+            // If user presses back, we close the drawer
+            onClose();
+        };
+
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                window.history.back(); // Trigger popstate to close
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        window.addEventListener('keydown', handleEsc);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            window.removeEventListener('keydown', handleEsc);
+
+            // If we are closing via X button (not back), history is still forward.
+            // We need to revert it.
+            // However, checking history state correctly is tricky purely in cleanup.
+            // A safer, simpler heuristic: 
+            // If the current state matches what we pushed, go back.
+            if (window.history.state?.cartOpen) {
+                window.history.back();
+            }
+        };
+    }, [isOpen]); // Only re-run when open state changes
+
+    // We render always to allow animation out, but control visibility with pointer-events
+    // Note: z-index 100
 
     return (
-        <div className="fixed inset-0 z-[100] flex justify-start">
+        <div
+            className={`fixed inset-0 z-[100] flex justify-start transition-visibility duration-300 ${isOpen ? 'visible' : 'invisible delay-300'}`}
+        >
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
                 onClick={onClose}
             ></div>
 
-            {/* Slider Panel - Mobile: 85% width, Desktop: max-w-sm */}
-            <div className="relative w-[85%] md:w-full md:max-w-sm bg-white h-full shadow-2xl flex flex-col transform transition-transform duration-300 animate-slide-in-right dir-rtl border-l border-gray-100">
+            {/* Slider Panel */}
+            {/* RTL: Translate X Full moves to Right (if dir is rtl)? No, standard CSS Transform X is physical. */}
+            {/* To slide from Right: Start at translate-x-full (Right), move to 0. */}
+            <div
+                className={`
+                    relative w-[85%] md:w-full md:max-w-sm bg-white h-full shadow-2xl flex flex-col 
+                    transform transition-transform duration-300 ease-out border-l border-gray-100
+                    ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+                `}
+            >
                 {/* Header */}
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 shadow-sm z-10">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-[var(--text-dark)]">
