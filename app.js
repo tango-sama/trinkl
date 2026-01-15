@@ -34,14 +34,15 @@ function App() {
 
     const [loading, setLoading] = React.useState(true);
 
+    // Cart State moved up to respect Hook Rules
+    const [cart, setCart] = React.useState([]);
+
     React.useEffect(() => {
         const initializeData = async () => {
             try {
                 // Fetch Categories
                 let dbCategories = await window.db.getCollection('categories');
                 if (dbCategories.length === 0 && window.categories && window.categories.length > 0) {
-
-                    // Seed categories
                     for (const cat of window.categories) {
                         await window.db.addDocument('categories', cat);
                     }
@@ -53,8 +54,6 @@ function App() {
                 // Fetch Products
                 let dbProducts = await window.db.getCollection('products');
                 if (dbProducts.length === 0 && window.products && window.products.length > 0) {
-
-                    // Seed products
                     for (const prod of window.products) {
                         await window.db.addDocument('products', prod);
                     }
@@ -76,7 +75,6 @@ function App() {
                     window.siteSettings = {};
                 }
 
-                // Force Update specific views if needed, but since we modify window objects before initial render completes or strict mode, we might need to trigger re-render
                 setLoading(false);
             } catch (error) {
                 console.error("Failed to initialize data:", error);
@@ -90,20 +88,6 @@ function App() {
             setLoading(false);
         }
     }, []);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-light)]">
-                <div className="text-2xl font-bold text-[var(--primary)] flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
-                    <span>جاري التحميل...</span>
-                </div>
-            </div>
-        );
-    }
-
-    // Cart State
-    const [cart, setCart] = React.useState([]);
 
     // Load Cart
     React.useEffect(() => {
@@ -137,8 +121,7 @@ function App() {
                 }
                 return [...prev, { ...product, quantity: 1 }];
             });
-            // Simple Feedback (Custom Toast would be better but alert is reliable)
-            // Using a non-blocking toast would be ideal, but for now:
+            // Simple Feedback
             const notification = document.createElement('div');
             notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-xl z-50 animate-bounce';
             notification.textContent = '✅ تم إضافة المنتج للسلة';
@@ -154,6 +137,17 @@ function App() {
         window.getCart = () => cart;
 
     }, [cart]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-light)]">
+                <div className="text-2xl font-bold text-[var(--primary)] flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+                    <span>جاري التحميل...</span>
+                </div>
+            </div>
+        );
+    }
 
     // Wrapper for the main layout to include Header and Footer on all pages
     const Layout = ({ children }) => {
