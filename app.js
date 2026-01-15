@@ -102,14 +102,59 @@ function App() {
         );
     }
 
+    // Cart State
+    const [cart, setCart] = React.useState([]);
+
+    // Load Cart
+    React.useEffect(() => {
+        const saved = localStorage.getItem('trinkl_cart');
+        if (saved) {
+            try {
+                setCart(JSON.parse(saved));
+            } catch (e) { console.error('Cart parse error', e); }
+        }
+    }, []);
+
+    // Save Cart & Expose Global Methods
+    React.useEffect(() => {
+        localStorage.setItem('trinkl_cart', JSON.stringify(cart));
+
+        // Global Add To Cart (Available anywhere)
+        window.addToCart = (product) => {
+            setCart(prev => {
+                const existing = prev.find(p => p.id === product.id);
+                if (existing) {
+                    return prev.map(p => p.id === product.id ? { ...p, quantity: (p.quantity || 1) + 1 } : p);
+                }
+                return [...prev, { ...product, quantity: 1 }];
+            });
+            // Simple Feedback (Custom Toast would be better but alert is reliable)
+            // Using a non-blocking toast would be ideal, but for now:
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-xl z-50 animate-bounce';
+            notification.textContent = '✅ تم إضافة المنتج للسلة';
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 2000);
+        };
+
+        // Global Remove/Clear
+        window.removeFromCart = (productId) => {
+            setCart(prev => prev.filter(p => p.id !== productId));
+        };
+        window.clearCart = () => setCart([]);
+        window.getCart = () => cart;
+
+    }, [cart]);
+
     // Wrapper for the main layout to include Header and Footer on all pages
     const Layout = ({ children }) => {
         const location = ReactRouterDOM.useLocation();
         const isAdmin = location.pathname.startsWith('/amelhadj');
+        const cartCount = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
         return (
             <div className="min-h-screen flex flex-col">
-                <Header />
+                <Header cartCount={cartCount} />
                 <main className="flex-grow">
                     {children}
                 </main>
@@ -132,7 +177,7 @@ function App() {
     const CategoriesPageComponent = () => window.CategoriesPage ? <CategoriesPage /> : <div className="p-10 text-center">جاري تحميل صفحة التصنيفات...</div>;
     const ProductPageComponent = () => window.ProductPage ? <ProductPage /> : <div className="p-10 text-center">جاري تحميل صفحة المنتج...</div>;
     const ContactPageComponent = () => window.ContactPage ? <ContactPage /> : <div className="p-10 text-center">جاري تحميل صفحة اتصل بنا...</div>;
-    const CheckoutPageComponent = () => window.CheckoutPage ? <CheckoutPage /> : <div className="p-10 text-center">جاري تحميل صفحة الدفع...</div>;
+    const CheckoutPageComponent = () => window.CheckoutPage ? <CheckoutPage cart={cart} /> : <div className="p-10 text-center">جاري تحميل صفحة الدفع...</div>;
     const AdminPageComponent = () => window.AdminPage ? <AdminPage /> : <div className="p-10 text-center">جاري تحميل لوحة التحكم...</div>;
 
     // Helper for reset scroll

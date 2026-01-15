@@ -43,13 +43,16 @@ function ProductCard({ product }) {
 
             {/* Add to Cart - Bottom Left */}
             <div className="absolute bottom-4 left-4 z-30">
-                <Link
-                    to={`/product/${product.id}`}
-                    className="w-12 h-12 bg-[var(--primary)]/20 hover:bg-[var(--primary)]/60 text-white rounded-xl shadow-lg flex items-center justify-center backdrop-blur-md border border-white/20 transition-all hover:scale-110 hover:-rotate-3"
+                <button
+                    onClick={(e) => {
+                        e.preventDefault();
+                        if (window.addToCart) window.addToCart(product);
+                    }}
+                    className="w-12 h-12 bg-[var(--primary)]/20 hover:bg-[var(--primary)]/60 text-white rounded-xl shadow-lg flex items-center justify-center backdrop-blur-md border border-white/20 transition-all hover:scale-110 hover:-rotate-3 cursor-pointer"
                     title="إضافة للسلة"
                 >
                     <div className="icon-shopping-cart text-2xl"></div>
-                </Link>
+                </button>
             </div>
         </div>
     );

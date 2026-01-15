@@ -1,4 +1,4 @@
-function Header() {
+function Header({ cartCount = 0 }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const { Link } = ReactRouterDOM;
 
@@ -30,15 +30,36 @@ function Header() {
                     <Link to="/" className="hover:text-[var(--primary)] transition-colors">الرئيسية</Link>
                     <Link to="/categories" className="hover:text-[var(--primary)] transition-colors">التصنيفات</Link>
                     <Link to="/contact" className="hover:text-[var(--primary)] transition-colors">اتصل بنا</Link>
+
+                    {/* Cart Icon */}
+                    <Link to="/checkout" className="relative bg-[var(--primary)]/10 p-2 rounded-full hover:bg-[var(--primary)]/20 transition-colors text-[var(--primary)]">
+                        <div className="icon-shopping-cart text-xl"></div>
+                        {cartCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm animate-bounce font-bold">
+                                {cartCount}
+                            </span>
+                        )}
+                    </Link>
                 </nav>
 
-                {/* Mobile Menu Button */}
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="md:hidden text-[var(--primary)] p-1 rounded hover:bg-[var(--secondary)]/20"
-                >
-                    <div className={isOpen ? "icon-x text-2xl" : "icon-menu text-2xl"}></div>
-                </button>
+                {/* Mobile Menu Button + Cart */}
+                <div className="flex items-center gap-4 md:hidden">
+                    <Link to="/checkout" className="relative text-[var(--primary)]">
+                        <div className="icon-shopping-cart text-2xl"></div>
+                        {cartCount > 0 && (
+                            <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full shadow-sm font-bold">
+                                {cartCount}
+                            </span>
+                        )}
+                    </Link>
+
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="text-[var(--primary)] p-1 rounded hover:bg-[var(--secondary)]/20"
+                    >
+                        <div className={isOpen ? "icon-x text-2xl" : "icon-menu text-2xl"}></div>
+                    </button>
+                </div>
             </div>
 
             {/* Mobile Nav Dropdown */}
@@ -47,6 +68,10 @@ function Header() {
                     <Link to="/" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">الرئيسية</Link>
                     <Link to="/categories" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">التصنيفات</Link>
                     <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
+                    <Link to="/checkout" onClick={() => setIsOpen(false)} className="flex items-center gap-2 text-[var(--primary)] font-bold">
+                        <span>سلة المشتريات ({cartCount})</span>
+                        <div className="icon-shopping-cart"></div>
+                    </Link>
                 </nav>
             )}
         </header>
