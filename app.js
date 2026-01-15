@@ -110,8 +110,17 @@ function App() {
         const saved = localStorage.getItem('trinkl_cart');
         if (saved) {
             try {
-                setCart(JSON.parse(saved));
-            } catch (e) { console.error('Cart parse error', e); }
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    setCart(parsed);
+                } else {
+                    console.warn("Corrupt cart data found, resetting.");
+                    setCart([]);
+                }
+            } catch (e) {
+                console.error('Cart parse error', e);
+                setCart([]);
+            }
         }
     }, []);
 
