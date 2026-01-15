@@ -114,7 +114,23 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
 
                                         <div className="flex justify-between items-end mt-2">
                                             <p className="text-[var(--primary)] font-bold text-base">{item.price}</p>
-                                            <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md font-bold">x{item.quantity || 1}</div>
+
+                                            <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-100">
+                                                <button
+                                                    onClick={() => window.addToCart && window.addToCart(item)}
+                                                    className="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-colors"
+                                                >
+                                                    <div className="icon-plus text-xs"></div>
+                                                </button>
+                                                <span className="text-sm font-bold w-6 text-center text-[var(--text-dark)]">{item.quantity || 1}</span>
+                                                <button
+                                                    onClick={() => window.decreaseQuantity && window.decreaseQuantity(item.id)}
+                                                    className={`w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 hover:bg-gray-100 transition-colors ${(!item.quantity || item.quantity <= 1) ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                    disabled={!item.quantity || item.quantity <= 1}
+                                                >
+                                                    <div className="icon-minus text-xs"></div>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <button

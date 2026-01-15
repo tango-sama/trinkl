@@ -172,6 +172,16 @@ function App() {
         window.openCart = () => setIsCartOpen(true);
         window.closeCart = () => setIsCartOpen(false);
 
+        window.decreaseQuantity = (productId) => {
+            setCart(prev => {
+                const existing = prev.find(p => p.id === productId);
+                if (existing && existing.quantity > 1) {
+                    return prev.map(p => p.id === productId ? { ...p, quantity: p.quantity - 1 } : p);
+                }
+                return prev;
+            });
+        };
+
         // Global Remove/Clear
         window.removeFromCart = (productId) => {
             setCart(prev => prev.filter(p => p.id !== productId));

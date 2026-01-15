@@ -97,16 +97,33 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
                                         <div className="flex-grow">
                                             <h3 className="font-bold text-sm text-[var(--text-dark)] line-clamp-1">{item.title}</h3>
                                             <p className="text-[var(--primary)] font-bold text-sm">{item.price}</p>
-                                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                                                <span>الكمية: {item.quantity || 1}</span>
+
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => window.addToCart && window.addToCart(item)}
+                                                    className="w-8 h-8 bg-gray-50 border border-gray-200 rounded-lg hover:bg-[var(--primary)] hover:border-[var(--primary)] hover:text-white transition-colors flex items-center justify-center text-[var(--primary)]"
+                                                >
+                                                    <div className="icon-plus text-sm"></div>
+                                                </button>
+                                                <span className="font-bold text-base w-6 text-center">{item.quantity || 1}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => window.decreaseQuantity && window.decreaseQuantity(item.id)}
+                                                    className={`w-8 h-8 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center ${(!item.quantity || item.quantity <= 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    disabled={!item.quantity || item.quantity <= 1}
+                                                >
+                                                    <div className="icon-minus text-sm"></div>
+                                                </button>
                                             </div>
                                         </div>
                                         <button
+                                            type="button"
                                             onClick={() => window.removeFromCart && window.removeFromCart(item.id)}
-                                            className="text-red-400 hover:text-red-600 p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100 absolute left-0 top-1/2 -translate-y-1/2 bg-white shadow-sm"
+                                            className="text-red-500 bg-red-50 hover:bg-red-100 p-3 rounded-xl transition-colors flex-shrink-0 shadow-sm border border-red-100"
                                             title="حذف من السلة"
                                         >
-                                            <div className="icon-trash-2"></div>
+                                            <div className="icon-trash-2 text-xl"></div>
                                         </button>
                                     </div>
                                 );
