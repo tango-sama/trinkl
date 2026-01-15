@@ -1,5 +1,5 @@
 function Footer({ isAdmin }) {
-    const { IconSparkles, IconInstagram, IconFacebook, IconTikTok } = window.Icons;
+    const { IconSparkles, IconInstagram, IconFacebook, IconTikTok, IconWhatsApp } = window.Icons;
 
     return (
         <footer className="py-10 bg-[var(--bg-light)]">
@@ -21,14 +21,17 @@ function Footer({ isAdmin }) {
                         <p>© 2026 جمالك الخارجي. جميع الحقوق محفوظة.</p>
                     </div>
                     <div className="flex gap-4 items-center">
-                        <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="hover:text-[var(--primary)] text-gray-400 hover:scale-110 transition-all">
-                            <IconInstagram className="w-6 h-6" />
+                        <a href="https://wa.me/213664925052" target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-[var(--primary)] text-white rounded-lg shadow-sm hover:scale-110 transition-transform">
+                            <IconWhatsApp className="w-5 h-5" />
                         </a>
-                        <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="hover:text-[var(--primary)] text-gray-400 hover:scale-110 transition-all">
-                            <IconFacebook className="w-6 h-6" />
+                        <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-[var(--primary)] text-white rounded-lg shadow-sm hover:scale-110 transition-transform">
+                            <IconFacebook className="w-5 h-5" />
                         </a>
-                        <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="hover:text-[var(--primary)] text-gray-400 hover:scale-110 transition-all">
-                            <IconTikTok className="w-6 h-6" />
+                        <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-[var(--primary)] text-white rounded-lg shadow-sm hover:scale-110 transition-transform">
+                            <IconInstagram className="w-5 h-5" />
+                        </a>
+                        <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-[var(--primary)] text-white rounded-lg shadow-sm hover:scale-110 transition-transform">
+                            <IconTikTok className="w-5 h-5" />
                         </a>
                     </div>
                 </div>

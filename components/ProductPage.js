@@ -5,7 +5,7 @@ function ProductPage() {
     const [activeTab, setActiveTab] = React.useState('description');
 
     // Icons
-    const { IconTruck, IconShieldCheck, IconMessageCircle, IconShield, IconSparkles, IconInstagram, IconFacebook, IconTikTok } = window.Icons;
+    const { IconTruck, IconShieldCheck, IconMessageCircle, IconShield, IconSparkles, IconInstagram, IconFacebook, IconTikTok, IconWhatsApp } = window.Icons;
 
     // Helper for Star Rating
     const StarRating = () => (
@@ -192,14 +192,17 @@ function ProductPage() {
                     {/* Social Media Identity */}
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
                         <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-6">هويتنا على مواقع التواصل الاجتماعي</h2>
-                        <div className="flex justify-center gap-8">
-                            <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md">
-                                <IconInstagram className="w-8 h-8" />
+                        <div className="flex justify-center gap-6">
+                            <a href="https://wa.me/213664925052" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
+                                <IconWhatsApp className="w-8 h-8" />
                             </a>
-                            <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="bg-[#1877F2] text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md">
+                            <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
                                 <IconFacebook className="w-8 h-8" />
                             </a>
-                            <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="bg-black text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md">
+                            <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
+                                <IconInstagram className="w-8 h-8" />
+                            </a>
+                            <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
                                 <IconTikTok className="w-8 h-8" />
                             </a>
                         </div>
