@@ -29,12 +29,53 @@ class ErrorBoundary extends React.Component {
     }
 }
 
+// Extracted Components to prevent re-mounting on state changes
+const Layout = ({ children, cartCount }) => {
+    const { useLocation } = ReactRouterDOM;
+    const location = useLocation();
+    const isAdmin = location.pathname.startsWith('/amelhadj');
+
+    return (
+        <div className="min-h-screen flex flex-col">
+            <Header cartCount={cartCount} />
+            <main className="flex-grow">
+                {children}
+            </main>
+            {!isAdmin && <WhatsAppFloat />}
+            <Footer isAdmin={isAdmin} />
+        </div>
+    );
+};
+
+const HomePage = () => (
+    <React.Fragment>
+        <Hero />
+        <Features />
+        <ProductGrid />
+    </React.Fragment>
+);
+
+const CheckoutWrapper = ({ cart }) => window.CheckoutPage ? <CheckoutPage cart={cart} /> : <div className="p-10 text-center">جاري تحميل صفحة الدفع...</div>;
+const CategoryPageWrapper = () => window.CategoryPage ? <CategoryPage /> : <div className="p-10 text-center">جاري تحميل صفحة التصنيف...</div>;
+const CategoriesPageWrapper = () => window.CategoriesPage ? <CategoriesPage /> : <div className="p-10 text-center">جاري تحميل صفحة التصنيفات...</div>;
+const ProductPageWrapper = () => window.ProductPage ? <ProductPage /> : <div className="p-10 text-center">جاري تحميل صفحة المنتج...</div>;
+const ContactPageWrapper = () => window.ContactPage ? <ContactPage /> : <div className="p-10 text-center">جاري تحميل صفحة اتصل بنا...</div>;
+const AdminPageWrapper = () => window.AdminPage ? <AdminPage /> : <div className="p-10 text-center">جاري تحميل لوحة التحكم...</div>;
+
+const ScrollToTop = () => {
+    const { pathname } = ReactRouterDOM.useLocation();
+    React.useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [pathname]);
+    return null;
+};
+
 function App() {
     const { HashRouter, Routes, Route } = ReactRouterDOM;
 
     const [loading, setLoading] = React.useState(true);
 
-    // Cart State moved up to respect Hook Rules
+    // Cart State
     const [cart, setCart] = React.useState([]);
     // Cart Drawer State
     const [isCartOpen, setIsCartOpen] = React.useState(false);
@@ -149,69 +190,29 @@ function App() {
         );
     }
 
-    // Wrapper for the main layout to include Header and Footer on all pages
-    const Layout = ({ children }) => {
-        const location = ReactRouterDOM.useLocation();
-        const isAdmin = location.pathname.startsWith('/amelhadj');
-        // Safeguard: Ensure cart is array before reduce, and handle potential null items
-        const cartItems = Array.isArray(cart) ? cart : [];
-        const cartCount = cartItems.reduce((acc, item) => {
-            if (!item) return acc;
-            return acc + (item.quantity || 1);
-        }, 0);
-
-        return (
-            <div className="min-h-screen flex flex-col">
-                {/* Cart Drawer - Added Here */}
-                <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} />
-
-                <Header cartCount={cartCount} />
-                <main className="flex-grow">
-                    {children}
-                </main>
-                {!isAdmin && <WhatsAppFloat />}
-                <Footer isAdmin={isAdmin} />
-            </div>
-        );
-    };
-
-    const HomePage = () => (
-        <React.Fragment>
-            <Hero />
-            <Features />
-            <ProductGrid />
-        </React.Fragment>
-    );
-
-    // Placeholder components until valid ones are created
-    const CategoryPageComponent = () => window.CategoryPage ? <CategoryPage /> : <div className="p-10 text-center">جاري تحميل صفحة التصنيف...</div>;
-    const CategoriesPageComponent = () => window.CategoriesPage ? <CategoriesPage /> : <div className="p-10 text-center">جاري تحميل صفحة التصنيفات...</div>;
-    const ProductPageComponent = () => window.ProductPage ? <ProductPage /> : <div className="p-10 text-center">جاري تحميل صفحة المنتج...</div>;
-    const ContactPageComponent = () => window.ContactPage ? <ContactPage /> : <div className="p-10 text-center">جاري تحميل صفحة اتصل بنا...</div>;
-    const CheckoutPageComponent = () => window.CheckoutPage ? <CheckoutPage cart={cart} /> : <div className="p-10 text-center">جاري تحميل صفحة الدفع...</div>;
-    const AdminPageComponent = () => window.AdminPage ? <AdminPage /> : <div className="p-10 text-center">جاري تحميل لوحة التحكم...</div>;
-
-    // Helper for reset scroll
-    const ScrollToTop = () => {
-        const { pathname } = ReactRouterDOM.useLocation();
-        React.useEffect(() => {
-            window.scrollTo(0, 0);
-        }, [pathname]);
-        return null;
-    };
+    // Calculate Cart Count
+    const cartItems = Array.isArray(cart) ? cart : [];
+    const cartCount = cartItems.reduce((acc, item) => {
+        if (!item) return acc;
+        return acc + (item.quantity || 1);
+    }, 0);
 
     return (
         <HashRouter>
             <ScrollToTop />
-            <Layout>
+
+            {/* Cart Drawer - Global Overlay */}
+            {window.CartSidebar && <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} />}
+
+            <Layout cartCount={cartCount}>
                 <Routes>
                     <Route path="/" element={<HomePage />} />
-                    <Route path="/categories" element={<CategoriesPageComponent />} />
-                    <Route path="/contact" element={<ContactPageComponent />} />
-                    <Route path="/checkout" element={<CheckoutPageComponent />} />
-                    <Route path="/amelhadj" element={<AdminPageComponent />} />
-                    <Route path="/category/:id" element={<CategoryPageComponent />} />
-                    <Route path="/product/:id" element={<ProductPageComponent />} />
+                    <Route path="/categories" element={<CategoriesPageWrapper />} />
+                    <Route path="/contact" element={<ContactPageWrapper />} />
+                    <Route path="/checkout" element={<CheckoutWrapper cart={cart} />} />
+                    <Route path="/amelhadj" element={<AdminPageWrapper />} />
+                    <Route path="/category/:id" element={<CategoryPageWrapper />} />
+                    <Route path="/product/:id" element={<ProductPageWrapper />} />
                 </Routes>
             </Layout>
         </HashRouter>
