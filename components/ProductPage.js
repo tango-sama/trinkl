@@ -144,10 +144,12 @@ function ProductPage() {
                             </div>
                             <h3 className="text-xl font-bold text-[var(--text-dark)] mb-3">فوائد رئيسية:</h3>
                             <ul className="list-disc list-inside space-y-2 marker:text-[var(--primary)]">
-                                {product.description && Array.isArray(product.description) && product.description.some(b => b.trim() !== '') ? (
-                                    product.description.filter(b => b.trim() !== '').map((benefit, idx) => (
-                                        <li key={idx}>{benefit}</li>
-                                    ))
+                                {product.description ? (
+                                    (Array.isArray(product.description) ? product.description : product.description.split('\n'))
+                                        .filter(b => b.trim() !== '')
+                                        .map((benefit, idx) => (
+                                            <li key={idx}>{benefit}</li>
+                                        ))
                                 ) : (
                                     <>
                                         <li>عناية فائقة وتغذية عميقة تدوم طويلاً.</li>
