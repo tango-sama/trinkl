@@ -203,17 +203,17 @@ function ProductPage() {
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
                         <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-6">هويتنا على مواقع التواصل الاجتماعي</h2>
                         <div className="flex justify-center gap-6">
-                            <a href="https://wa.me/213664925052" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
-                                <IconWhatsApp className="w-8 h-8" />
+                            <a href="https://wa.me/213664925052" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/whatsapp.png" alt="WhatsApp" className="w-14 h-14 object-contain drop-shadow-md" />
                             </a>
-                            <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
-                                <IconFacebook className="w-8 h-8" />
+                            <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/facebook.png" alt="Facebook" className="w-14 h-14 object-contain drop-shadow-md" />
                             </a>
-                            <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
-                                <IconInstagram className="w-8 h-8" />
+                            <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/instagram.png" alt="Instagram" className="w-14 h-14 object-contain drop-shadow-md" />
                             </a>
-                            <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="w-14 h-14 flex items-center justify-center bg-[var(--primary)] text-white rounded-2xl shadow-md hover:scale-110 transition-transform">
-                                <IconTikTok className="w-8 h-8" />
+                            <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/tiktok.png" alt="TikTok" className="w-14 h-14 object-contain drop-shadow-md" />
                             </a>
                         </div>
                     </div>
