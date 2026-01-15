@@ -121,6 +121,7 @@ function AdminPage() {
     // Filter and New Product Form State (Moved to top)
     const [productFilter, setProductFilter] = React.useState('all');
     const [newProductForm, setNewProductForm] = React.useState({ title: '', price: '', category: '', image: '', description: '' });
+    const [editingProductId, setEditingProductId] = React.useState(null);
 
     // Product Inline Editing State
     const [productInlineEditId, setProductInlineEditId] = React.useState(null);
@@ -180,6 +181,16 @@ function AdminPage() {
     const handleStartProductInlineEdit = (product) => {
         setProductInlineEditId(product.id);
         setProductInlineEditForm({ ...product });
+        // Populate Top Form
+        setEditingProductId(product.id);
+        setNewProductForm({
+            title: product.title,
+            price: product.price,
+            category: product.category,
+            image: product.image,
+            description: Array.isArray(product.description) ? product.description.join('\n') : (product.description || '')
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleCancelProductInlineEdit = () => {
@@ -300,26 +311,42 @@ function AdminPage() {
 
     // Product Filter and New Product Form
 
+    const handleCancelTopEdit = () => {
+        setEditingProductId(null);
+        setNewProductForm({ title: '', price: '', category: '', image: '', description: '' });
+    };
+
     const handleAddProduct = async () => {
         if (!newProductForm.title || !newProductForm.price || !newProductForm.category) return alert('يرجى ملء جميع الحقول المطلوبة');
 
-        const newProduct = {
-            id: Date.now(), // Simple ID generation - used as Doc ID too
-            ...newProductForm
-        };
-
         try {
-            await window.db.addDocument('products', newProduct);
+            if (editingProductId) {
+                // Update Existing Product
+                await window.db.updateDocument('products', editingProductId, newProductForm);
 
-            // Update local Admin state
-            setProducts([...products, newProduct]);
-            // Update global window state for the main website
-            window.products = [...(window.products || []), newProduct];
+                // Update Local State
+                const updatedList = products.map(p => p.id === editingProductId ? { ...p, ...newProductForm } : p);
+                setProducts(updatedList);
+                window.products = updatedList;
+
+                alert('تم تحديث المنتج بنجاح');
+                setEditingProductId(null);
+            } else {
+                // Add New Product
+                const newProduct = {
+                    id: Date.now(),
+                    ...newProductForm
+                };
+                await window.db.addDocument('products', newProduct);
+
+                setProducts([...products, newProduct]);
+                window.products = [...(window.products || []), newProduct];
+                alert('تم إضافة المنتج بنجاح');
+            }
 
             setNewProductForm({ title: '', price: '', category: '', image: '', description: '' });
-            alert('تم إضافة المنتج بنجاح');
         } catch (error) {
-            alert("Error adding product");
+            alert("Error saving product");
             console.error(error);
         }
     };
@@ -418,39 +445,6 @@ function AdminPage() {
                 <div className="flex items-center justify-between mb-8">
                     <h2 className="text-2xl font-bold text-[var(--text-dark)]">تعديل المنتجات</h2>
                     <div className="flex gap-4 items-center">
-                        {/* Import Category Selector */}
-                        <select
-                            value={importCategory}
-                            onChange={(e) => setImportCategory(e.target.value)}
-                            className="bg-white border border-[var(--primary)] text-[var(--text-dark)] rounded px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                        >
-                            {window.categories.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-
-                        {/* Hidden File Input */}
-                        <input
-                            type="file"
-                            id="csv-upload"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={handleCSVUpload}
-                        />
-                        <button
-                            onClick={() => document.getElementById('csv-upload').click()}
-                            disabled={isImporting}
-                            className={`bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            {isImporting ? (
-                                <>
-                                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                    <span>جاري...</span>
-                                </>
-                            ) : (
-                                <span>استيراد CSV</span>
-                            )}
-                        </button>
                         <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
                             <div className="icon-arrow-right"></div>
                             <span>العودة</span>
@@ -459,7 +453,9 @@ function AdminPage() {
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-6 mb-8 border border-[var(--secondary)]">
-                    <h3 className="text-lg font-bold mb-4 text-[var(--text-dark)]">إضافة منتج جديد</h3>
+                    <h3 className="text-lg font-bold mb-4 text-[var(--text-dark)]">
+                        {editingProductId ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input
                             type="text"
@@ -532,12 +528,22 @@ function AdminPage() {
                                 className="border p-3 rounded-lg w-full h-32 outline-none focus:border-[var(--primary)]"
                             ></textarea>
                         </div>
-                        <button
-                            onClick={handleAddProduct}
-                            className="bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold col-span-1 md:col-span-2 transition-colors"
-                        >
-                            حفظ المنتج
-                        </button>
+                        <div className="col-span-1 md:col-span-2 flex gap-3">
+                            <button
+                                onClick={handleAddProduct}
+                                className={`${editingProductId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white py-3 rounded-lg font-bold flex-1 transition-colors`}
+                            >
+                                {editingProductId ? 'حفظ التعديلات' : 'حفظ المنتج'}
+                            </button>
+                            {editingProductId && (
+                                <button
+                                    onClick={handleCancelTopEdit}
+                                    className="bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg font-bold px-6 transition-colors"
+                                >
+                                    إلغاء
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
