@@ -1,3 +1,110 @@
+const SiteSettingsView = () => {
+    const [settings, setSettings] = React.useState(window.siteSettings || {});
+    const [isSaving, setIsSaving] = React.useState(false);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            if (settings.id) {
+                await window.db.updateDocument('site_settings', settings.id, settings);
+            } else {
+                const newDoc = await window.db.addDocument('site_settings', settings);
+                setSettings({ ...settings, id: newDoc.id });
+                window.siteSettings = { ...settings, id: newDoc.id };
+            }
+            alert('تم حفظ الإعدادات بنجاح. يرجى تحديث الصفحة لرؤية التغييرات في الموقع.');
+            window.siteSettings = settings;
+        } catch (e) {
+            console.error(e);
+            alert('فشل الحفظ');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="animate-fade-in">
+            <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-[var(--text-dark)]">إعدادات الموقع</h2>
+                <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                    <div className="icon-arrow-right"></div>
+                    <span>العودة</span>
+                </button>
+            </div>
+
+            <div className="bg-white p-8 rounded-xl shadow border border-[var(--secondary)] max-w-2xl mx-auto">
+                <h3 className="font-bold mb-6 text-lg border-b pb-2">صورة الهيرو (الرئيسية)</h3>
+
+                <div className="flex flex-col md:flex-row gap-8 items-center">
+                    {/* Image Preview */}
+                    <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-[var(--primary)]/20 shadow-lg flex-shrink-0 bg-gray-50 flex items-center justify-center relative group">
+                        {settings.heroImage ? (
+                            <img src={settings.heroImage} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-gray-400 flex flex-col items-center">
+                                <span className="icon-image text-4xl mb-2"></span>
+                                <span className="text-xs">لا توجد صورة</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex flex-col gap-4 flex-grow w-full">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">رابط الصورة</label>
+                            <input
+                                type="text"
+                                placeholder="https://..."
+                                value={settings.heroImage || ''}
+                                onChange={(e) => setSettings({ ...settings, heroImage: e.target.value })}
+                                className="border p-3 rounded-lg w-full text-left ltr outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                                dir="ltr"
+                            />
+                        </div>
+
+                        <div className="relative">
+                            <input
+                                type="file"
+                                id="hero-upload"
+                                accept="image/*"
+                                onChange={async (e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        try {
+                                            // Show loading state/preview?
+                                            const url = await window.uploadImageToFirebase(file, 'site_assets');
+                                            setSettings(prev => ({ ...prev, heroImage: url }));
+                                        } catch (error) {
+                                            alert("Upload Failed: " + error.message);
+                                        }
+                                    }
+                                }}
+                                className="hidden"
+                            />
+                            <label
+                                htmlFor="hero-upload"
+                                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-center block w-full border border-gray-300 border-dashed"
+                            >
+                                <span className="icon-upload-cloud mr-2"></span>
+                                رفع صورة جديدة
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-8 pt-4 flex justify-end gap-3">
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold shadow transition-transform transform hover:-translate-y-1"
+                    >
+                        {isSaving ? 'جار الحفظ...' : 'حفظ التغييرات'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 function AdminPage() {
     const [currentView, setCurrentView] = React.useState('dashboard');
     // Check if user is already logged in from previous session
@@ -854,11 +961,7 @@ function AdminPage() {
 
             {currentView === 'categories' && <CategoriesView />}
 
-            {currentView === 'site' && PlaceholderView({
-                title: "تعديل الموقع",
-                icon: "icon-layout",
-                desc: "هنا يمكنك تغيير إعدادات الموقع العامة (قريباً)"
-            })}
+            {currentView === 'site' && <SiteSettingsView />}
         </div>
     );
 }

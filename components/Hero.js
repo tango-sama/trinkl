@@ -1,4 +1,8 @@
 function Hero() {
+    const heroImgSrc = (window.siteSettings && window.siteSettings.heroImage)
+        ? window.siteSettings.heroImage
+        : "https://images.unsplash.com/photo-1599695663667-73b22415170d?q=80&w=800&auto=format&fit=crop";
+
     return (
         <section className="relative overflow-hidden py-12 md:py-20 px-4">
             <div className="container mx-auto flex flex-col md:flex-row items-center justify-center gap-10 md:gap-20">
@@ -9,8 +13,8 @@ function Hero() {
                     <div className="absolute inset-0 rounded-full bg-[var(--primary)] opacity-20 transform translate-x-4 translate-y-4"></div>
                     <div className="absolute inset-0 rounded-full bg-[var(--primary)] opacity-80 overflow-hidden border-4 border-[var(--bg-light)] shadow-xl">
                         <img
-                            src="https://images.unsplash.com/photo-1599695663667-73b22415170d?q=80&w=800&auto=format&fit=crop"
-                            alt="Woman Beauty"
+                            src={heroImgSrc}
+                            alt="Hero"
                             className="w-full h-full object-cover"
                         />
                     </div>

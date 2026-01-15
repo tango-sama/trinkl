@@ -63,6 +63,19 @@ function App() {
                     window.products = dbProducts;
                 }
 
+                // Fetch Site Settings
+                try {
+                    const settingsDocs = await window.db.getCollection('site_settings');
+                    if (settingsDocs && settingsDocs.length > 0) {
+                        window.siteSettings = settingsDocs[0];
+                    } else {
+                        window.siteSettings = {};
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch settings", err);
+                    window.siteSettings = {};
+                }
+
                 // Force Update specific views if needed, but since we modify window objects before initial render completes or strict mode, we might need to trigger re-render
                 setLoading(false);
             } catch (error) {
