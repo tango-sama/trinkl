@@ -629,16 +629,23 @@ function AdminPage() {
                                         </td>
                                         <td className="p-4 text-center text-gray-500 font-bold">{index + 1}</td>
                                         <td className="p-4 font-medium">
-                                            {productInlineEditId === p.id ? (
-                                                <input
-                                                    type="text"
-                                                    value={productInlineEditForm.title}
-                                                    onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, title: e.target.value })}
-                                                    className="border p-2 rounded w-full outline-none focus:border-[var(--primary)]"
+                                            <div className="flex items-center gap-3">
+                                                <img
+                                                    src={p.image || "https://via.placeholder.com/40"}
+                                                    alt={p.title}
+                                                    className="w-10 h-10 rounded-lg object-cover shadow-sm border border-gray-200 bg-gray-50 flex-shrink-0"
                                                 />
-                                            ) : (
-                                                p.title
-                                            )}
+                                                {productInlineEditId === p.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={productInlineEditForm.title}
+                                                        onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, title: e.target.value })}
+                                                        className="border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-sm"
+                                                    />
+                                                ) : (
+                                                    <span className="line-clamp-2" title={p.title}>{p.title}</span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="p-4 text-[var(--primary)] font-bold">
                                             {productInlineEditId === p.id ? (
