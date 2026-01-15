@@ -567,18 +567,18 @@ function AdminPage() {
 
                 {/* Filter Controls */}
                 <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-xl shadow border border-[var(--secondary)]">
-                    <div className="flex items-center gap-4">
-                        <h3 className="font-bold text-[var(--text-dark)] flex items-center gap-2 text-xl">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-[var(--text-dark)] flex items-center gap-2 text-sm">
                             تغيير السعر
                         </h3>
                         {selectedProducts.size > 0 && (
                             <button
                                 onClick={handleBulkDelete}
                                 disabled={isDeleting}
-                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-4 rounded text-sm flex items-center gap-2 animate-fade-in"
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-0.5 px-2 rounded text-xs flex items-center gap-1 animate-fade-in"
                             >
                                 <div className="icon-trash-2"></div>
-                                <span>{isDeleting ? 'جاري الحذف...' : `حذف المحدد (${selectedProducts.size})`}</span>
+                                <span>{isDeleting ? 'حذف' : `حذف (${selectedProducts.size})`}</span>
                             </button>
                         )}
                     </div>
