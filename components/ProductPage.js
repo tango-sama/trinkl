@@ -5,7 +5,7 @@ function ProductPage() {
     const [activeTab, setActiveTab] = React.useState('description');
 
     // Icons
-    const { IconTruck, IconShieldCheck, IconMessageCircle, IconShield, IconSparkles } = window.Icons;
+    const { IconTruck, IconShieldCheck, IconMessageCircle, IconShield, IconSparkles, IconInstagram, IconFacebook, IconTikTok } = window.Icons;
 
     // Helper for Star Rating
     const StarRating = () => (
@@ -32,6 +32,8 @@ function ProductPage() {
             </div>
         );
     }
+
+
 
     return (
         <div className="container mx-auto px-4 py-8 animate-fade-in-up">
@@ -184,6 +186,22 @@ function ProductPage() {
                                     <p className="text-gray-700 relative z-10">{review.text}</p>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* Social Media Identity */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
+                        <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-6">هويتنا على مواقع التواصل الاجتماعي</h2>
+                        <div className="flex justify-center gap-8">
+                            <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md">
+                                <IconInstagram className="w-8 h-8" />
+                            </a>
+                            <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="bg-[#1877F2] text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md">
+                                <IconFacebook className="w-8 h-8" />
+                            </a>
+                            <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="bg-black text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md">
+                                <IconTikTok className="w-8 h-8" />
+                            </a>
                         </div>
                     </div>
                 </div>
