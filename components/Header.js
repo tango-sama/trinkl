@@ -1,6 +1,6 @@
 function Header({ cartCount = 0 }) {
     const [isOpen, setIsOpen] = React.useState(false);
-    const { Link } = ReactRouterDOM;
+    const { Link, useLocation } = ReactRouterDOM;
 
     const isLoggedIn = sessionStorage.getItem('adminToken') === 'true';
 
@@ -22,6 +22,12 @@ function Header({ cartCount = 0 }) {
             if (window.history.state?.menuOpen) window.history.back();
         };
     }, [isOpen]);
+
+    // Close on Route Change
+    const location = useLocation();
+    React.useEffect(() => {
+        setIsOpen(false);
+    }, [location]);
 
     return (
         <header className="sticky top-0 z-50 bg-[var(--bg-light)]/90 backdrop-blur-md shadow-sm border-b border-[var(--secondary)]">
