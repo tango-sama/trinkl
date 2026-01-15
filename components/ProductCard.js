@@ -35,7 +35,7 @@ function ProductCard({ product }) {
                 <div className="flex flex-col gap-2 transform translate-y-4 opacity-90 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                     <Link
                         to={`/product/${product.id}`}
-                        className="w-full bg-[var(--primary)] hover:bg-[#7a4655] text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 text-sm transition-colors border border-white/10"
+                        className="w-full bg-[var(--primary)]/20 hover:bg-[var(--primary)]/40 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 text-sm transition-all border border-white/20 backdrop-blur-md"
                     >
                         <span>إضافة للسلة</span>
                         <div className="icon-shopping-cart text-lg"></div>
@@ -44,7 +44,7 @@ function ProductCard({ product }) {
                         href={`https://wa.me/213664925052?text=${encodeURIComponent(`مرحباً، أريد طلب المنتج: ${product.title}`)}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 text-sm transition-colors border border-white/10"
+                        className="w-full bg-green-500/20 hover:bg-green-500/40 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 text-sm transition-all border border-white/20 backdrop-blur-md"
                     >
                         <span>اطلب عبر واتساب</span>
                         <div className="icon-message-circle text-lg"></div>
