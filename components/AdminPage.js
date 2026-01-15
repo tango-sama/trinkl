@@ -120,7 +120,7 @@ function AdminPage() {
 
     // Filter and New Product Form State (Moved to top)
     const [productFilter, setProductFilter] = React.useState('all');
-    const [newProductForm, setNewProductForm] = React.useState({ title: '', price: '', category: '', image: '', description: '' });
+    const [newProductForm, setNewProductForm] = React.useState({ title: '', price: '', category: '', image: '', description: ['', '', '', ''] });
 
     // Product Inline Editing State
     const [productInlineEditId, setProductInlineEditId] = React.useState(null);
@@ -316,7 +316,7 @@ function AdminPage() {
             // Update global window state for the main website
             window.products = [...(window.products || []), newProduct];
 
-            setNewProductForm({ title: '', price: '', category: '', image: '', description: '' });
+            setNewProductForm({ title: '', price: '', category: '', image: '', description: ['', '', '', ''] });
             alert('تم إضافة المنتج بنجاح');
         } catch (error) {
             alert("Error adding product");
@@ -523,12 +523,25 @@ function AdminPage() {
                             </div>
                         </div>
 
-                        <textarea
-                            placeholder="وصف المنتج..."
-                            value={newProductForm.description}
-                            onChange={(e) => setNewProductForm({ ...newProductForm, description: e.target.value })}
-                            className="border p-3 rounded-lg col-span-1 md:col-span-2 outline-none focus:border-[var(--primary)]"
-                        ></textarea>
+                        <div className="col-span-1 md:col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <label className="block text-sm font-bold text-gray-700 mb-3">أذكر أربع فوائد للمنتج</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {[0, 1, 2, 3].map(i => (
+                                    <input
+                                        key={i}
+                                        type="text"
+                                        placeholder={`فائدة رقم ${i + 1}`}
+                                        value={Array.isArray(newProductForm.description) ? newProductForm.description[i] : ''}
+                                        onChange={(e) => {
+                                            const newDesc = Array.isArray(newProductForm.description) ? [...newProductForm.description] : ['', '', '', ''];
+                                            newDesc[i] = e.target.value;
+                                            setNewProductForm({ ...newProductForm, description: newDesc });
+                                        }}
+                                        className="border p-2 rounded outline-none focus:border-[var(--primary)] w-full"
+                                    />
+                                ))}
+                            </div>
+                        </div>
                         <button
                             onClick={handleAddProduct}
                             className="bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold col-span-1 md:col-span-2 transition-colors"

@@ -144,10 +144,18 @@ function ProductPage() {
                             </div>
                             <h3 className="text-xl font-bold text-[var(--text-dark)] mb-3">فوائد رئيسية:</h3>
                             <ul className="list-disc list-inside space-y-2 marker:text-[var(--primary)]">
-                                <li>عناية فائقة وتغذية عميقة تدوم طويلاً.</li>
-                                <li>مكونات آمنة تماماً وخالية من المواد الضارة.</li>
-                                <li>نتائج ملحوظة وسريعة أشاد بها الآلاف.</li>
-                                <li>سهل الاستخدام ويمكن إضافته لروتينك اليومي.</li>
+                                {product.description && Array.isArray(product.description) && product.description.some(b => b.trim() !== '') ? (
+                                    product.description.filter(b => b.trim() !== '').map((benefit, idx) => (
+                                        <li key={idx}>{benefit}</li>
+                                    ))
+                                ) : (
+                                    <>
+                                        <li>عناية فائقة وتغذية عميقة تدوم طويلاً.</li>
+                                        <li>مكونات آمنة تماماً وخالية من المواد الضارة.</li>
+                                        <li>نتائج ملحوظة وسريعة أشاد بها الآلاف.</li>
+                                        <li>سهل الاستخدام ويمكن إضافته لروتينك اليومي.</li>
+                                    </>
+                                )}
                             </ul>
                         </div>
                     </div>
