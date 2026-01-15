@@ -723,37 +723,40 @@ function AdminPage() {
                 </div>
 
                 {totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-4 mt-6 dir-ltr">
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            className={`px-4 py-2 rounded-lg font-bold min-w-[100px] transition-all ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-[var(--primary)] shadow hover:bg-gray-50 border border-[var(--primary)]'}`}
-                        >
-                            السابق
-                        </button>
-                        <div className="flex gap-1">
-                            {[...Array(totalPages).keys()].map(i => i + 1).filter(p => {
-                                if (totalPages <= 3) return true;
-                                if (currentPage === 1) return p <= 3;
-                                if (currentPage === totalPages) return p >= totalPages - 2;
-                                return p >= currentPage - 1 && p <= currentPage + 1;
-                            }).map(page => (
-                                <button
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[var(--primary)] text-white shadow-lg scale-110' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages}
-                            className={`px-4 py-2 rounded-lg font-bold min-w-[100px] transition-all ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-[var(--primary)] shadow hover:bg-gray-50 border border-[var(--primary)]'}`}
-                        >
-                            التالي
-                        </button>
+                    <div className="flex justify-center items-center gap-2 mt-6 dir-ltr">
+                        {(() => {
+                            const range = [];
+                            if (totalPages <= 6) {
+                                for (let i = 1; i <= totalPages; i++) range.push(i);
+                            } else {
+                                range.push(1);
+                                if (currentPage > 3) range.push('...');
+
+                                const start = Math.max(2, currentPage - 1);
+                                const end = Math.min(totalPages - 1, currentPage + 1);
+
+                                // Adjust window to always show 3 items if possible? 
+                                // Simplified approach: just start to end
+                                for (let i = start; i <= end; i++) range.push(i);
+
+                                if (currentPage < totalPages - 2) range.push('...');
+                                range.push(totalPages);
+                            }
+
+                            return range.map((page, idx) =>
+                                page === '...' ? (
+                                    <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-gray-400 font-bold">...</span>
+                                ) : (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-10 h-10 rounded-lg font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[var(--primary)] text-white shadow-lg scale-110' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 hover:border-[var(--primary)]'}`}
+                                    >
+                                        {page}
+                                    </button>
+                                )
+                            );
+                        })()}
                     </div>
                 )}
             </div>
