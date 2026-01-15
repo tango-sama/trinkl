@@ -1,7 +1,13 @@
 function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
-    const { Link } = ReactRouterDOM;
+    const { Link, useLocation } = ReactRouterDOM;
+    const location = useLocation();
     const itemRefs = React.useRef({});
     const { IconShoppingCart, IconX, IconTrash2, IconArrowLeft, IconPlus, IconMinus } = window.Icons;
+
+    // Close on Route Change
+    React.useEffect(() => {
+        if (isOpen) onClose();
+    }, [location]);
 
     const total = cart.reduce((acc, item) => {
         if (!item) return acc;
