@@ -11,7 +11,6 @@ function CheckoutPage({ cart = [] }) {
         "أدرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "البليدة", "البويرة",
         "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة",
         "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "المدية", "مستغانم", "المسيلة", "معسكر", "ورقلة", "وهران"
-        // Add remaining if needed, usually passed via window
     ];
 
     const handleChange = (e) => {
@@ -19,7 +18,10 @@ function CheckoutPage({ cart = [] }) {
     };
 
     const calculateTotal = () => {
-        return cart.reduce((acc, item) => {
+        // Safeguard against missing cart or null items
+        const items = Array.isArray(cart) ? cart : [];
+        return items.reduce((acc, item) => {
+            if (!item) return acc;
             const priceStr = String(item.price || "0");
             const price = parseInt(priceStr.replace(/[^0-9]/g, '') || 0);
             return acc + (price * (item.quantity || 1));
@@ -30,11 +32,13 @@ function CheckoutPage({ cart = [] }) {
         e.preventDefault();
 
         const total = calculateTotal();
+        const validItems = Array.isArray(cart) ? cart.filter(Boolean) : [];
+
         const message = `
 *طلب جديد من Desert Shop* 🌵
 ---------------------------
 🛒 *المنتجات:*
-${cart.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join('\n')}
+${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join('\n')}
 
 💰 *المجموع:* ${total.toLocaleString()} د.ج
 ---------------------------
@@ -53,7 +57,8 @@ ${cart.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join('\n')
         if (window.clearCart) window.clearCart();
     };
 
-    if (cart.length === 0) {
+    // Safeguard for UI: if cart is empty or null
+    if (!cart || !Array.isArray(cart) || cart.length === 0) {
         return (
             <div className="container mx-auto px-4 py-20 text-center min-h-[60vh] flex flex-col items-center justify-center">
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
@@ -82,27 +87,30 @@ ${cart.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join('\n')
                             ملخص الطلب ({cart.length})
                         </h2>
                         <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar mb-6">
-                            {cart.map((item, idx) => (
-                                <div key={idx} className="flex gap-4 items-center border-b border-gray-50 pb-4 last:border-0 relative group">
-                                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                                        <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="flex-grow">
-                                        <h3 className="font-bold text-sm text-[var(--text-dark)] line-clamp-1">{item.title}</h3>
-                                        <p className="text-[var(--primary)] font-bold text-sm">{item.price}</p>
-                                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                                            <span>الكمية: {item.quantity || 1}</span>
+                            {cart.map((item, idx) => {
+                                if (!item) return null;
+                                return (
+                                    <div key={idx || item.id} className="flex gap-4 items-center border-b border-gray-50 pb-4 last:border-0 relative group">
+                                        <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                                            <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                                         </div>
+                                        <div className="flex-grow">
+                                            <h3 className="font-bold text-sm text-[var(--text-dark)] line-clamp-1">{item.title}</h3>
+                                            <p className="text-[var(--primary)] font-bold text-sm">{item.price}</p>
+                                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                                                <span>الكمية: {item.quantity || 1}</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => window.removeFromCart && window.removeFromCart(item.id)}
+                                            className="text-red-400 hover:text-red-600 p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100 absolute left-0 top-1/2 -translate-y-1/2 bg-white shadow-sm"
+                                            title="حذف من السلة"
+                                        >
+                                            <div className="icon-trash-2"></div>
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => window.removeFromCart && window.removeFromCart(item.id)}
-                                        className="text-red-400 hover:text-red-600 p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100 absolute left-0 top-1/2 -translate-y-1/2 bg-white shadow-sm"
-                                        title="حذف من السلة"
-                                    >
-                                        <div className="icon-trash-2"></div>
-                                    </button>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                         <div className="pt-4 border-t-2 border-dashed border-gray-200 bg-gray-50 -mx-6 -mb-6 p-6 rounded-b-2xl">
                             <div className="flex justify-between items-center text-xl font-extrabold text-[var(--text-dark)]">

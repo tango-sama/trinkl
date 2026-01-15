@@ -159,9 +159,12 @@ function App() {
     const Layout = ({ children }) => {
         const location = ReactRouterDOM.useLocation();
         const isAdmin = location.pathname.startsWith('/amelhadj');
-        // Safeguard: Ensure cart is array before reduce
+        // Safeguard: Ensure cart is array before reduce, and handle potential null items
         const cartItems = Array.isArray(cart) ? cart : [];
-        const cartCount = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
+        const cartCount = cartItems.reduce((acc, item) => {
+            if (!item) return acc;
+            return acc + (item.quantity || 1);
+        }, 0);
 
         return (
             <div className="min-h-screen flex flex-col">
