@@ -36,6 +36,8 @@ function App() {
 
     // Cart State moved up to respect Hook Rules
     const [cart, setCart] = React.useState([]);
+    // Cart Drawer State
+    const [isCartOpen, setIsCartOpen] = React.useState(false);
 
     React.useEffect(() => {
         const initializeData = async () => {
@@ -121,13 +123,11 @@ function App() {
                 }
                 return [...prev, { ...product, quantity: 1 }];
             });
-            // Simple Feedback
-            const notification = document.createElement('div');
-            notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-xl z-50 animate-bounce';
-            notification.textContent = '✅ تم إضافة المنتج للسلة';
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 2000);
+            setIsCartOpen(true); // Open Drawer
         };
+
+        window.openCart = () => setIsCartOpen(true);
+        window.closeCart = () => setIsCartOpen(false);
 
         // Global Remove/Clear
         window.removeFromCart = (productId) => {
@@ -162,6 +162,9 @@ function App() {
 
         return (
             <div className="min-h-screen flex flex-col">
+                {/* Cart Drawer - Added Here */}
+                <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} />
+
                 <Header cartCount={cartCount} />
                 <main className="flex-grow">
                     {children}
