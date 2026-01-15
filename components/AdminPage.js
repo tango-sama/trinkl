@@ -118,8 +118,8 @@ function AdminPage() {
     const [categoryForm, setCategoryForm] = React.useState({ name: '', id: '', image: '' });
     const [editingCategory, setEditingCategory] = React.useState(null);
 
-    // Filter and New Product Form State (Moved to top)
     const [productFilter, setProductFilter] = React.useState('all');
+    const [currentPage, setCurrentPage] = React.useState(1);
     const [newProductForm, setNewProductForm] = React.useState({ title: '', price: '', category: '', image: '', description: '' });
     const [editingProductId, setEditingProductId] = React.useState(null);
 
@@ -139,6 +139,10 @@ function AdminPage() {
     const filteredProducts = productFilter === 'all'
         ? products
         : products.filter(p => p.category === productFilter);
+
+    const ITEMS_PER_PAGE = 20;
+    const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+    const displayedProducts = filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const toggleSelect = (id) => {
         const newSet = new Set(selectedProducts);
@@ -568,7 +572,7 @@ function AdminPage() {
                         <span className="text-sm font-semibold text-gray-600">اختر التصنيف:</span>
                         <select
                             value={productFilter}
-                            onChange={(e) => setProductFilter(e.target.value)}
+                            onChange={(e) => { setProductFilter(e.target.value); setCurrentPage(1); }}
                             className="border p-2 rounded-lg outline-none focus:border-[var(--primary)] bg-gray-50 text-sm"
                         >
                             <option value="all">كل المنتجات</option>
@@ -599,7 +603,7 @@ function AdminPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredProducts.map((p, index) => (
+                                {displayedProducts.map((p, index) => (
                                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 text-center">
                                             <input
@@ -703,6 +707,28 @@ function AdminPage() {
                         </table>
                     </div>
                 </div>
+
+                {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-4 mt-6 dir-ltr">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className={`px-4 py-2 rounded-lg font-bold min-w-[100px] transition-all ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-[var(--primary)] shadow hover:bg-gray-50 border border-[var(--primary)]'}`}
+                        >
+                            السابق
+                        </button>
+                        <span className="text-[var(--text-dark)] font-bold bg-white px-4 py-2 rounded shadow text-sm">
+                            صفحة {currentPage} من {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className={`px-4 py-2 rounded-lg font-bold min-w-[100px] transition-all ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-[var(--primary)] shadow hover:bg-gray-50 border border-[var(--primary)]'}`}
+                        >
+                            التالي
+                        </button>
+                    </div>
+                )}
             </div>
         );
     };
