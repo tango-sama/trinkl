@@ -97,7 +97,7 @@ function Header({ cartCount = 0 }) {
             </div>
 
             {/* Mobile Nav Dropdown */}
-            <nav className={`md:hidden bg-[var(--bg-light)] border-[var(--secondary)] px-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg transition-all duration-300 ease-in-out overflow-hidden z-50 ${isOpen ? 'max-h-[80vh] py-4 border-t opacity-100' : 'max-h-0 py-0 border-t-0 opacity-0'}`}>
+            <nav className={`md:hidden bg-[var(--bg-light)] border-[var(--secondary)] px-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg transition-all duration-300 ease-in-out overflow-hidden relative z-50 ${isOpen ? 'max-h-[80vh] py-4 border-t opacity-100' : 'max-h-0 py-0 border-t-0 opacity-0'}`}>
                 <Link to="/" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">الرئيسية</Link>
                 <Link to="/categories" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">التصنيفات</Link>
                 <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
