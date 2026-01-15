@@ -578,128 +578,130 @@ function AdminPage() {
                 </div>
 
                 {/* Products Table */}
-                <div className="bg-white rounded-xl shadow overflow-hidden border border-[var(--secondary)]">
-                    <table className="w-full text-right">
-                        <thead className="bg-[#fadadd]">
-                            <tr>
-                                <th className="p-4 text-[var(--text-dark)] w-12 text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
-                                        onChange={toggleSelectAll}
-                                        className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
-                                    />
-                                </th>
-                                <th className="p-4 text-[var(--text-dark)] w-12 text-center">#</th>
-                                <th className="p-4 text-[var(--text-dark)]">المنتج</th>
-                                <th className="p-4 text-[var(--text-dark)]">السعر</th>
-                                <th className="p-4 text-[var(--text-dark)]">التصنيف</th>
-                                <th className="p-4 text-[var(--text-dark)]">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {filteredProducts.map((p, index) => (
-                                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4 text-center">
+                <div className="bg-white rounded-xl shadow border border-[var(--secondary)] overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right min-w-[800px]">
+                            <thead className="bg-[#fadadd]">
+                                <tr>
+                                    <th className="p-4 text-[var(--text-dark)] w-12 text-center">
                                         <input
                                             type="checkbox"
-                                            checked={selectedProducts.has(p.id)}
-                                            onChange={() => toggleSelect(p.id)}
+                                            checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
+                                            onChange={toggleSelectAll}
                                             className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
                                         />
-                                    </td>
-                                    <td className="p-4 text-center text-gray-500 font-bold">{index + 1}</td>
-                                    <td className="p-4 font-medium">
-                                        {productInlineEditId === p.id ? (
-                                            <input
-                                                type="text"
-                                                value={productInlineEditForm.title}
-                                                onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, title: e.target.value })}
-                                                className="border p-2 rounded w-full outline-none focus:border-[var(--primary)]"
-                                            />
-                                        ) : (
-                                            p.title
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-[var(--primary)] font-bold">
-                                        {productInlineEditId === p.id ? (
-                                            <input
-                                                type="text"
-                                                value={productInlineEditForm.price}
-                                                onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, price: e.target.value })}
-                                                className="border p-2 rounded w-24 outline-none focus:border-[var(--primary)]"
-                                            />
-                                        ) : (
-                                            p.price
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-gray-500">
-                                        {productInlineEditId === p.id ? (
-                                            <select
-                                                value={productInlineEditForm.category}
-                                                onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, category: e.target.value })}
-                                                className="border p-2 rounded outline-none focus:border-[var(--primary)]"
-                                            >
-                                                {window.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                            </select>
-                                        ) : (
-                                            p.category
-                                        )}
-                                    </td>
-                                    <td className="p-4 flex gap-3">
-                                        {productInlineEditId === p.id ? (
-                                            <>
-                                                <button
-                                                    onClick={handleSaveProductInlineEdit}
-                                                    className="text-green-600 hover:text-green-800 font-bold text-sm px-3 py-1 border border-green-600 rounded hover:bg-green-50"
-                                                >
-                                                    حفظ
-                                                </button>
-                                                <button
-                                                    onClick={handleCancelProductInlineEdit}
-                                                    className="text-gray-500 hover:text-gray-700 font-bold text-sm px-3 py-1 border border-gray-300 rounded hover:bg-gray-50"
-                                                >
-                                                    إلغاء
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <button
-                                                    onClick={() => handleStartProductInlineEdit(p)}
-                                                    className="text-blue-500 hover:text-blue-700 font-bold"
-                                                    title="تعديل"
-                                                >
-                                                    <div className="flex items-center gap-1">
-                                                        <div className="icon-edit-2"></div>
-                                                        <span className="text-sm">تعديل</span>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    className="text-red-500 hover:text-red-700"
-                                                    title="حذف"
-                                                    onClick={async () => {
-                                                        if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-                                                            try {
-                                                                await window.db.deleteDocument('products', p.id);
-                                                                const updated = products.filter(prod => prod.id !== p.id);
-                                                                setProducts(updated);
-                                                                window.products = updated;
-                                                            } catch (error) {
-                                                                alert("Error deleting product");
-                                                                console.error(error);
-                                                            }
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="icon-trash"></div>
-                                                </button>
-                                            </>
-                                        )}
-                                    </td>
+                                    </th>
+                                    <th className="p-4 text-[var(--text-dark)] w-12 text-center">#</th>
+                                    <th className="p-4 text-[var(--text-dark)]">المنتج</th>
+                                    <th className="p-4 text-[var(--text-dark)]">السعر</th>
+                                    <th className="p-4 text-[var(--text-dark)]">التصنيف</th>
+                                    <th className="p-4 text-[var(--text-dark)]">إجراءات</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {filteredProducts.map((p, index) => (
+                                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedProducts.has(p.id)}
+                                                onChange={() => toggleSelect(p.id)}
+                                                className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
+                                            />
+                                        </td>
+                                        <td className="p-4 text-center text-gray-500 font-bold">{index + 1}</td>
+                                        <td className="p-4 font-medium">
+                                            {productInlineEditId === p.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={productInlineEditForm.title}
+                                                    onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, title: e.target.value })}
+                                                    className="border p-2 rounded w-full outline-none focus:border-[var(--primary)]"
+                                                />
+                                            ) : (
+                                                p.title
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-[var(--primary)] font-bold">
+                                            {productInlineEditId === p.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={productInlineEditForm.price}
+                                                    onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, price: e.target.value })}
+                                                    className="border p-2 rounded w-24 outline-none focus:border-[var(--primary)]"
+                                                />
+                                            ) : (
+                                                p.price
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-gray-500">
+                                            {productInlineEditId === p.id ? (
+                                                <select
+                                                    value={productInlineEditForm.category}
+                                                    onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, category: e.target.value })}
+                                                    className="border p-2 rounded outline-none focus:border-[var(--primary)]"
+                                                >
+                                                    {window.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                p.category
+                                            )}
+                                        </td>
+                                        <td className="p-4 flex gap-3">
+                                            {productInlineEditId === p.id ? (
+                                                <>
+                                                    <button
+                                                        onClick={handleSaveProductInlineEdit}
+                                                        className="text-green-600 hover:text-green-800 font-bold text-sm px-3 py-1 border border-green-600 rounded hover:bg-green-50"
+                                                    >
+                                                        حفظ
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelProductInlineEdit}
+                                                        className="text-gray-500 hover:text-gray-700 font-bold text-sm px-3 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                                                    >
+                                                        إلغاء
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleStartProductInlineEdit(p)}
+                                                        className="text-blue-500 hover:text-blue-700 font-bold"
+                                                        title="تعديل"
+                                                    >
+                                                        <div className="flex items-center gap-1">
+                                                            <div className="icon-edit-2"></div>
+                                                            <span className="text-sm">تعديل</span>
+                                                        </div>
+                                                    </button>
+                                                    <button
+                                                        className="text-red-500 hover:text-red-700"
+                                                        title="حذف"
+                                                        onClick={async () => {
+                                                            if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+                                                                try {
+                                                                    await window.db.deleteDocument('products', p.id);
+                                                                    const updated = products.filter(prod => prod.id !== p.id);
+                                                                    setProducts(updated);
+                                                                    window.products = updated;
+                                                                } catch (error) {
+                                                                    alert("Error deleting product");
+                                                                    console.error(error);
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="icon-trash"></div>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         );
