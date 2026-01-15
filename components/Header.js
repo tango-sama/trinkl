@@ -39,7 +39,7 @@ function Header({ cartCount = 0 }) {
                         <img src="./assets/logo.webp" alt="Desert Shop Logo" className="h-16 w-auto object-contain hover:scale-105 transition-transform" />
                     </Link>
                     {isLoggedIn && (
-                        <Link to="/amelhadj" className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition-colors hidden md:block">
+                        <Link to="/amelhadj" className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition-colors">
                             لوحة التحكم
                         </Link>
                     )}
