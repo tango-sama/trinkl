@@ -4,6 +4,25 @@ function Header({ cartCount = 0 }) {
 
     const isLoggedIn = sessionStorage.getItem('adminToken') === 'true';
 
+    // Close on Back Button
+    React.useEffect(() => {
+        if (!isOpen) return;
+
+        window.history.pushState({ menuOpen: true }, '');
+
+        const handlePopState = () => setIsOpen(false);
+        const handleEsc = (e) => { if (e.key === 'Escape') window.history.back(); };
+
+        window.addEventListener('popstate', handlePopState);
+        window.addEventListener('keydown', handleEsc);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            window.removeEventListener('keydown', handleEsc);
+            if (window.history.state?.menuOpen) window.history.back();
+        };
+    }, [isOpen]);
+
     return (
         <header className="sticky top-0 z-50 bg-[var(--bg-light)]/90 backdrop-blur-md shadow-sm border-b border-[var(--secondary)]">
             <div className="container mx-auto px-4 py-3 flex justify-between items-center">
@@ -42,8 +61,16 @@ function Header({ cartCount = 0 }) {
                     </Link>
                 </nav>
 
+                {/* Backdrop for Mobile Menu */}
+                {isOpen && (
+                    <div
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+                        onClick={() => setIsOpen(false)}
+                    ></div>
+                )}
+
                 {/* Mobile Menu Button + Cart */}
-                <div className="flex items-center gap-4 md:hidden">
+                <div className="flex items-center gap-4 md:hidden relative z-50">
                     <Link to="/checkout" className="relative text-[var(--primary)]">
                         <div className="icon-shopping-cart text-2xl"></div>
                         {cartCount > 0 && (
@@ -64,7 +91,7 @@ function Header({ cartCount = 0 }) {
 
             {/* Mobile Nav Dropdown */}
             {isOpen && (
-                <nav className="md:hidden bg-[var(--bg-light)] border-t border-[var(--secondary)] px-4 py-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg animate-fade-in-down">
+                <nav className="md:hidden bg-[var(--bg-light)] border-t border-[var(--secondary)] px-4 py-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg animate-fade-in-down relative z-50 max-h-[80vh] overflow-y-auto">
                     <Link to="/" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">الرئيسية</Link>
                     <Link to="/categories" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">التصنيفات</Link>
                     <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
