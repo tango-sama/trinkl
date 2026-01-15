@@ -2,10 +2,11 @@ function CategoriesPage() {
     const { Link } = ReactRouterDOM;
     const categories = window.categories || [];
 
-    // Map categories to images (using the first product image of that category as a thumbnail)
-    const getCategoryImage = (catId) => {
-        const product = window.products.find(p => p.category === catId);
-        return product ? product.image : "https://via.placeholder.com/400x300?text=Category";
+    // Map categories to images (prioritize category image, then first product, then placeholder)
+    const getCategoryImage = (cat) => {
+        if (cat.image) return cat.image;
+        const product = window.products.find(p => p.category === cat.id);
+        return product && product.image ? product.image : "https://via.placeholder.com/400x300?text=Category";
     };
 
     return (
@@ -21,7 +22,7 @@ function CategoriesPage() {
                     >
                         <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors z-10"></div>
                         <img
-                            src={getCategoryImage(cat.id)}
+                            src={getCategoryImage(cat)}
                             alt={cat.name}
                             className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                         />

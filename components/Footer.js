@@ -5,17 +5,17 @@ function Footer({ isAdmin }) {
 
                 {/* Large Bottom CTA Button - Hidden on Admin Pages */}
                 {!isAdmin && (
-                    <button className="bg-[var(--primary)] hover:bg-[#7a4655] text-white text-xl md:text-2xl font-bold py-4 px-12 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 mb-10 flex items-center gap-3">
+                    <ReactRouterDOM.Link to="/categories" className="bg-[var(--primary)] hover:bg-[#7a4655] text-white text-xl md:text-2xl font-bold py-4 px-12 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 mb-10 flex items-center gap-3">
                         <div className="icon-sparkles text-2xl"></div>
                         <span>اكتشفي ما هو جديد</span>
-                    </button>
+                    </ReactRouterDOM.Link>
                 )}
 
                 <div className="w-full border-t border-[var(--secondary)] my-6"></div>
 
                 <div className="flex flex-col md:flex-row items-center justify-between w-full text-gray-600 text-sm gap-4">
                     <div className="flex items-center gap-4">
-                        <img src="./assets/logo.png" alt="Desert Shop Logo" className="h-12 w-auto object-contain bg-white/50 rounded-full p-1" />
+                        <img src="./assets/logo.webp" alt="Desert Shop Logo" className="h-12 w-auto object-contain bg-white/50 rounded-full p-1" />
                         <p>© 2026 جمالك الخارجي. جميع الحقوق محفوظة.</p>
                     </div>
                     <div className="flex gap-4">

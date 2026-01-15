@@ -40,7 +40,7 @@ function App() {
                 // Fetch Categories
                 let dbCategories = await window.db.getCollection('categories');
                 if (dbCategories.length === 0 && window.categories && window.categories.length > 0) {
-                    console.log("Seeding Categories to Firestore...");
+
                     // Seed categories
                     for (const cat of window.categories) {
                         await window.db.addDocument('categories', cat);
@@ -53,7 +53,7 @@ function App() {
                 // Fetch Products
                 let dbProducts = await window.db.getCollection('products');
                 if (dbProducts.length === 0 && window.products && window.products.length > 0) {
-                    console.log("Seeding Products to Firestore...");
+
                     // Seed products
                     for (const prod of window.products) {
                         await window.db.addDocument('products', prod);
@@ -92,7 +92,7 @@ function App() {
     // Wrapper for the main layout to include Header and Footer on all pages
     const Layout = ({ children }) => {
         const location = ReactRouterDOM.useLocation();
-        const isAdmin = location.pathname.startsWith('/admin-desert-shop');
+        const isAdmin = location.pathname.startsWith('/amelhadj');
 
         return (
             <div className="min-h-screen flex flex-col">
@@ -130,7 +130,7 @@ function App() {
                     <Route path="/categories" element={<CategoriesPageComponent />} />
                     <Route path="/contact" element={<ContactPageComponent />} />
                     <Route path="/checkout" element={<CheckoutPageComponent />} />
-                    <Route path="/admin-desert-shop" element={<AdminPageComponent />} />
+                    <Route path="/amelhadj" element={<AdminPageComponent />} />
                     <Route path="/category/:id" element={<CategoryPageComponent />} />
                     <Route path="/product/:id" element={<ProductPageComponent />} />
                 </Routes>

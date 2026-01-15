@@ -19,6 +19,12 @@ description: Deploy Firebase Storage Rules and Hosting
    firebase deploy --only storage
    ```
 
+3. **Deploy Database Rules**
+   This will upload the `firestore.rules` file, ensuring your app can read/write data to the database.
+   ```powershell
+   firebase deploy --only firestore
+   ```
+
 3. **(Optional) Deploy Website**
    If you want to host your website on Firebase Hosting:
    ```powershell

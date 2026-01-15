@@ -10,10 +10,10 @@ function Header() {
                 {/* Logo / Brand Name */}
                 <div className="flex items-center gap-4">
                     <Link to="/" className="flex items-center gap-2">
-                        <img src="./assets/logo.png" alt="Desert Shop Logo" className="h-16 w-auto object-contain hover:scale-105 transition-transform" />
+                        <img src="./assets/logo.webp" alt="Desert Shop Logo" className="h-16 w-auto object-contain hover:scale-105 transition-transform" />
                     </Link>
                     {isLoggedIn && (
-                        <Link to="/admin-desert-shop" className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition-colors hidden md:block">
+                        <Link to="/amelhadj" className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition-colors hidden md:block">
                             لوحة التحكم
                         </Link>
                     )}

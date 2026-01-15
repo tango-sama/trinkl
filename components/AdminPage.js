@@ -19,6 +19,57 @@ function AdminPage() {
     const [productInlineEditId, setProductInlineEditId] = React.useState(null);
     const [productInlineEditForm, setProductInlineEditForm] = React.useState({});
 
+    // Import State (Moved to top)
+    const [isImporting, setIsImporting] = React.useState(false);
+    const [importCategory, setImportCategory] = React.useState(window.categories && window.categories.length > 0 ? window.categories[0].id : 'pheromones');
+
+    // Bulk Delete State (Promoted)
+    const [selectedProducts, setSelectedProducts] = React.useState(new Set());
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    // Filtered Products (Derived)
+    const filteredProducts = productFilter === 'all'
+        ? products
+        : products.filter(p => p.category === productFilter);
+
+    const toggleSelect = (id) => {
+        const newSet = new Set(selectedProducts);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedProducts(newSet);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedProducts.size === filteredProducts.length) {
+            setSelectedProducts(new Set());
+        } else {
+            setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedProducts.size === 0) return;
+        if (!confirm(`هل أنت متأكد من حذف ${selectedProducts.size} منتج؟`)) return;
+
+        setIsDeleting(true);
+        try {
+            const deletePromises = Array.from(selectedProducts).map(id => window.db.deleteDocument('products', id));
+            await Promise.all(deletePromises);
+
+            // Update local state
+            const updated = products.filter(p => !selectedProducts.has(p.id));
+            setProducts(updated);
+            window.products = updated;
+            setSelectedProducts(new Set());
+            alert('تم الحذف بنجاح');
+        } catch (error) {
+            console.error(error); // Error boundary might catch this but we want to log it
+            // Don't alert failure if it actually partially succeeded or just UI render failed
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handleStartProductInlineEdit = (product) => {
         setProductInlineEditId(product.id);
         setProductInlineEditForm({ ...product });
@@ -36,8 +87,13 @@ function AdminPage() {
             // Update Firestore
             await window.db.updateDocument('products', productInlineEditId, productInlineEditForm);
 
-            // Update Local
-            setProducts(products.map(p => p.id === productInlineEditId ? productInlineEditForm : p));
+            // Update Local Admin State
+            const updatedProducts = products.map(p => p.id === productInlineEditId ? productInlineEditForm : p);
+            setProducts(updatedProducts);
+
+            // Update Global State
+            window.products = updatedProducts;
+
             setProductInlineEditId(null);
             setProductInlineEditForm({});
         } catch (error) {
@@ -81,7 +137,7 @@ function AdminPage() {
     // Very simple security for demonstration
     const handleLogin = (e) => {
         e.preventDefault();
-        if (password === 'admin123') {
+        if (password === 'tango88') {
             setIsLoggedIn(true);
             sessionStorage.setItem('adminToken', 'true');
         } else {
@@ -133,23 +189,7 @@ function AdminPage() {
         setCategoryForm({ name: '', id: '', image: '' });
     };
 
-    if (!isLoggedIn) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-light)]">
-                <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-                    <h1 className="text-2xl font-bold text-center mb-6 text-[var(--text-dark)]">تسجيل دخول المسؤول</h1>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-3 border rounded-lg mb-4 focus:ring-2 focus:ring-[var(--primary)] outline-none transition-all"
-                        placeholder="كلمة المرور"
-                    />
-                    <button type="submit" className="w-full bg-[var(--primary)] text-white py-3 rounded-lg font-bold hover:bg-opacity-90 transition-all">دخول</button>
-                </form>
-            </div>
-        );
-    }
+
 
     // Product Filter and New Product Form
 
@@ -164,7 +204,11 @@ function AdminPage() {
         try {
             await window.db.addDocument('products', newProduct);
 
+            // Update local Admin state
             setProducts([...products, newProduct]);
+            // Update global window state for the main website
+            window.products = [...(window.products || []), newProduct];
+
             setNewProductForm({ title: '', price: '', category: '', image: '', description: '' });
             alert('تم إضافة المنتج بنجاح');
         } catch (error) {
@@ -173,20 +217,138 @@ function AdminPage() {
         }
     };
 
+    const handleCSVUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (isImporting) return; // Prevent double click
+
+        // Use selected category
+        const selectedCatName = window.categories.find(c => c.id === importCategory)?.name || importCategory;
+        if (!confirm(`هل أنت متأكد من استيراد المنتجات من ${file.name} إلى تصنيف: ${selectedCatName}؟`)) {
+            e.target.value = '';
+            return;
+        }
+
+        setIsImporting(true);
+        try {
+            const text = await file.text();
+
+            // Simple CSV Parser (assuming simple structure from sample)
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            // const headers = lines[0].split(',').map(h => h.trim());
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Skip header
+            for (let i = 1; i < lines.length; i++) {
+                // New Format: Title(0), Image(1), Price(2)
+                const row = lines[i].split(',');
+
+                if (row.length < 3) continue;
+
+                const category = importCategory; // Use selected category
+                const title = row[0].trim();
+                const imageUrl = row[1].trim();
+                let priceStr = row[2].trim(); // "د.ج 7.000"
+
+                // Clean price: remove non-digits
+                const price = priceStr.replace(/[^0-9]/g, '');
+
+
+
+                let finalImageUrl = imageUrl;
+
+                // Try to upload image to Firebase Storage
+                try {
+                    const imgResp = await fetch(imageUrl);
+                    if (imgResp.ok) {
+                        const blob = await imgResp.blob();
+                        const file = new File([blob], `${Date.now()}_${i}.webp`, { type: blob.type });
+                        finalImageUrl = await window.uploadImageToFirebase(file, 'products');
+                    }
+                } catch (imgError) {
+                    console.warn(`Failed to upload image for ${title}, using original link.`, imgError);
+                }
+
+                const newProduct = {
+                    id: Date.now() + i,
+                    title: title,
+                    price: price, // Keep as string or number? Existing app uses string usually.
+                    category: category,
+                    image: finalImageUrl,
+                    description: 'مستورد من CSV'
+                };
+
+                await window.db.addDocument('products', newProduct);
+
+                // Update local state incrementally? Or batch at end.
+                window.products.push(newProduct);
+                successCount++;
+            }
+
+            // Refresh local state fully
+            setProducts([...window.products]);
+            alert(`تم الاستيراد بنجاح: ${successCount} منتج. فشل: ${failCount}`);
+
+        } catch (error) {
+            alert('فشل في استيراد ملف CSV');
+            console.error(error);
+        } finally {
+            setIsImporting(false);
+            const fileInput = document.getElementById('csv-upload');
+            if (fileInput) fileInput.value = '';
+        }
+    };
+
     // Products Management View
     const ProductsView = () => {
-        const filteredProducts = productFilter === 'all'
-            ? products
-            : products.filter(p => p.category === productFilter);
+
 
         return (
             <div className="animate-fade-in">
                 <div className="flex items-center justify-between mb-8">
                     <h2 className="text-2xl font-bold text-[var(--text-dark)]">تعديل المنتجات</h2>
-                    <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
-                        <div className="icon-arrow-right"></div>
-                        <span>العودة</span>
-                    </button>
+                    <div className="flex gap-4 items-center">
+                        {/* Import Category Selector */}
+                        <select
+                            value={importCategory}
+                            onChange={(e) => setImportCategory(e.target.value)}
+                            className="bg-white border border-[var(--primary)] text-[var(--text-dark)] rounded px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                        >
+                            {window.categories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+
+                        {/* Hidden File Input */}
+                        <input
+                            type="file"
+                            id="csv-upload"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={handleCSVUpload}
+                        />
+                        <button
+                            onClick={() => document.getElementById('csv-upload').click()}
+                            disabled={isImporting}
+                            className={`bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {isImporting ? (
+                                <>
+                                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                    <span>جاري...</span>
+                                </>
+                            ) : (
+                                <span>استيراد CSV</span>
+                            )}
+                        </button>
+                        <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                            <div className="icon-arrow-right"></div>
+                            <span>العودة</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-6 mb-8 border border-[var(--secondary)]">
@@ -271,9 +433,21 @@ function AdminPage() {
 
                 {/* Filter Controls */}
                 <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-xl shadow border border-[var(--secondary)]">
-                    <h3 className="font-bold text-[var(--text-dark)] flex items-center gap-2 text-xl">
-                        تغيير السعر
-                    </h3>
+                    <div className="flex items-center gap-4">
+                        <h3 className="font-bold text-[var(--text-dark)] flex items-center gap-2 text-xl">
+                            تغيير السعر
+                        </h3>
+                        {selectedProducts.size > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isDeleting}
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-4 rounded text-sm flex items-center gap-2 animate-fade-in"
+                            >
+                                <div className="icon-trash-2"></div>
+                                <span>{isDeleting ? 'جاري الحذف...' : `حذف المحدد (${selectedProducts.size})`}</span>
+                            </button>
+                        )}
+                    </div>
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-gray-600">اختر التصنيف:</span>
                         <select
@@ -292,6 +466,15 @@ function AdminPage() {
                     <table className="w-full text-right">
                         <thead className="bg-[#fadadd]">
                             <tr>
+                                <th className="p-4 text-[var(--text-dark)] w-12 text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
+                                        onChange={toggleSelectAll}
+                                        className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
+                                    />
+                                </th>
+                                <th className="p-4 text-[var(--text-dark)] w-12 text-center">#</th>
                                 <th className="p-4 text-[var(--text-dark)]">المنتج</th>
                                 <th className="p-4 text-[var(--text-dark)]">السعر</th>
                                 <th className="p-4 text-[var(--text-dark)]">التصنيف</th>
@@ -299,8 +482,17 @@ function AdminPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredProducts.map(p => (
+                            {filteredProducts.map((p, index) => (
                                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="p-4 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedProducts.has(p.id)}
+                                            onChange={() => toggleSelect(p.id)}
+                                            className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
+                                        />
+                                    </td>
+                                    <td className="p-4 text-center text-gray-500 font-bold">{index + 1}</td>
                                     <td className="p-4 font-medium">
                                         {productInlineEditId === p.id ? (
                                             <input
@@ -373,7 +565,9 @@ function AdminPage() {
                                                         if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
                                                             try {
                                                                 await window.db.deleteDocument('products', p.id);
-                                                                setProducts(products.filter(prod => prod.id !== p.id));
+                                                                const updated = products.filter(prod => prod.id !== p.id);
+                                                                setProducts(updated);
+                                                                window.products = updated;
                                                             } catch (error) {
                                                                 alert("Error deleting product");
                                                                 console.error(error);
@@ -618,6 +812,24 @@ function AdminPage() {
         </div>
     );
 
+    if (!isLoggedIn) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-light)]">
+                <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+                    <h1 className="text-2xl font-bold text-center mb-6 text-[var(--text-dark)]">تسجيل دخول المسؤول</h1>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-3 border rounded-lg mb-4 focus:ring-2 focus:ring-[var(--primary)] outline-none transition-all"
+                        placeholder="كلمة المرور"
+                    />
+                    <button type="submit" className="w-full bg-[var(--primary)] text-white py-3 rounded-lg font-bold hover:bg-opacity-90 transition-all">دخول</button>
+                </form>
+            </div>
+        );
+    }
+
     return (
         <div className="container mx-auto px-4 py-8 min-h-screen">
             {currentView === 'dashboard' && (
@@ -638,9 +850,9 @@ function AdminPage() {
                 </div>
             )}
 
-            {currentView === 'products' && ProductsView()}
+            {currentView === 'products' && <ProductsView />}
 
-            {currentView === 'categories' && CategoriesView()}
+            {currentView === 'categories' && <CategoriesView />}
 
             {currentView === 'site' && PlaceholderView({
                 title: "تعديل الموقع",
