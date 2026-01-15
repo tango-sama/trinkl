@@ -20,7 +20,8 @@ function CheckoutPage({ cart = [] }) {
 
     const calculateTotal = () => {
         return cart.reduce((acc, item) => {
-            const price = parseInt((item.price || "0").replace(/[^0-9]/g, '') || 0);
+            const priceStr = String(item.price || "0");
+            const price = parseInt(priceStr.replace(/[^0-9]/g, '') || 0);
             return acc + (price * (item.quantity || 1));
         }, 0);
     };
