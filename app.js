@@ -159,7 +159,9 @@ function App() {
     const Layout = ({ children }) => {
         const location = ReactRouterDOM.useLocation();
         const isAdmin = location.pathname.startsWith('/amelhadj');
-        const cartCount = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
+        // Safeguard: Ensure cart is array before reduce
+        const cartItems = Array.isArray(cart) ? cart : [];
+        const cartCount = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
         return (
             <div className="min-h-screen flex flex-col">
