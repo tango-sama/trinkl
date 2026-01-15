@@ -1,6 +1,7 @@
 function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
     const { Link } = ReactRouterDOM;
     const itemRefs = React.useRef({});
+    const { IconShoppingCart, IconX, IconTrash2, IconArrowLeft, IconPlus, IconMinus } = window.Icons;
 
     const total = cart.reduce((acc, item) => {
         if (!item) return acc;
@@ -66,11 +67,11 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                 {/* Header */}
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 shadow-sm z-10">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-[var(--text-dark)]">
-                        <span className="icon-shopping-cart text-[var(--primary)] text-2xl"></span>
+                        <IconShoppingCart className="w-8 h-8 text-[var(--primary)]" />
                         سلة المشتريات ({cart.length})
                     </h2>
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors text-gray-500">
-                        <div className="icon-x text-2xl"></div>
+                        <IconX className="w-8 h-8" />
                     </button>
                 </div>
 
@@ -79,7 +80,7 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                     {cart.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-gray-400 pb-20">
                             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                                <span className="icon-shopping-cart text-5xl opacity-30"></span>
+                                <IconShoppingCart className="w-16 h-16 opacity-30" />
                             </div>
                             <p className="font-bold text-lg mb-4 text-gray-500">السلة فارغة</p>
                             <button
@@ -120,7 +121,7 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                                                     onClick={() => window.addToCart && window.addToCart(item)}
                                                     className="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-colors"
                                                 >
-                                                    <div className="icon-plus text-xs"></div>
+                                                    <IconPlus className="w-4 h-4" />
                                                 </button>
                                                 <span className="text-sm font-bold w-6 text-center text-[var(--text-dark)]">{item.quantity || 1}</span>
                                                 <button
@@ -128,7 +129,7 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                                                     className={`w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 hover:bg-gray-100 transition-colors ${(!item.quantity || item.quantity <= 1) ? 'opacity-30 cursor-not-allowed' : ''}`}
                                                     disabled={!item.quantity || item.quantity <= 1}
                                                 >
-                                                    <div className="icon-minus text-xs"></div>
+                                                    <IconMinus className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </div>
@@ -138,7 +139,7 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                                         className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors self-center relative z-10"
                                         title="حذف"
                                     >
-                                        <div className="icon-trash-2 text-xl"></div>
+                                        <IconTrash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             );
@@ -160,7 +161,7 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                                 className="flex-1 bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2"
                             >
                                 <span>إتمام الطلب</span>
-                                <span className="icon-arrow-left"></span>
+                                <IconArrowLeft className="w-5 h-5" />
                             </Link>
                             <button
                                 onClick={() => {
@@ -170,7 +171,7 @@ function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
                                 }}
                                 className="px-4 py-3 border border-red-200 text-red-500 hover:bg-red-50 rounded-xl font-bold transition-colors"
                             >
-                                <span className="icon-trash-2 text-xl"></span>
+                                <IconTrash2 className="w-6 h-6" />
                             </button>
                         </div>
                     </div>

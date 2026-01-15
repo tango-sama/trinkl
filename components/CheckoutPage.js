@@ -1,4 +1,5 @@
 function CheckoutPage({ cart = [] }) {
+    const { IconShoppingCart, IconPlus, IconMinus, IconTrash2, IconMessageCircle } = window.Icons;
     const [formData, setFormData] = React.useState({
         name: '',
         phone: '',
@@ -62,7 +63,7 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
         return (
             <div className="container mx-auto px-4 py-20 text-center min-h-[60vh] flex flex-col items-center justify-center">
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
-                    <div className="icon-shopping-cart text-4xl"></div>
+                    <IconShoppingCart className="w-10 h-10" />
                 </div>
                 <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-4">سلة المشتريات فارغة</h2>
                 <p className="text-gray-500 mb-8 max-w-md">لم تقم بإضافة أي منتجات للسلة بعد. تصفح منتجاتنا واختر ما يناسبك.</p>
@@ -83,7 +84,7 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
                 <div className="w-full lg:w-1/3 order-1 lg:order-2">
                     <div className="bg-white rounded-2xl shadow-lg border border-[var(--primary)]/20 p-6 sticky top-24">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2 border-b pb-4">
-                            <span className="icon-shopping-cart text-[var(--primary)]"></span>
+                            <IconShoppingCart className="w-6 h-6 text-[var(--primary)]" />
                             ملخص الطلب ({cart.length})
                         </h2>
                         <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar mb-6">
@@ -104,7 +105,7 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
                                                     onClick={() => window.addToCart && window.addToCart(item)}
                                                     className="w-8 h-8 bg-gray-50 border border-gray-200 rounded-lg hover:bg-[var(--primary)] hover:border-[var(--primary)] hover:text-white transition-colors flex items-center justify-center text-[var(--primary)]"
                                                 >
-                                                    <div className="icon-plus text-sm"></div>
+                                                    <IconPlus className="w-4 h-4" />
                                                 </button>
                                                 <span className="font-bold text-base w-6 text-center">{item.quantity || 1}</span>
                                                 <button
@@ -113,7 +114,7 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
                                                     className={`w-8 h-8 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center ${(!item.quantity || item.quantity <= 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     disabled={!item.quantity || item.quantity <= 1}
                                                 >
-                                                    <div className="icon-minus text-sm"></div>
+                                                    <IconMinus className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </div>
@@ -123,7 +124,7 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
                                             className="text-red-500 bg-red-50 hover:bg-red-100 p-3 rounded-xl transition-colors flex-shrink-0 shadow-sm border border-red-100"
                                             title="حذف من السلة"
                                         >
-                                            <div className="icon-trash-2 text-xl"></div>
+                                            <IconTrash2 className="w-5 h-5" />
                                         </button>
                                     </div>
                                 );
@@ -235,7 +236,7 @@ ${validItems.map(item => `- ${item.title} (عدد: ${item.quantity || 1})`).join
 
                             <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-5 rounded-xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 text-xl flex justify-center items-center gap-3">
                                 <span>تأكيد الطلب عبر واتساب</span>
-                                <div className="icon-message-circle text-2xl"></div>
+                                <IconMessageCircle className="w-8 h-8" />
                             </button>
 
                             <p className="text-center text-sm text-gray-500 mt-4 leading-relaxed bg-gray-50 p-4 rounded-lg">

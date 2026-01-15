@@ -20,7 +20,7 @@ function Hero() {
                     </div>
                     {/* Decorative Stars/Sparkles */}
                     <div className="absolute -top-4 -right-4 text-[var(--primary)] animate-pulse">
-                        <div className="icon-sparkles text-4xl"></div>
+                        <window.Icons.IconSparkles className="w-10 h-10" />
                     </div>
                 </div>
 

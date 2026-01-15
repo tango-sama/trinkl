@@ -1,6 +1,7 @@
 function Header({ cartCount = 0 }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const { Link, useLocation } = ReactRouterDOM;
+    const { IconShoppingCart, IconMenu, IconX } = window.Icons;
 
     const isLoggedIn = sessionStorage.getItem('adminToken') === 'true';
 
@@ -58,7 +59,7 @@ function Header({ cartCount = 0 }) {
 
                     {/* Cart Icon */}
                     <Link to="/checkout" className="relative bg-[var(--primary)]/10 p-2 rounded-full hover:bg-[var(--primary)]/20 transition-colors text-[var(--primary)]">
-                        <div className="icon-shopping-cart text-xl"></div>
+                        <IconShoppingCart className="w-6 h-6" />
                         {cartCount > 0 && (
                             <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm animate-bounce font-bold">
                                 {cartCount}
@@ -78,7 +79,7 @@ function Header({ cartCount = 0 }) {
                 {/* Mobile Menu Button + Cart */}
                 <div className="flex items-center gap-4 md:hidden relative z-50">
                     <Link to="/checkout" className="relative text-[var(--primary)]">
-                        <div className="icon-shopping-cart text-2xl"></div>
+                        <IconShoppingCart className="w-7 h-7" />
                         {cartCount > 0 && (
                             <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full shadow-sm font-bold">
                                 {cartCount}
@@ -90,7 +91,7 @@ function Header({ cartCount = 0 }) {
                         onClick={() => setIsOpen(!isOpen)}
                         className="text-[var(--primary)] p-1 rounded hover:bg-[var(--secondary)]/20"
                     >
-                        <div className={isOpen ? "icon-x text-2xl" : "icon-menu text-2xl"}></div>
+                        {isOpen ? <IconX className="w-7 h-7" /> : <IconMenu className="w-7 h-7" />}
                     </button>
                 </div>
             </div>
@@ -103,7 +104,7 @@ function Header({ cartCount = 0 }) {
                     <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
                     <Link to="/checkout" onClick={() => setIsOpen(false)} className="flex items-center gap-2 text-[var(--primary)] font-bold">
                         <span>سلة المشتريات ({cartCount})</span>
-                        <div className="icon-shopping-cart"></div>
+                        <IconShoppingCart className="w-5 h-5" />
                     </Link>
                 </nav>
             )}
