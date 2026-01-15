@@ -1,8 +1,16 @@
 function ProductCard({ product }) {
-    const { Link } = ReactRouterDOM;
+    const { Link, useNavigate } = ReactRouterDOM;
+    const navigate = useNavigate();
+
+    const handleCardClick = () => {
+        navigate(`/product/${product.id}`);
+    };
 
     return (
-        <div className="relative rounded-2xl overflow-hidden shadow-lg h-96 group border border-white/20 hover:shadow-2xl transition-all duration-500">
+        <div
+            onClick={handleCardClick}
+            className="relative rounded-2xl overflow-hidden shadow-lg h-96 group border border-white/20 hover:shadow-2xl transition-all duration-500 cursor-pointer"
+        >
             {/* Background Image - Full Cover */}
             <div className="absolute inset-0 bg-gray-100">
                 <img
@@ -18,12 +26,10 @@ function ProductCard({ product }) {
 
             {/* Top Title */}
             <div className="absolute top-0 left-0 right-0 p-4 z-20">
-                <div className="backdrop-blur-md bg-white/10 border border-white/10 p-2 rounded-lg text-center shadow-lg">
-                    <Link to={`/product/${product.id}`} className="block">
-                        <h3 className="font-bold text-white text-xs md:text-sm drop-shadow-md line-clamp-2 hover:text-[var(--primary-light)] transition-colors">
-                            {product.title}
-                        </h3>
-                    </Link>
+                <div className="backdrop-blur-md bg-white/10 border border-white/10 p-2 rounded-lg text-center shadow-lg hover:bg-white/20 transition-colors">
+                    <h3 className="font-bold text-white text-xs md:text-sm drop-shadow-md line-clamp-2">
+                        {product.title}
+                    </h3>
                 </div>
             </div>
 
@@ -34,6 +40,7 @@ function ProductCard({ product }) {
                     href={`https://wa.me/213664925052?text=${encodeURIComponent(`مرحباً، أريد طلب المنتج: ${product.title}`)}`}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
                     className="w-12 h-12 bg-green-500/20 hover:bg-green-500/60 text-white rounded-xl shadow-lg flex items-center justify-center backdrop-blur-md border border-white/20 transition-all hover:scale-110 hover:rotate-3"
                     title="اطلب عبر واتساب"
                 >
@@ -45,6 +52,7 @@ function ProductCard({ product }) {
             <div className="absolute bottom-4 left-4 z-30">
                 <button
                     onClick={(e) => {
+                        e.stopPropagation();
                         e.preventDefault();
                         if (window.addToCart) window.addToCart(product);
                     }}
