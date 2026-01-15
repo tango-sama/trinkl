@@ -731,9 +731,22 @@ function AdminPage() {
                         >
                             السابق
                         </button>
-                        <span className="text-[var(--text-dark)] font-bold bg-white px-4 py-2 rounded shadow text-sm">
-                            صفحة {currentPage} من {totalPages}
-                        </span>
+                        <div className="flex gap-1">
+                            {[...Array(totalPages).keys()].map(i => i + 1).filter(p => {
+                                if (totalPages <= 3) return true;
+                                if (currentPage === 1) return p <= 3;
+                                if (currentPage === totalPages) return p >= totalPages - 2;
+                                return p >= currentPage - 1 && p <= currentPage + 1;
+                            }).map(page => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[var(--primary)] text-white shadow-lg scale-110' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                        </div>
                         <button
                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
