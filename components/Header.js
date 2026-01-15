@@ -97,17 +97,15 @@ function Header({ cartCount = 0 }) {
             </div>
 
             {/* Mobile Nav Dropdown */}
-            {isOpen && (
-                <nav className="md:hidden bg-[var(--bg-light)] border-t border-[var(--secondary)] px-4 py-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg animate-fade-in-down relative z-50 max-h-[80vh] overflow-y-auto">
-                    <Link to="/" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">الرئيسية</Link>
-                    <Link to="/categories" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">التصنيفات</Link>
-                    <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
-                    <Link to="/checkout" onClick={() => setIsOpen(false)} className="flex items-center gap-2 text-[var(--primary)] font-bold">
-                        <span>سلة المشتريات ({cartCount})</span>
-                        <IconShoppingCart className="w-5 h-5" />
-                    </Link>
-                </nav>
-            )}
+            <nav className={`md:hidden bg-[var(--bg-light)] border-[var(--secondary)] px-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg transition-all duration-300 ease-in-out overflow-hidden z-50 ${isOpen ? 'max-h-[80vh] py-4 border-t opacity-100' : 'max-h-0 py-0 border-t-0 opacity-0'}`}>
+                <Link to="/" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">الرئيسية</Link>
+                <Link to="/categories" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">التصنيفات</Link>
+                <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
+                <Link to="/checkout" onClick={() => setIsOpen(false)} className="flex items-center gap-2 text-[var(--primary)] font-bold">
+                    <span>سلة المشتريات ({cartCount})</span>
+                    <IconShoppingCart className="w-5 h-5" />
+                </Link>
+            </nav>
         </header>
     );
 }
