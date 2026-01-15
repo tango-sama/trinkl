@@ -135,8 +135,18 @@ function App() {
     const CheckoutPageComponent = () => window.CheckoutPage ? <CheckoutPage /> : <div className="p-10 text-center">جاري تحميل صفحة الدفع...</div>;
     const AdminPageComponent = () => window.AdminPage ? <AdminPage /> : <div className="p-10 text-center">جاري تحميل لوحة التحكم...</div>;
 
+    // Helper for reset scroll
+    const ScrollToTop = () => {
+        const { pathname } = ReactRouterDOM.useLocation();
+        React.useEffect(() => {
+            window.scrollTo(0, 0);
+        }, [pathname]);
+        return null;
+    };
+
     return (
         <HashRouter>
+            <ScrollToTop />
             <Layout>
                 <Routes>
                     <Route path="/" element={<HomePage />} />
