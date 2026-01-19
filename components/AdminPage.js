@@ -515,10 +515,40 @@ function AdminPage() {
                                         const file = e.target.files[0];
                                         if (file) {
                                             try {
-                                                const url = await window.uploadImageToFirebase(file, 'products');
+                                                // Convert to WebP
+                                                const convertToWebP = (file) => {
+                                                    return new Promise((resolve, reject) => {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (event) => {
+                                                            const img = new Image();
+                                                            img.onload = () => {
+                                                                const canvas = document.createElement('canvas');
+                                                                canvas.width = img.width;
+                                                                canvas.height = img.height;
+                                                                const ctx = canvas.getContext('2d');
+                                                                ctx.drawImage(img, 0, 0);
+                                                                canvas.toBlob((blob) => {
+                                                                    if (blob) {
+                                                                        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' });
+                                                                        resolve(newFile);
+                                                                    } else {
+                                                                        reject(new Error("WebP conversion failed"));
+                                                                    }
+                                                                }, 'image/webp', 0.85); // 85% Quality
+                                                            };
+                                                            img.onerror = (err) => reject(err);
+                                                            img.src = event.target.result;
+                                                        };
+                                                        reader.onerror = (err) => reject(err);
+                                                        reader.readAsDataURL(file);
+                                                    });
+                                                };
+
+                                                const webpFile = await convertToWebP(file);
+                                                const url = await window.uploadImageToFirebase(webpFile, 'products');
                                                 setNewProductForm({ ...newProductForm, image: url });
                                             } catch (error) {
-                                                alert("فشل رفع الصورة. تأكد من إعدادات Firebase");
+                                                alert("فشل رفع او تحويل الصورة. تأكد من إعدادات Firebase");
                                                 console.error(error);
                                             }
                                         }
