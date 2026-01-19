@@ -31,9 +31,18 @@ class ErrorBoundary extends React.Component {
 
 // Extracted Components to prevent re-mounting on state changes
 const Layout = ({ children, cartCount }) => {
-    const { useLocation } = ReactRouterDOM;
+    const { useLocation, useNavigate } = ReactRouterDOM;
     const location = useLocation();
+    const navigate = useNavigate();
     const isAdmin = location.pathname.startsWith('/amelhadj');
+
+    // Backward Compatibility: Redirect Hash URLs to Path URLs
+    React.useEffect(() => {
+        if (window.location.hash && window.location.hash.startsWith('#/')) {
+            const newPath = window.location.hash.substring(1);
+            navigate(newPath, { replace: true });
+        }
+    }, [navigate]);
 
     return (
         <div className="min-h-screen flex flex-col">
