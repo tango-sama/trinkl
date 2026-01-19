@@ -41,6 +41,7 @@ function Footer({ isAdmin }) {
                     <div className="flex items-center gap-4">
                         <img src="./assets/logo.webp" alt="Desert Shop Logo" className="h-12 w-auto object-contain bg-white/50 rounded-full p-1" />
                         <p>© 2026 جمالك الخارجي. جميع الحقوق محفوظة.</p>
+                        <ReactRouterDOM.Link to="/amelhadj" className="text-gray-400 hover:text-[var(--primary)] text-xs transition-colors">مسؤول</ReactRouterDOM.Link>
                     </div>
                 </div>
             </div>
