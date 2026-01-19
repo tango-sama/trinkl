@@ -12,6 +12,18 @@
     ],
     "rewrites": [
       {
+        "source": "/amelhadj",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/category/**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/product/**",
+        "destination": "/index.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
