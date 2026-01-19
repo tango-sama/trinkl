@@ -107,6 +107,7 @@ const SiteSettingsView = () => {
 
 function AdminPage() {
     const [currentView, setCurrentView] = React.useState('dashboard');
+    const { Link } = ReactRouterDOM;
     // Check if user is already logged in from previous session
     const [isLoggedIn, setIsLoggedIn] = React.useState(() => {
         return sessionStorage.getItem('adminToken') === 'true';
@@ -1047,10 +1048,10 @@ function AdminPage() {
                 <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
                     <div className="mb-12 text-center relative w-full">
                         <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-dark)] bg-white/50 px-8 py-2 rounded-full inline-block">لوحة التحكم</h1>
-                        <a href="#/" className="absolute left-0 top-1/2 transform -translate-y-1/2 text-[var(--primary)] hover:underline flex items-center gap-2 text-lg">
+                        <Link to="/" className="absolute left-0 top-1/2 transform -translate-y-1/2 text-[var(--primary)] hover:underline flex items-center gap-2 text-lg">
                             <div className="icon-home"></div>
                             <span className="hidden md:inline">الرئيسية</span>
-                        </a>
+                        </Link>
                     </div>
 
                     <div className="flex flex-col w-full max-w-md gap-4">
