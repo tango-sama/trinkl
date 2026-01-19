@@ -72,7 +72,7 @@ const ScrollToTop = () => {
 };
 
 function App() {
-    const { HashRouter, Routes, Route } = ReactRouterDOM;
+    const { BrowserRouter, Routes, Route } = ReactRouterDOM;
 
     const [loading, setLoading] = React.useState(true);
 
@@ -211,7 +211,7 @@ function App() {
     }, 0);
 
     return (
-        <HashRouter>
+        <BrowserRouter>
             <ScrollToTop />
 
             {/* Cart Drawer - Global Overlay */}
@@ -228,7 +228,7 @@ function App() {
                     <Route path="/product/:id" element={<ProductPageWrapper />} />
                 </Routes>
             </Layout>
-        </HashRouter>
+        </BrowserRouter>
     );
 }
 
