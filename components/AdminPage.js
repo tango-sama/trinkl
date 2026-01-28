@@ -1,0 +1,1573 @@
+const SiteSettingsView = ({ onBack }) => {
+    const [settings, setSettings] = React.useState(window.siteSettings || {});
+    const [isSaving, setIsSaving] = React.useState(false);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            if (settings.id) {
+                await window.db.updateDocument('site_settings', settings.id, settings);
+            } else {
+                const newDoc = await window.db.addDocument('site_settings', settings);
+                setSettings({ ...settings, id: newDoc.id });
+                window.siteSettings = { ...settings, id: newDoc.id };
+            }
+            alert('تم حفظ الإعدادات بنجاح. يرجى تحديث الصفحة لرؤية التغييرات في الموقع.');
+            window.siteSettings = settings;
+        } catch (e) {
+            console.error(e);
+            alert('فشل الحفظ');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="animate-fade-in">
+            <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-[var(--text-dark)]">إعدادات الموقع</h2>
+                <button onClick={onBack} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                    <div className="icon-arrow-right"></div>
+                    <span>العودة</span>
+                </button>
+            </div>
+
+            <div className="bg-white p-8 rounded-xl shadow border border-[var(--secondary)] max-w-2xl mx-auto">
+                <h3 className="font-bold mb-6 text-lg border-b pb-2">صورة الهيرو (الرئيسية)</h3>
+
+                <div className="flex flex-col md:flex-row gap-8 items-center">
+                    {/* Image Preview */}
+                    <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-[var(--primary)]/20 shadow-lg flex-shrink-0 bg-gray-50 flex items-center justify-center relative group">
+                        {settings.heroImage ? (
+                            <img src={settings.heroImage} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-gray-400 flex flex-col items-center">
+                                <span className="icon-image text-4xl mb-2"></span>
+                                <span className="text-xs">لا توجد صورة</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex flex-col gap-4 flex-grow w-full">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">رابط الصورة</label>
+                            <input
+                                type="text"
+                                placeholder="https://..."
+                                value={settings.heroImage || ''}
+                                onChange={(e) => setSettings({ ...settings, heroImage: e.target.value })}
+                                className="border p-3 rounded-lg w-full text-left ltr outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                                dir="ltr"
+                            />
+                        </div>
+
+                        <div className="relative">
+                            <input
+                                type="file"
+                                id="hero-upload"
+                                accept="image/*"
+                                onChange={async (e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        try {
+                                            // Show loading state/preview?
+                                            const url = await window.uploadImageToFirebase(file, 'site_assets');
+                                            setSettings(prev => ({ ...prev, heroImage: url }));
+                                        } catch (error) {
+                                            alert("Upload Failed: " + error.message);
+                                        }
+                                    }
+                                }}
+                                className="hidden"
+                            />
+                            <label
+                                htmlFor="hero-upload"
+                                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-center block w-full border border-gray-300 border-dashed"
+                            >
+                                <span className="icon-upload-cloud mr-2"></span>
+                                رفع صورة جديدة
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-8 pt-4 flex justify-end gap-3">
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold shadow transition-transform transform hover:-translate-y-1"
+                    >
+                        {isSaving ? 'جار الحفظ...' : 'حفظ التغييرات'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Messages View Component
+const MessagesView = ({ onBack }) => {
+    const [messages, setMessages] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const fetchMessages = async () => {
+            try {
+                const msgs = await window.db.getCollection('messages');
+                // Sort by timestamp desc
+                setMessages(msgs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+            } catch (e) {
+                console.error(e);
+                alert("Failed to load messages");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMessages();
+    }, []);
+
+    const handleDelete = async (id) => {
+        if (confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
+            try {
+                await window.db.deleteDocument('messages', id);
+                setMessages(messages.filter(m => m.id !== id));
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    };
+
+    return (
+        <div className="animate-fade-in">
+            <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-[var(--text-dark)]">رسائل العملاء ({messages.length})</h2>
+                <button onClick={onBack} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                    <div className="icon-arrow-right"></div>
+                    <span>العودة</span>
+                </button>
+            </div>
+
+            {loading ? (
+                <div className="text-center py-10">جاري التحميل...</div>
+            ) : messages.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 text-xl font-bold border-2 border-dashed border-gray-300 rounded-xl">
+                    لا توجد رسائل جديدة
+                </div>
+            ) : (
+                <div className="grid gap-4">
+                    {messages.map(msg => (
+                        <div key={msg.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-bold text-lg text-[var(--text-dark)]">{msg.name}</h3>
+                                    <div className="text-sm text-gray-500 mt-1 flex gap-4">
+                                        <span className="flex items-center gap-1"><div className="icon-phone text-xs"></div> {msg.phone}</span>
+                                        <span className="flex items-center gap-1"><div className="icon-clock text-xs"></div> {new Date(msg.timestamp).toLocaleString('ar-DZ')}</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleDelete(msg.id)}
+                                    className="text-red-400 hover:text-red-600 p-2"
+                                    title="حذف"
+                                >
+                                    <div className="icon-trash"></div>
+                                </button>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                {msg.message}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Featured Products Carousel Management View
+const FeaturedProductsView = ({ onBack }) => {
+    const [featuredProducts, setFeaturedProducts] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [editingProduct, setEditingProduct] = React.useState(null);
+    const [productForm, setProductForm] = React.useState({
+        productName: '',
+        rightText: '',
+        leftText: '',
+        ctaText: '',
+        productLink: '',
+        image: '',
+        order: 0
+    });
+
+    React.useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    const fetchProducts = async () => {
+        try {
+            const products = await window.db.getCollection('featured_products');
+            setFeaturedProducts(products.sort((a, b) => (a.order || 0) - (b.order || 0)));
+        } catch (error) {
+            console.error(error);
+            alert('فشل في تحميل المنتجات');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!productForm.productName || !productForm.image) {
+            return alert('يرجى ملء اسم المنتج والصورة على الأقل');
+        }
+
+        try {
+            if (editingProduct) {
+                await window.db.updateDocument('featured_products', editingProduct.id, productForm);
+                setFeaturedProducts(featuredProducts.map(p => p.id === editingProduct.id ? { ...productForm, id: editingProduct.id } : p));
+                alert('تم التحديث بنجاح');
+            } else {
+                const newProduct = { ...productForm, id: Date.now(), order: featuredProducts.length };
+                await window.db.addDocument('featured_products', newProduct);
+                setFeaturedProducts([...featuredProducts, newProduct]);
+                alert('تم الإضافة بنجاح');
+            }
+            resetForm();
+        } catch (error) {
+            console.error(error);
+            alert('فشل في الحفظ');
+        }
+    };
+
+    const handleEdit = (product) => {
+        setEditingProduct(product);
+        setProductForm(product);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
+
+        try {
+            await window.db.deleteDocument('featured_products', id);
+            setFeaturedProducts(featuredProducts.filter(p => p.id !== id));
+            alert('تم الحذف بنجاح');
+        } catch (error) {
+            console.error(error);
+            alert('فشل في الحذف');
+        }
+    };
+
+    const resetForm = () => {
+        setEditingProduct(null);
+        setProductForm({
+            productName: '',
+            rightText: '',
+            leftText: '',
+            ctaText: '',
+            productLink: '',
+            image: '',
+            order: featuredProducts.length
+        });
+    };
+
+    const moveProduct = async (id, direction) => {
+        const currentSorted = [...featuredProducts].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const index = currentSorted.findIndex(p => p.id === id);
+        const toIndex = index + direction;
+
+        if (toIndex < 0 || toIndex >= currentSorted.length) return;
+
+        const temp = currentSorted[index];
+        currentSorted[index] = currentSorted[toIndex];
+        currentSorted[toIndex] = temp;
+
+        const updates = currentSorted.map((product, idx) => ({ ...product, order: idx }));
+        setFeaturedProducts(updates);
+
+        try {
+            await Promise.all(updates.map(p => window.db.updateDocument('featured_products', p.id, { order: p.order })));
+        } catch (error) {
+            console.error(error);
+            alert('فشل في حفظ الترتيب');
+        }
+    };
+
+    return (
+        <div className="animate-fade-in">
+            <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-[var(--text-dark)]">إدارة المنتجات المميزة</h2>
+                <button onClick={onBack} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                    <div className="icon-arrow-right"></div>
+                    <span>العودة</span>
+                </button>
+            </div>
+
+            {/* Form */}
+            <div className="bg-white p-8 rounded-xl shadow border border-[var(--secondary)] mb-8">
+                <h3 className="font-bold mb-6 text-lg border-b pb-2">
+                    {editingProduct ? 'تعديل المنتج المميز' : 'إضافة منتج مميز جديد'}
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">اسم المنتج (يظهر في الأعلى)</label>
+                        <input
+                            type="text"
+                            placeholder="مثال: كبسولات هارموني ماكا"
+                            value={productForm.productName}
+                            onChange={(e) => setProductForm({ ...productForm, productName: e.target.value })}
+                            className="border p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">النص الأيمن</label>
+                        <textarea
+                            placeholder="مثال: التركيز: يحتوي على تركيز فائق من خلاصة جذور الماكا الطبيعية."
+                            value={productForm.rightText}
+                            onChange={(e) => setProductForm({ ...productForm, rightText: e.target.value })}
+                            className="border p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-[var(--primary)] h-24 resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">النص الأيسر</label>
+                        <textarea
+                            placeholder="مثال: نحت الخصر: القضاء على البطن وحل مشاكل الدورة الشهرية ومريكة الطمث"
+                            value={productForm.leftText}
+                            onChange={(e) => setProductForm({ ...productForm, leftText: e.target.value })}
+                            className="border p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-[var(--primary)] h-24 resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">نص زر الدعوة للإجراء</label>
+                        <input
+                            type="text"
+                            placeholder="مثال: تفاصيل أكثر عن هذا المنتج"
+                            value={productForm.ctaText}
+                            onChange={(e) => setProductForm({ ...productForm, ctaText: e.target.value })}
+                            className="border p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">رابط المنتج (اختياري)</label>
+                        <input
+                            type="text"
+                            placeholder="#/product/123 أو #/category/example"
+                            value={productForm.productLink}
+                            onChange={(e) => setProductForm({ ...productForm, productLink: e.target.value })}
+                            className="border p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                            dir="ltr"
+                        />
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">صورة المنتج</label>
+                        <div className="flex flex-col md:flex-row gap-4 items-center">
+                            {productForm.image && (
+                                <div className="w-32 h-32 border-2 border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                                    <img src={productForm.image} alt="معاينة" className="w-full h-full object-contain" />
+                                </div>
+                            )}
+                            <div className="flex-grow w-full">
+                                <input
+                                    type="text"
+                                    placeholder="رابط الصورة"
+                                    value={productForm.image}
+                                    onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
+                                    className="border p-3 rounded-lg w-full outline-none focus:ring-2 focus:ring-[var(--primary)] mb-2"
+                                    dir="ltr"
+                                />
+                                <div>
+                                    <input
+                                        type="file"
+                                        id="featured-product-upload"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                try {
+                                                    const url = await window.uploadImageToFirebase(file, 'featured_products');
+                                                    setProductForm({ ...productForm, image: url });
+                                                } catch (error) {
+                                                    alert('فشل رفع الصورة: ' + error.message);
+                                                }
+                                            }
+                                        }}
+                                        className="hidden"
+                                    />
+                                    <label
+                                        htmlFor="featured-product-upload"
+                                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors inline-block border border-gray-300 border-dashed"
+                                    >
+                                        <span className="icon-upload-cloud mr-2"></span>
+                                        رفع صورة جديدة
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                    <button
+                        onClick={handleSave}
+                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold shadow transition-all flex-1"
+                    >
+                        {editingProduct ? 'حفظ التعديلات' : 'إضافة المنتج'}
+                    </button>
+                    {editingProduct && (
+                        <button
+                            onClick={resetForm}
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold shadow transition-all"
+                        >
+                            إلغاء
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Products List */}
+            <div className="bg-white rounded-xl shadow border border-[var(--secondary)] p-6">
+                <h3 className="font-bold text-lg mb-4 text-[var(--text-dark)]">المنتجات المميزة الحالية ({featuredProducts.length})</h3>
+
+                {loading ? (
+                    <div className="text-center py-10">جاري التحميل...</div>
+                ) : featuredProducts.length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 border-2 border-dashed border-gray-300 rounded-xl">
+                        لا توجد منتجات مميزة بعد. قم بإضافة المنتج الأول!
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {featuredProducts.map((product, index) => (
+                            <div key={product.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-24 h-24 flex-shrink-0 border-2 border-gray-200 rounded-lg overflow-hidden">
+                                        <img src={product.image} alt={product.productName} className="w-full h-full object-contain" />
+                                    </div>
+
+                                    <div className="flex-grow">
+                                        <h4 className="font-bold text-[var(--text-dark)] text-lg mb-2">{product.productName}</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                            <div>
+                                                <span className="text-gray-500 font-semibold">النص الأيمن:</span>
+                                                <p className="text-gray-700 mt-1">{product.rightText}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-500 font-semibold">النص الأيسر:</span>
+                                                <p className="text-gray-700 mt-1">{product.leftText}</p>
+                                            </div>
+                                        </div>
+                                        {product.ctaText && (
+                                            <p className="text-[var(--primary)] text-xs mt-2">CTA: {product.ctaText}</p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => moveProduct(product.id, -1)}
+                                                disabled={index === 0}
+                                                className="px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs"
+                                                title="تحريك لأعلى"
+                                            >
+                                                ↑
+                                            </button>
+                                            <button
+                                                onClick={() => moveProduct(product.id, 1)}
+                                                disabled={index === featuredProducts.length - 1}
+                                                className="px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs"
+                                                title="تحريك لأسفل"
+                                            >
+                                                ↓
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={() => handleEdit(product)}
+                                            className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-bold"
+                                        >
+                                            تعديل
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(product.id)}
+                                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs font-bold"
+                                        >
+                                            حذف
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+function AdminPage() {
+    const [currentView, setCurrentView] = React.useState('dashboard');
+    const { Link } = ReactRouterDOM;
+    // Check if user is already logged in from previous session
+    const [isLoggedIn, setIsLoggedIn] = React.useState(() => {
+        return sessionStorage.getItem('adminToken') === 'true';
+    });
+    const [password, setPassword] = React.useState('');
+    const [products, setProducts] = React.useState([]);
+    const [categories, setCategories] = React.useState(window.categories || []);
+    const [isLoadingProducts, setIsLoadingProducts] = React.useState(true);
+
+    // Fetch all products from Firestore when admin page loads
+    React.useEffect(() => {
+        const fetchAllProducts = async () => {
+            try {
+                const allProducts = await window.db.getCollection('products');
+                console.log(`[AdminPage] Loaded ${allProducts.length} products from Firestore`);
+                setProducts(allProducts);
+                window.products = allProducts; // Update global cache
+            } catch (error) {
+                console.error('[AdminPage] Error fetching products:', error);
+            } finally {
+                setIsLoadingProducts(false);
+            }
+        };
+
+        if (isLoggedIn) {
+            fetchAllProducts();
+        }
+    }, [isLoggedIn]);
+
+    const [categoryForm, setCategoryForm] = React.useState({ name: '', id: '', image: '' });
+    const [editingCategory, setEditingCategory] = React.useState(null);
+
+    const [productFilter, setProductFilter] = React.useState('all');
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const [newProductForm, setNewProductForm] = React.useState({ title: '', price: '', category: '', image: '', description: '' });
+    const [editingProductId, setEditingProductId] = React.useState(null);
+
+    // Product Inline Editing State
+    const [productInlineEditId, setProductInlineEditId] = React.useState(null);
+    const [productInlineEditForm, setProductInlineEditForm] = React.useState({});
+
+    // Import State (Moved to top)
+    const [isImporting, setIsImporting] = React.useState(false);
+    const [importCategory, setImportCategory] = React.useState(window.categories && window.categories.length > 0 ? window.categories[0].id : 'pheromones');
+
+    // Bulk Delete State (Promoted)
+    const [selectedProducts, setSelectedProducts] = React.useState(new Set());
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    // Filtered and Sorted Products
+    const filteredProducts = React.useMemo(() => {
+        const getSortTime = (p) => p.lastModified || p.id;
+        // Create a sorted copy
+        const sorted = [...products].sort((a, b) => {
+            // Ensure numbers for comparison
+            const tA = Number(getSortTime(a)) || 0;
+            const tB = Number(getSortTime(b)) || 0;
+            return tB - tA;
+        });
+
+        return productFilter === 'all'
+            ? sorted
+            : sorted.filter(p => p.category === productFilter);
+    }, [products, productFilter]);
+
+    const ITEMS_PER_PAGE = 20;
+    const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+    const displayedProducts = filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    const toggleSelect = (id) => {
+        const newSet = new Set(selectedProducts);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedProducts(newSet);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedProducts.size === filteredProducts.length) {
+            setSelectedProducts(new Set());
+        } else {
+            setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedProducts.size === 0) return;
+        if (!confirm(`هل أنت متأكد من حذف ${selectedProducts.size} منتج؟`)) return;
+
+        setIsDeleting(true);
+        try {
+            const deletePromises = Array.from(selectedProducts).map(id => window.db.deleteDocument('products', id));
+            await Promise.all(deletePromises);
+
+            // Update local state
+            const updated = products.filter(p => !selectedProducts.has(p.id));
+            setProducts(updated);
+            window.products = updated;
+            setSelectedProducts(new Set());
+            alert('تم الحذف بنجاح');
+        } catch (error) {
+            console.error(error); // Error boundary might catch this but we want to log it
+            // Don't alert failure if it actually partially succeeded or just UI render failed
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleStartProductInlineEdit = (product) => {
+        setProductInlineEditId(product.id);
+        setProductInlineEditForm({ ...product });
+        // Populate Top Form
+        setEditingProductId(product.id);
+        setNewProductForm({
+            title: product.title,
+            price: product.price,
+            category: product.category,
+            image: product.image,
+            description: Array.isArray(product.description) ? product.description.join('\n') : (product.description || '')
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelProductInlineEdit = () => {
+        setProductInlineEditId(null);
+        setProductInlineEditForm({});
+    };
+
+    const handleSaveProductInlineEdit = async () => {
+        if (!productInlineEditForm.title || !productInlineEditForm.price) return alert('يرجى ملء كافة التفاصيل');
+
+        try {
+            const updatedProduct = { ...productInlineEditForm, lastModified: Date.now() };
+            // Update Firestore
+            await window.db.updateDocument('products', productInlineEditId, updatedProduct);
+
+            // Update Local Admin State
+            const updatedProducts = products.map(p => p.id === productInlineEditId ? updatedProduct : p);
+            setProducts(updatedProducts);
+
+            // Update Global State
+            window.products = updatedProducts;
+
+            setProductInlineEditId(null);
+            setProductInlineEditForm({});
+        } catch (error) {
+            alert("Error updating product");
+            console.error(error);
+        }
+    };
+
+    // Inline Editing State (Categories)
+    const [inlineEditId, setInlineEditId] = React.useState(null);
+    const [inlineEditForm, setInlineEditForm] = React.useState({});
+
+    const handleStartInlineEdit = (category) => {
+        setInlineEditId(category.id);
+        setInlineEditForm({ ...category });
+    };
+
+    const handleCancelInlineEdit = () => {
+        setInlineEditId(null);
+        setInlineEditForm({});
+    };
+
+    const handleSaveInlineEdit = async () => {
+        if (!inlineEditForm.name || !inlineEditForm.id) return alert('يرجى ملء الاسم والمعرف');
+
+        try {
+            await window.db.updateDocument('categories', inlineEditId, inlineEditForm);
+
+            setCategories(categories.map(c => c.id === inlineEditId ? inlineEditForm : c));
+            setInlineEditId(null);
+            setInlineEditForm({});
+            // Also reset the top form if it was open
+            setEditingCategory(null);
+            setCategoryForm({ name: '', id: '', image: '' });
+        } catch (error) {
+            alert("Error updating category");
+            console.error(error);
+        }
+    };
+
+    // Very simple security for demonstration
+    const handleLogin = (e) => {
+        e.preventDefault();
+        if (password === 'tango88') {
+            setIsLoggedIn(true);
+            sessionStorage.setItem('adminToken', 'true');
+        } else {
+            alert('كلمة المرور غير صحيحة');
+        }
+    };
+
+    const handleEditCategory = (category) => {
+        setEditingCategory(category);
+        setCategoryForm(category);
+        // Scroll to top to see form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDeleteCategory = async (id) => {
+        if (window.confirm('هل انت متأكد من حذف هذا التصنيف؟')) {
+            try {
+                await window.db.deleteDocument('categories', id);
+                setCategories(categories.filter(c => c.id !== id));
+            } catch (error) {
+                alert("Error deleting category");
+            }
+        }
+    };
+
+    const handleSaveCategory = async () => {
+        if (!categoryForm.name || !categoryForm.id) return alert('يرجى ملء الاسم والمعرف');
+
+        try {
+            if (editingCategory) {
+                await window.db.updateDocument('categories', editingCategory.id, categoryForm);
+                setCategories(categories.map(c => c.id === editingCategory.id ? categoryForm : c));
+                setEditingCategory(null);
+                // Close inline edit if it matches
+                if (inlineEditId === editingCategory.id) setInlineEditId(null);
+            } else {
+                if (categories.find(c => c.id === categoryForm.id)) return alert('هذا المعرف (ID) موجود مسبقاً');
+
+                await window.db.addDocument('categories', categoryForm);
+                setCategories([...categories, categoryForm]);
+            }
+            setCategoryForm({ name: '', id: '', image: '', sortOrder: 0 }); // Reset form including sortOrder
+        } catch (error) {
+            alert("Error saving category");
+            console.error(error);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingCategory(null);
+        setCategoryForm({ name: '', id: '', image: '' });
+    };
+
+    const handleMoveCategory = async (catId, direction) => {
+        // Sort current categories to find actual indices
+        const currentSorted = [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const index = currentSorted.findIndex(c => c.id === catId);
+
+        const toIndex = index + direction; // -1 (up) or +1 (down)
+        if (toIndex < 0 || toIndex >= currentSorted.length) return;
+
+        // Swap in array
+        const temp = currentSorted[index];
+        currentSorted[index] = currentSorted[toIndex];
+        currentSorted[toIndex] = temp;
+
+        // Reassign sort orders
+        const updates = currentSorted.map((cat, idx) => ({ ...cat, sortOrder: idx }));
+
+        // Optimistic Update
+        setCategories(updates);
+
+        // Persist to DB
+        try {
+            await Promise.all(updates.map(c => window.db.updateDocument('categories', c.id, { sortOrder: c.sortOrder })));
+        } catch (error) {
+            console.error(error);
+            alert("Failed to save order");
+        }
+    };
+
+
+
+    // Product Filter and New Product Form
+
+    const handleCancelTopEdit = () => {
+        setEditingProductId(null);
+        setNewProductForm({ title: '', price: '', category: '', image: '', description: '' });
+    };
+
+    const handleAddProduct = async () => {
+        if (!newProductForm.title || !newProductForm.price || !newProductForm.category) return alert('يرجى ملء جميع الحقول المطلوبة');
+
+        try {
+            if (editingProductId) {
+                // Update Existing Product
+                const updatedProduct = { ...newProductForm, lastModified: Date.now() };
+                await window.db.updateDocument('products', editingProductId, updatedProduct);
+
+                // Update Local State
+                const updatedList = products.map(p => p.id === editingProductId ? { ...p, ...updatedProduct } : p);
+                setProducts(updatedList);
+                window.products = updatedList;
+
+                alert('تم تحديث المنتج بنجاح');
+                setEditingProductId(null);
+                // Close inline edit if it matches the one being edited at top
+                if (productInlineEditId === editingProductId) setProductInlineEditId(null);
+            } else {
+                // Add New Product
+                const newProduct = {
+                    id: Date.now(),
+                    lastModified: Date.now(),
+                    ...newProductForm
+                };
+                await window.db.addDocument('products', newProduct);
+
+                setProducts([...products, newProduct]);
+                window.products = [...(window.products || []), newProduct];
+                alert('تم إضافة المنتج بنجاح');
+            }
+
+            setNewProductForm({ title: '', price: '', category: '', image: '', description: '' });
+        } catch (error) {
+            alert("Error saving product");
+            console.error(error);
+        }
+    };
+
+    const handleCSVUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (isImporting) return; // Prevent double click
+
+        // Use selected category
+        const selectedCatName = window.categories.find(c => c.id === importCategory)?.name || importCategory;
+        if (!confirm(`هل أنت متأكد من استيراد المنتجات من ${file.name} إلى تصنيف: ${selectedCatName}؟`)) {
+            e.target.value = '';
+            return;
+        }
+
+        setIsImporting(true);
+        try {
+            const text = await file.text();
+
+            // Simple CSV Parser (assuming simple structure from sample)
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            // const headers = lines[0].split(',').map(h => h.trim());
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Skip header
+            for (let i = 1; i < lines.length; i++) {
+                // New Format: Title(0), Image(1), Price(2)
+                const row = lines[i].split(',');
+
+                if (row.length < 3) continue;
+
+                const category = importCategory; // Use selected category
+                const title = row[0].trim();
+                const imageUrl = row[1].trim();
+                let priceStr = row[2].trim(); // "د.ج 7.000"
+
+                // Clean price: remove non-digits
+                const price = priceStr.replace(/[^0-9]/g, '');
+
+
+
+                let finalImageUrl = imageUrl;
+
+                // Try to upload image to Firebase Storage
+                try {
+                    const imgResp = await fetch(imageUrl);
+                    if (imgResp.ok) {
+                        const blob = await imgResp.blob();
+                        const file = new File([blob], `${Date.now()}_${i}.webp`, { type: blob.type });
+                        finalImageUrl = await window.uploadImageToFirebase(file, 'products');
+                    }
+                } catch (imgError) {
+                    console.warn(`Failed to upload image for ${title}, using original link.`, imgError);
+                }
+
+                const newProduct = {
+                    id: Date.now() + i,
+                    title: title,
+                    price: price, // Keep as string or number? Existing app uses string usually.
+                    category: category,
+                    image: finalImageUrl,
+                    description: 'مستورد من CSV'
+                };
+
+                await window.db.addDocument('products', newProduct);
+
+                // Update local state incrementally? Or batch at end.
+                window.products.push(newProduct);
+                successCount++;
+            }
+
+            // Refresh local state fully
+            setProducts([...window.products]);
+            alert(`تم الاستيراد بنجاح: ${successCount} منتج. فشل: ${failCount}`);
+
+        } catch (error) {
+            alert('فشل في استيراد ملف CSV');
+            console.error(error);
+        } finally {
+            setIsImporting(false);
+            const fileInput = document.getElementById('csv-upload');
+            if (fileInput) fileInput.value = '';
+        }
+    };
+
+    // Products Management View
+    const ProductsView = () => {
+
+
+        return (
+            <div className="animate-fade-in">
+                <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-bold text-[var(--text-dark)]">تعديل المنتجات</h2>
+                    <div className="flex gap-4 items-center">
+                        <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                            <div className="icon-arrow-right"></div>
+                            <span>العودة</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl shadow p-6 mb-8 border border-[var(--secondary)]">
+                    <h3 className="text-lg font-bold mb-4 text-[var(--text-dark)]">
+                        {editingProductId ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input
+                            type="text"
+                            placeholder="اسم المنتج"
+                            value={newProductForm.title}
+                            onChange={(e) => setNewProductForm({ ...newProductForm, title: e.target.value })}
+                            className="border p-3 rounded-lg outline-none focus:border-[var(--primary)]"
+                        />
+                        <input
+                            type="text"
+                            placeholder="السعر (DA)"
+                            value={newProductForm.price}
+                            onChange={(e) => setNewProductForm({ ...newProductForm, price: e.target.value })}
+                            className="border p-3 rounded-lg outline-none focus:border-[var(--primary)]"
+                        />
+                        <select
+                            value={newProductForm.category}
+                            onChange={(e) => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                            className="border p-3 rounded-lg outline-none focus:border-[var(--primary)]"
+                        >
+                            <option value="">اختر التصنيف</option>
+                            {window.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+
+                        {/* Image Upload for New Product */}
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="رابط الصورة"
+                                value={newProductForm.image}
+                                onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                                className="border p-3 rounded-lg outline-none focus:border-[var(--primary)] w-full mb-2"
+                            />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={async (e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            try {
+                                                // Convert to WebP
+                                                const convertToWebP = (file) => {
+                                                    return new Promise((resolve, reject) => {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (event) => {
+                                                            const img = new Image();
+                                                            img.onload = () => {
+                                                                const canvas = document.createElement('canvas');
+                                                                canvas.width = img.width;
+                                                                canvas.height = img.height;
+                                                                const ctx = canvas.getContext('2d');
+                                                                ctx.drawImage(img, 0, 0);
+                                                                canvas.toBlob((blob) => {
+                                                                    if (blob) {
+                                                                        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' });
+                                                                        resolve(newFile);
+                                                                    } else {
+                                                                        reject(new Error("WebP conversion failed"));
+                                                                    }
+                                                                }, 'image/webp', 0.85); // 85% Quality
+                                                            };
+                                                            img.onerror = (err) => reject(err);
+                                                            img.src = event.target.result;
+                                                        };
+                                                        reader.onerror = (err) => reject(err);
+                                                        reader.readAsDataURL(file);
+                                                    });
+                                                };
+
+                                                const webpFile = await convertToWebP(file);
+                                                const url = await window.uploadImageToFirebase(webpFile, 'products');
+                                                setNewProductForm({ ...newProductForm, image: url });
+                                            } catch (error) {
+                                                alert("فشل رفع او تحويل الصورة. تأكد من إعدادات Firebase");
+                                                console.error(error);
+                                            }
+                                        }
+                                    }}
+                                    className="hidden"
+                                    id="product-image-upload"
+                                />
+                                <label
+                                    htmlFor="product-image-upload"
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-sm font-bold flex items-center gap-2"
+                                >
+                                    <div className="icon-upload-cloud"></div>
+                                    رفع صورة
+                                </label>
+                                {newProductForm.image && <span className="text-green-600 text-xs font-bold">تم اختيار الصورة</span>}
+                            </div>
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">أذكر فوائد المنتج (اكتب كل فائدة في سطر جديد)</label>
+                            <textarea
+                                placeholder="الفائدة 1&#10;الفائدة 2&#10;..."
+                                value={typeof newProductForm.description === 'string' ? newProductForm.description : ''}
+                                onChange={(e) => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                                className="border p-3 rounded-lg w-full h-32 outline-none focus:border-[var(--primary)]"
+                            ></textarea>
+                        </div>
+                        <div className="col-span-1 md:col-span-2 flex gap-3">
+                            <button
+                                onClick={handleAddProduct}
+                                className={`${editingProductId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white py-3 rounded-lg font-bold flex-1 transition-colors`}
+                            >
+                                {editingProductId ? 'حفظ التعديلات' : 'حفظ المنتج'}
+                            </button>
+                            {editingProductId && (
+                                <button
+                                    onClick={handleCancelTopEdit}
+                                    className="bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg font-bold px-6 transition-colors"
+                                >
+                                    إلغاء
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-xl shadow border border-[var(--secondary)]">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-[var(--text-dark)] flex items-center gap-2 text-sm">
+                            تغيير السعر
+                        </h3>
+                        {selectedProducts.size > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isDeleting}
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-0.5 px-2 rounded text-xs flex items-center gap-1 animate-fade-in"
+                            >
+                                <div className="icon-trash-2"></div>
+                                <span>{isDeleting ? 'حذف' : `حذف (${selectedProducts.size})`}</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={async () => {
+                                if (confirm('هل ترغب في إضافة منتجات العينة (4 منتجات) إلى قاعدة البيانات؟')) {
+                                    try {
+                                        // data.js is loaded as 'products' (const) in global scope? 
+                                        // No, window.products is current state.
+                                        // We need the STATIC list.
+                                        // It is available in utils/data.js which runs on load.
+                                        // BUT window.products might be overwritten.
+                                        // I'll hardcode the backup or fetch from file?
+                                        // I'll make the user defined function in app.js? 
+                                        // Simpler: Just hardcode default 4 items properties or re-fetch data.js?
+                                        // Actually `utils/data.js` sets `window.products` initially.
+                                        // But I can't access "initial" value if overwritten.
+                                        // I will assume defaults are needed.
+                                        alert("Please use the 'Import CSV' feature or add manually. To restore samples, ensure the database is empty and refresh.");
+                                    } catch (e) { console.error(e); }
+                                }
+                            }}
+                            className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-0.5 px-2 rounded text-xs flex items-center gap-1 hidden"
+                        >
+                            <span>استعادة العينات</span>
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-600">اختر التصنيف:</span>
+                        <select
+                            value={productFilter}
+                            onChange={(e) => { setProductFilter(e.target.value); setCurrentPage(1); }}
+                            className="border p-2 rounded-lg outline-none focus:border-[var(--primary)] bg-gray-50 text-sm"
+                        >
+                            <option value="all">كل المنتجات</option>
+                            {window.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Products Table */}
+                <div className="bg-white rounded-xl shadow border border-[var(--secondary)] overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right min-w-[800px]">
+                            <thead className="bg-[#fadadd]">
+                                <tr>
+                                    <th className="p-4 text-[var(--text-dark)] w-12 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
+                                            onChange={toggleSelectAll}
+                                            className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
+                                        />
+                                    </th>
+                                    <th className="p-4 text-[var(--text-dark)] w-12 text-center">#</th>
+                                    <th className="p-4 text-[var(--text-dark)]">المنتج</th>
+                                    <th className="p-4 text-[var(--text-dark)]">السعر</th>
+                                    <th className="p-4 text-[var(--text-dark)]">التصنيف</th>
+                                    <th className="p-4 text-[var(--text-dark)]">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {displayedProducts.map((p, index) => (
+                                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedProducts.has(p.id)}
+                                                onChange={() => toggleSelect(p.id)}
+                                                className="w-5 h-5 rounded cursor-pointer accent-[var(--primary)]"
+                                            />
+                                        </td>
+                                        <td className="p-4 text-center text-gray-500 font-bold">{index + 1}</td>
+                                        <td className="p-4 font-medium">
+                                            <div className="flex items-center gap-3">
+                                                <img
+                                                    src={p.image || "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlZWUiLz48L3N2Zz4="}
+                                                    alt={p.title}
+                                                    className="w-10 h-10 rounded-lg object-cover shadow-sm border border-gray-200 bg-gray-50 flex-shrink-0"
+                                                />
+                                                {productInlineEditId === p.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={productInlineEditForm.title}
+                                                        onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, title: e.target.value })}
+                                                        className="border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-sm"
+                                                    />
+                                                ) : (
+                                                    <span className="line-clamp-2" title={p.title}>{p.title}</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-[var(--primary)] font-bold">
+                                            {productInlineEditId === p.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={productInlineEditForm.price}
+                                                    onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, price: e.target.value })}
+                                                    className="border p-2 rounded w-24 outline-none focus:border-[var(--primary)]"
+                                                />
+                                            ) : (
+                                                p.price
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-gray-500">
+                                            {productInlineEditId === p.id ? (
+                                                <select
+                                                    value={productInlineEditForm.category}
+                                                    onChange={(e) => setProductInlineEditForm({ ...productInlineEditForm, category: e.target.value })}
+                                                    className="border p-2 rounded outline-none focus:border-[var(--primary)]"
+                                                >
+                                                    {window.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                p.category
+                                            )}
+                                        </td>
+                                        <td className="p-4 flex gap-3">
+                                            {productInlineEditId === p.id ? (
+                                                <>
+                                                    <button
+                                                        onClick={handleSaveProductInlineEdit}
+                                                        className="text-green-600 hover:text-green-800 font-bold text-sm px-3 py-1 border border-green-600 rounded hover:bg-green-50"
+                                                    >
+                                                        حفظ
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelProductInlineEdit}
+                                                        className="text-gray-500 hover:text-gray-700 font-bold text-sm px-3 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                                                    >
+                                                        إلغاء
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleStartProductInlineEdit(p)}
+                                                        className="text-blue-500 hover:text-blue-700 font-bold"
+                                                        title="تعديل"
+                                                    >
+                                                        <div className="flex items-center gap-1">
+                                                            <div className="icon-edit-2"></div>
+                                                            <span className="text-sm">تعديل</span>
+                                                        </div>
+                                                    </button>
+                                                    <button
+                                                        className="text-red-500 hover:text-red-700"
+                                                        title="حذف"
+                                                        onClick={async () => {
+                                                            if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+                                                                try {
+                                                                    await window.db.deleteDocument('products', p.id);
+                                                                    const updated = products.filter(prod => prod.id !== p.id);
+                                                                    setProducts(updated);
+                                                                    window.products = updated;
+                                                                } catch (error) {
+                                                                    alert("Error deleting product");
+                                                                    console.error(error);
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="icon-trash"></div>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-2 mt-6 dir-ltr">
+                        {(() => {
+                            const range = [];
+                            if (totalPages <= 6) {
+                                for (let i = 1; i <= totalPages; i++) range.push(i);
+                            } else {
+                                range.push(1);
+                                if (currentPage > 3) range.push('...');
+
+                                const start = Math.max(2, currentPage - 1);
+                                const end = Math.min(totalPages - 1, currentPage + 1);
+
+                                // Adjust window to always show 3 items if possible? 
+                                // Simplified approach: just start to end
+                                for (let i = start; i <= end; i++) range.push(i);
+
+                                if (currentPage < totalPages - 2) range.push('...');
+                                range.push(totalPages);
+                            }
+
+                            return range.map((page, idx) =>
+                                page === '...' ? (
+                                    <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-gray-400 font-bold">...</span>
+                                ) : (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-10 h-10 rounded-lg font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[var(--primary)] text-white shadow-lg scale-110' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 hover:border-[var(--primary)]'}`}
+                                    >
+                                        {page}
+                                    </button>
+                                )
+                            );
+                        })()}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // Categories Management View
+    const CategoriesView = () => {
+        // We still sort it for display
+        const sortedCategories = [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+        return (
+            <div className="animate-fade-in">
+                <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-bold text-[var(--text-dark)]">إدارة التصنيفات</h2>
+                    <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                        <div className="icon-arrow-right"></div>
+                        <span>العودة</span>
+                    </button>
+                </div>
+
+                {/* Add/Edit Category Form */}
+                <div className="bg-white rounded-xl shadow p-6 mb-8 border border-[var(--secondary)]">
+                    <h3 className="text-lg font-bold mb-4 text-[var(--text-dark)]">
+                        {editingCategory ? 'تعديل التصنيف' : 'إضافة تصنيف جديد'}
+                    </h3>
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-grow flex flex-col md:flex-row gap-4">
+                            <input
+                                type="text"
+                                placeholder="اسم التصنيف"
+                                value={categoryForm.name}
+                                onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                                className="border p-3 rounded-lg flex-[2] outline-none focus:border-[var(--primary)]"
+                            />
+                            <input
+                                type="text"
+                                placeholder="ID"
+                                value={categoryForm.id}
+                                onChange={e => setCategoryForm({ ...categoryForm, id: e.target.value })}
+                                disabled={!!editingCategory}
+                                className={`border p-3 rounded-lg flex-1 outline-none focus:border-[var(--primary)] text-center dir-ltr ${editingCategory ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            />
+                        </div>
+
+                        {/* Image Input Area */}
+                        <div className="relative flex-[1.5]">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="رابط الصورة"
+                                    value={categoryForm.image}
+                                    onChange={e => setCategoryForm({ ...categoryForm, image: e.target.value })}
+                                    className="border p-3 rounded-lg w-full outline-none focus:border-[var(--primary)] text-sm"
+                                />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                try {
+                                                    const url = await window.uploadImageToFirebase(file, 'categories');
+                                                    setCategoryForm(prev => ({ ...prev, image: url }));
+                                                } catch (error) {
+                                                    alert("فشل رفع الصورة");
+                                                }
+                                            }
+                                        }}
+                                        className="hidden"
+                                        id="category-image-upload-main"
+                                    />
+                                    <label
+                                        htmlFor="category-image-upload-main"
+                                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded cursor-pointer transition-colors text-sm font-bold flex items-center justify-center whitespace-nowrap"
+                                    >
+                                        <div className="icon-upload-cloud mr-1"></div>
+                                        رفع
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 min-w-[150px] w-full md:w-auto">
+                            <button
+                                onClick={handleSaveCategory}
+                                className={`${editingCategory ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white py-3 px-4 rounded-lg font-bold flex-grow transition-colors`}
+                            >
+                                {editingCategory ? 'حفظ' : 'إضافة'}
+                            </button>
+                            {editingCategory && (
+                                <button
+                                    onClick={handleCancelEdit}
+                                    className="bg-gray-500 hover:bg-gray-600 text-white py-3 px-4 rounded-lg font-bold transition-colors"
+                                >
+                                    إلغاء
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Categories Table */}
+                <div className="bg-white rounded-xl shadow overflow-x-auto border border-[var(--secondary)]">
+                    <table className="w-full text-right">
+                        <thead className="bg-[#fadadd]">
+                            <tr>
+                                <th className="p-4 text-[var(--text-dark)] w-24 text-center">الترتيب</th>
+                                <th className="p-4 text-[var(--text-dark)] w-24">الصورة</th>
+                                <th className="p-4 text-[var(--text-dark)]">اسم التصنيف</th>
+                                <th className="p-4 text-[var(--text-dark)]">المعرف (ID)</th>
+                                <th className="p-4 text-[var(--text-dark)] text-center w-32">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {sortedCategories.map((cat, index) => (
+                                <tr key={cat.id} className={`hover:bg-gray-50 transition-colors ${editingCategory?.id === cat.id ? 'bg-blue-50' : ''}`}>
+                                    <td className="p-4 text-center">
+                                        <div className="flex flex-col items-center justify-center gap-1">
+                                            {/* UP BUTTON */}
+                                            <button
+                                                onClick={() => handleMoveCategory(cat.id, -1)}
+                                                className={`p-1 rounded hover:bg-gray-200 text-gray-600 ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                disabled={index === 0}
+                                            >
+                                                <div className="icon-chevron-up"></div>
+                                            </button>
+
+                                            {/* DOWN BUTTON */}
+                                            <button
+                                                onClick={() => handleMoveCategory(cat.id, 1)}
+                                                className={`p-1 rounded hover:bg-gray-200 text-gray-600 ${index === sortedCategories.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                disabled={index === sortedCategories.length - 1}
+                                            >
+                                                <div className="icon-chevron-down"></div>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div
+                                            className="w-12 h-12 rounded object-cover border cursor-pointer hover:opacity-80 relative overflow-hidden group"
+                                            onClick={() => handleEditCategory(cat)}
+                                            title="تعديل"
+                                        >
+                                            <img src={inlineEditId === cat.id ? inlineEditForm.image : cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                                        </div>
+                                    </td>
+
+                                    <td className="p-4 font-bold">
+                                        {inlineEditId === cat.id ? (
+                                            <input
+                                                type="text"
+                                                value={inlineEditForm.name}
+                                                onChange={(e) => setInlineEditForm({ ...inlineEditForm, name: e.target.value })}
+                                                className="border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-[var(--text-dark)]"
+                                            />
+                                        ) : (
+                                            cat.name
+                                        )}
+                                    </td>
+
+                                    <td className="p-4 text-gray-500 font-mono text-sm dir-ltr text-right">
+                                        {inlineEditId === cat.id ? (
+                                            <input
+                                                type="text"
+                                                value={inlineEditForm.id}
+                                                onChange={(e) => setInlineEditForm({ ...inlineEditForm, id: e.target.value })}
+                                                className="border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-sm"
+                                            />
+                                        ) : (
+                                            cat.id
+                                        )}
+                                    </td>
+
+                                    <td className="p-4 flex justify-center gap-2">
+                                        {inlineEditId === cat.id ? (
+                                            <>
+                                                <button
+                                                    onClick={handleSaveInlineEdit}
+                                                    className="text-green-600 hover:text-green-800 font-bold text-xs border border-green-600 rounded px-2 py-1 hover:bg-green-50"
+                                                >
+                                                    حفظ
+                                                </button>
+                                                <button
+                                                    onClick={handleCancelInlineEdit}
+                                                    className="text-gray-500 hover:text-gray-700 font-bold text-xs border border-gray-300 rounded px-2 py-1 hover:bg-gray-50"
+                                                >
+                                                    إلغاء
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => handleStartInlineEdit(cat)}
+                                                    className="text-blue-500 hover:text-blue-700 px-2 flex items-center gap-1 font-bold"
+                                                    title="تعديل سريع"
+                                                >
+                                                    <div className="icon-edit-2 text-lg"></div>
+                                                    <span>تعديل</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteCategory(cat.id)}
+                                                    className="text-red-500 hover:text-red-700 px-2"
+                                                    title="حذف"
+                                                >
+                                                    <div className="icon-trash text-lg"></div>
+                                                </button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    // Placeholders for other views
+    const PlaceholderView = ({ title, icon, desc }) => (
+        <div className="animate-fade-in h-[50vh] flex flex-col items-center justify-center text-center">
+            <div className="flex items-center justify-between w-full mb-8">
+                <h2 className="text-2xl font-bold text-[var(--text-dark)]">{title}</h2>
+                <button onClick={() => setCurrentView('dashboard')} className="text-[var(--primary)] font-bold hover:underline flex items-center gap-2">
+                    <div className="icon-arrow-right"></div>
+                    <span>العودة</span>
+                </button>
+            </div>
+            <div className={`${icon} text-6xl text-[var(--secondary)] mb-4`}></div>
+            <p className="text-xl text-gray-500">{desc}</p>
+        </div>
+    );
+
+    if (!isLoggedIn) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-light)]">
+                <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+                    <h1 className="text-2xl font-bold text-center mb-6 text-[var(--text-dark)]">تسجيل دخول المسؤول</h1>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-3 border rounded-lg mb-4 focus:ring-2 focus:ring-[var(--primary)] outline-none transition-all"
+                        placeholder="كلمة المرور"
+                    />
+                    <button type="submit" className="w-full bg-[var(--primary)] text-white py-3 rounded-lg font-bold hover:bg-opacity-90 transition-all">دخول</button>
+                </form>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto px-4 py-8 min-h-screen">
+            {currentView === 'dashboard' && (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
+                    <div className="mb-12 text-center relative w-full">
+                        <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-dark)] bg-white/50 px-8 py-2 rounded-full inline-block">لوحة التحكم</h1>
+                        <Link to="/" className="absolute left-0 top-1/2 transform -translate-y-1/2 text-[var(--primary)] hover:underline flex items-center gap-2 text-lg">
+                            <div className="icon-home"></div>
+                            <span className="hidden md:inline">الرئيسية</span>
+                        </Link>
+                    </div>
+
+                    <div className="flex flex-col w-full max-w-md gap-4">
+                        <DashboardBtn title="المنتجات المميزة" onClick={() => setCurrentView('featured')} className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700" />
+                        <DashboardBtn title="تعديل المنتجات" onClick={() => setCurrentView('products')} />
+                        <DashboardBtn title="تعديل التصنيفات" onClick={() => setCurrentView('categories')} />
+                        <DashboardBtn title="إعدادات الموقع" onClick={() => setCurrentView('site')} />
+                        <DashboardBtn title="رسائل العملاء" onClick={() => setCurrentView('messages')} className="bg-teal-600 hover:bg-teal-700" />
+                    </div>
+                </div>
+            )}
+
+            {currentView === 'products' && ProductsView()}
+
+            {currentView === 'categories' && CategoriesView()}
+
+            {currentView === 'messages' && <MessagesView onBack={() => setCurrentView('dashboard')} />}
+
+            {currentView === 'site' && <SiteSettingsView onBack={() => setCurrentView('dashboard')} />}
+
+            {currentView === 'featured' && <FeaturedProductsView onBack={() => setCurrentView('dashboard')} />}
+        </div>
+    );
+}
+
+// Dashboard Button Component
+const DashboardBtn = ({ title, onClick, className }) => (
+    <button
+        onClick={onClick}
+        className={`w-full text-white text-xl md:text-2xl font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all text-center mb-6 ${className || 'bg-[#8E5465] hover:bg-[#7a4655]'}`}
+    >
+        {title}
+    </button>
+);
