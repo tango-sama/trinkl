@@ -54,6 +54,7 @@ const HomePage = () => (
     <React.Fragment>
         <Hero />
         <CategorySlider />
+        <ProductCarousel />
         <ProductGrid />
         <Features />
     </React.Fragment>
