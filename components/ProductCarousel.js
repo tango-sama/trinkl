@@ -13,14 +13,17 @@ function ProductCarousel() {
 
     React.useEffect(() => {
         const fetchFeaturedProducts = async () => {
+            if (!window.db) {
+                console.warn('[ProductCarousel] DB not found, retrying...');
+                setTimeout(fetchFeaturedProducts, 500);
+                return;
+            }
             try {
-                // Fetch featured products from Firebase
                 const products = await window.db.getCollection('featured_products');
                 const sorted = products.sort((a, b) => (a.order || 0) - (b.order || 0));
-                console.log(`[ProductGrid] Loaded ${sorted.length} featured products`);
                 setFeaturedProducts(sorted);
             } catch (error) {
-                console.error('[ProductGrid] Error fetching featured products:', error);
+                console.error('[ProductCarousel] Error fetching products:', error);
                 setFeaturedProducts([]);
             } finally {
                 setLoading(false);
@@ -35,7 +38,7 @@ function ProductCarousel() {
         if (featuredProducts.length === 0 || isAnimating) return;
 
         const interval = setInterval(() => {
-            nextProduct();
+            prevProduct();
         }, 5000);
 
         return () => clearInterval(interval);
@@ -321,6 +324,9 @@ function ProductCarousel() {
                             }
 
 
+                            // Calculate how centered this card is (1 = fully center, 0 = side)
+                            const centerProgress = 1 - Math.min(Math.abs(translateX) / 85, 1);
+
                             return (
                                 <div
                                     key={`carousel-${product.id}-${globalIdx}`}
@@ -338,87 +344,120 @@ function ProductCarousel() {
                                     }}
                                 >
                                     <div className="relative px-4">
-                                        {/* Circular Background */}
-                                        <div className="relative mx-auto" style={{ width: '300px', height: '300px' }}>
-                                            {/* Product Image as Background */}
+                                        {/* Heart Sticker - Center Only - Pops out of the dome */}
+                                        {isCenter && (
                                             <div
-                                                className="absolute inset-0 rounded-full shadow-2xl border-4 border-purple-200/50"
+                                                className="absolute top-2 right-2 z-[60] -rotate-12"
                                                 style={{
-                                                    backgroundImage: `url(${product.image})`,
-                                                    backgroundSize: 'cover',
-                                                    backgroundPosition: 'center'
+                                                    animation: 'fadeInScale 0.4s ease-out 0.4s both'
                                                 }}
-                                            ></div>
-
-                                            {/* NEW Badge - Center Only with Fade-in */}
-                                            {isCenter && (
-                                                <div
-                                                    className="absolute -top-10 left-1/2 -translate-x-1/2 z-50"
-                                                    style={{
-                                                        animation: 'fadeInDown 0.5s ease-out 0.3s both'
-                                                    }}
-                                                >
-                                                    <div className="bg-gradient-to-r from-orange-400 to-orange-500 text-white px-6 py-2.5 rounded-full shadow-xl font-bold text-sm">
-                                                        NEW
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Heart Icon - Center Only with Fade-in */}
-                                            {isCenter && (
-                                                <div
-                                                    className="absolute top-3 right-3 z-50"
-                                                    style={{
-                                                        animation: 'fadeInScale 0.4s ease-out 0.4s both'
-                                                    }}
-                                                >
-                                                    <button className="w-11 h-11 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-transform">
-                                                        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Product Name - Visible Above Card */}
-                                        {product.productName && (
-                                            <h3 className="text-lg md:text-xl font-bold text-purple-900 mt-3 mb-2 text-center px-4 relative z-10" dir="rtl">
-                                                {product.productName}
-                                            </h3>
+                                            >
+                                                <button className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-4 border-white group">
+                                                    <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         )}
 
-                                        {/* Info Card - Overlapping Bottom of Circle */}
-                                        <div className="relative bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-5 -mt-20 pt-24 border-2 border-purple-100/60 mx-4">
-                                            {/* CTA Button - Tighter Spacing with Fade-in */}
-                                            {isCenter && product.ctaText && (
+                                        {/* UNIFIED DOME SHAPE CARD */}
+                                        <div
+                                            className="relative mx-auto flex flex-col overflow-hidden bg-white border-[6px] border-purple-100 shadow-2xl transition-all duration-300"
+                                            style={{
+                                                width: '320px',
+                                                height: '520px',
+                                                borderRadius: '160px 160px 40px 40px',
+                                                transform: `translateY(${-20 * centerProgress}px)`, // Slight lift when centered
+                                            }}
+                                        >
+                                            {/* Top Image Section (The Dome) */}
+                                            <div
+                                                className="relative h-[65%] bg-cover bg-center transition-transform duration-700"
+                                                style={{
+                                                    backgroundImage: `url(${product.image})`,
+                                                    backgroundSize: 'cover'
+                                                }}
+                                            >
+                                                {/* Gradient Overlay for better contrast */}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+
+                                                {/* NEW Badge - Center Only with Fade-in */}
+                                                {isCenter && (
+                                                    <div
+                                                        className="absolute top-3 left-1/2 -translate-x-1/2 z-50"
+                                                        style={{
+                                                            animation: 'fadeInDown 0.5s ease-out 0.3s both'
+                                                        }}
+                                                    >
+                                                        <div className="bg-gradient-to-r from-orange-400 to-orange-500 text-white px-6 py-1.5 rounded-full shadow-xl font-bold text-xs tracking-wider">
+                                                            NEW
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Info Section - Standard White Box Bottom */}
+                                            <div
+                                                className="relative flex-grow bg-white pt-2 pb-6 px-6 flex flex-col items-center justify-start text-center border-t border-purple-50"
+                                            >
+                                                {/* Overlapping Badge: "Product Name" */}
                                                 <div
-                                                    className="flex justify-center mb-3"
+                                                    className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 px-8 py-2.5 rounded-full shadow-lg font-bold text-white whitespace-nowrap transition-all duration-500"
                                                     style={{
-                                                        animation: 'fadeInUp 0.5s ease-out 0.5s both'
+                                                        background: 'linear-gradient(135deg, #8E5465 0%, #5D3A44 100%)',
+                                                        transform: `translateX(-50%) scale(${0.9 + (0.1 * centerProgress)})`,
+                                                        boxShadow: '0 8px 20px -5px rgba(142, 84, 101, 0.4)'
                                                     }}
                                                 >
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (product.productLink) {
-                                                                navigate(product.productLink);
-                                                            }
-                                                        }}
-                                                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-sm md:text-base px-8 py-3 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
-                                                    >
-                                                        {product.ctaText}
-                                                    </button>
+                                                    {product.productName || 'سر الجمال'}
                                                 </div>
-                                            )}
 
-                                            {/* Description - Compact */}
-                                            <div dir="rtl" className="min-h-[50px]">
-                                                <p className="text-xs md:text-sm font-medium text-gray-700 leading-snug text-center line-clamp-3">
-                                                    {product.leftText || product.rightText || 'استمتعي بجمال طبيعي وبثقة لا تضاهى مع منتجنا المصمم بعناية فائقة.'}
-                                                </p>
+                                                {/* CTA Slot - Appears only when centered */}
+                                                <div
+                                                    className="w-full flex justify-center transition-all duration-500 overflow-hidden"
+                                                    style={{
+                                                        marginTop: `${14 * centerProgress}px`,
+                                                        height: `${55 * centerProgress}px`,
+                                                        opacity: centerProgress,
+                                                        visibility: centerProgress > 0.5 ? 'visible' : 'hidden'
+                                                    }}
+                                                >
+                                                    {product.ctaText && (
+                                                        <div
+                                                            className="mt-1"
+                                                            style={{
+                                                                animation: isCenter ? 'fadeInUp 0.5s ease-out 0.2s both' : 'none'
+                                                            }}
+                                                        >
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (product.productLink) navigate(product.productLink);
+                                                                }}
+                                                                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-sm px-10 py-3 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap"
+                                                            >
+                                                                {product.ctaText}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Description - Moves down based on centerProgress */}
+                                                <div
+                                                    dir="rtl"
+                                                    className="w-full transition-all duration-500 ease-out"
+                                                    style={{
+                                                        transform: `translateY(${-12 + (12 * centerProgress)}px)`,
+                                                        marginTop: `${8 + (40 * (1 - centerProgress))}px`,
+                                                    }}
+                                                >
+                                                    <p className="text-[13px] md:text-[15px] font-medium text-gray-800 leading-relaxed line-clamp-3">
+                                                        {product.leftText || product.rightText || 'استمتعي بجمال طبيعي وبثقة لا تضاهى مع منتجنا المصمم بعناية فائقة.'}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
+
                                     </div>
                                 </div>
                             );
@@ -531,6 +570,6 @@ function ProductCarousel() {
                     overflow: hidden;
                 }
             `}</style>
-        </section>
+        </section >
     );
 }

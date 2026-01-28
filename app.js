@@ -53,6 +53,7 @@ const Layout = ({ children, cartCount }) => {
 const HomePage = () => (
     <React.Fragment>
         <Hero />
+        <FeaturedCategories />
         <CategorySlider />
         <ProductCarousel />
         <ProductGrid />
