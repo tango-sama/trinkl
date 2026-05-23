@@ -40,29 +40,114 @@
     <style type="text/tailwindcss">
         @layer theme {
         :root {
-            --primary: #8E5465; /* Dark mauve/brown - Restored */
-            --secondary: #D8A7B1; /* Lighter pink accent - Restored */
-            --accent: #5D3A44; /* Darker mauve for accent (mapped to old text-dark/hover) */
-            --bg-light: #F9E8E8; /* Very light background - Restored */
-            --bg-card: #F2D5D5; /* Slightly darker pink for cards/sections - Restored */
-            --text-dark: #5D3A44; /* Dark text color - Restored */
+            --primary: #c4786a;
+            --primary-dark: #b06a5d;
+            --secondary: #d4a574;
+            --accent: #8fb9a8;
+            --bg-light: #faf8f5;
+            --bg-card: #ffffff;
+            --bg-beige: #f5f0eb;
+            --text-dark: #2d2d2d;
+            --text-muted: #7a7a7a;
+            --border-color: #e8e0d8;
             --white: #ffffff;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
         }
         body {
             font-family: 'Cairo', sans-serif;
             background-color: var(--bg-light);
             color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) var(--bg-light);
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-light);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
         }
     }
     
     @layer components {
         .btn-primary {
-            @apply bg-[var(--primary)] text-white px-6 py-2 rounded shadow-md hover:bg-opacity-90 transition-all duration-300 font-bold;
+            @apply px-6 py-3 rounded-xl font-bold transition-all duration-300;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(196, 120, 106, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(196, 120, 106, 0.4);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
         }
         .section-title {
-            @apply text-2xl md:text-3xl font-bold text-center text-[var(--text-dark)] mb-8 bg-[var(--primary)] text-white py-2 px-8 rounded-full inline-block;
+            @apply text-2xl md:text-3xl font-bold text-center mb-8 py-3 px-10 rounded-full inline-block;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 15px rgba(196, 120, 106, 0.2);
         }
-        /* Custom shape for the hero background if needed, though simple gradients work too */
+        .card-hover {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    }
+    
+    @layer utilities {
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        .animate-slide-up {
+            animation: slideUp 0.6s ease-out forwards;
+        }
+        .animate-scale-in {
+            animation: scaleIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     }
     </style>
 </head>

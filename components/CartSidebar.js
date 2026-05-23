@@ -1,188 +1,126 @@
-function CartSidebar({ isOpen, onClose, cart = [], lastAddedId = null }) {
-    const { Link, useLocation } = ReactRouterDOM;
-    const location = useLocation();
-    const itemRefs = React.useRef({});
-    const { IconShoppingCart, IconX, IconTrash2, IconArrowLeft, IconPlus, IconMinus } = window.Icons;
+function CartSidebar({ isOpen, onClose, cart, lastAddedId }) {
+    const calculateTotal = () => {
+        const items = Array.isArray(cart) ? cart : [];
+        return items.reduce((acc, item) => {
+            if (!item) return acc;
+            const priceStr = String(item.price || "0");
+            const price = parseInt(priceStr.replace(/[^0-9]/g, '') || 0);
+            return acc + (price * (item.quantity || 1));
+        }, 0);
+    };
 
-    // Close on Route Change
-    React.useEffect(() => {
-        if (isOpen) onClose();
-    }, [location]);
+    const totalItems = Array.isArray(cart) ? cart.reduce((acc, item) => acc + (item?.quantity || 1), 0) : 0;
 
-    const total = cart.reduce((acc, item) => {
-        if (!item) return acc;
-        const price = parseInt(String(item.price || "0").replace(/[^0-9]/g, '') || 0);
-        return acc + (price * (item.quantity || 1));
-    }, 0);
-
-    // Scroll to last added item with a slight delay to ensure drawer is visible
-    React.useEffect(() => {
-        if (isOpen && lastAddedId && itemRefs.current[lastAddedId]) {
-            setTimeout(() => {
-                itemRefs.current[lastAddedId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
-        }
-    }, [isOpen, lastAddedId]);
-
-    // Back Button Handling & Escape Key
-    React.useEffect(() => {
-        if (!isOpen) return;
-
-        window.history.pushState({ cartOpen: true }, '');
-
-        const handlePopState = (e) => {
-            onClose();
-        };
-
-        const handleEsc = (e) => {
-            if (e.key === 'Escape') {
-                window.history.back();
-            }
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        window.addEventListener('keydown', handleEsc);
-
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-            window.removeEventListener('keydown', handleEsc);
-            if (window.history.state?.cartOpen) {
-                window.history.back();
-            }
-        };
-    }, [isOpen]);
+    if (!isOpen) return null;
 
     return (
-        <div
-            className={`fixed inset-0 z-[100] flex justify-start transition-visibility duration-300 ${isOpen ? 'visible' : 'invisible delay-300'}`}
-        >
+        <>
             {/* Backdrop */}
-            <div
-                className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+            <div 
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-fade-in"
                 onClick={onClose}
             ></div>
-
-            {/* Slider Panel */}
-            <div
-                className={`
-                    relative w-[85%] md:w-full md:max-w-sm bg-white h-full shadow-2xl flex flex-col 
-                    transform transition-transform duration-300 ease-out border-l border-gray-100
-                    ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-                `}
-            >
+            
+            {/* Sidebar */}
+            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col animate-slide-up">
                 {/* Header */}
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50 shadow-sm z-10">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-[var(--text-dark)]">
-                        <IconShoppingCart className="w-8 h-8 text-[var(--primary)]" />
-                        سلة المشتريات ({cart.length})
-                    </h2>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors text-gray-500">
-                        <IconX className="w-8 h-8" />
+                <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-[var(--text-dark)]">سلة المشتريات</h2>
+                            <p className="text-sm text-[var(--text-muted)]">{totalItems} منتج</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="w-10 h-10 rounded-xl bg-[var(--bg-light)] flex items-center justify-center hover:bg-[var(--primary)]/10 transition-colors"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
                 </div>
 
-                {/* Items */}
-                <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-50/50">
-                    {cart.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-400 pb-20">
-                            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                                <IconShoppingCart className="w-16 h-16 opacity-30" />
+                {/* Cart Items */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {!cart || cart.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center">
+                            <div className="w-24 h-24 bg-[var(--bg-light)] rounded-full flex items-center justify-center mb-4">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
                             </div>
-                            <p className="font-bold text-lg mb-4 text-gray-500">السلة فارغة</p>
-                            <button
-                                onClick={onClose}
-                                className="bg-white border border-[var(--primary)] text-[var(--primary)] px-6 py-2 rounded-full font-bold hover:bg-[var(--primary)] hover:text-white transition-all shadow-sm"
-                            >
-                                تصفح المنتجات
-                            </button>
+                            <p className="text-[var(--text-muted)] font-bold text-lg">السلة فارغة</p>
+                            <p className="text-sm text-[var(--text-muted)] mt-2">أضفي بعض المنتجات!</p>
                         </div>
                     ) : (
-                        cart.map((item, idx) => {
-                            if (!item) return null;
-                            const isLastAdded = item.id === lastAddedId;
-                            return (
-                                <div
-                                    key={idx}
-                                    ref={el => itemRefs.current[item.id] = el}
-                                    className={`
-                                        flex gap-3 items-center p-3 rounded-2xl border shadow-sm transition-all duration-500 group relative overflow-hidden
-                                        ${isLastAdded
-                                            ? 'bg-green-50 border-green-300 ring-2 ring-green-100 scale-[1.02] shadow-md'
-                                            : 'bg-white border-gray-100 hover:shadow-md'}
-                                    `}
-                                >
-                                    {isLastAdded && <div className="absolute inset-0 bg-green-200/20 animate-pulse pointer-events-none"></div>}
-
-                                    <div className="w-20 h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 relative bg-white">
-                                        <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="flex-grow min-w-0 flex flex-col justify-between h-20 py-1 relative z-10">
-                                        <h3 className="font-bold text-sm text-[var(--text-dark)] line-clamp-2 leading-tight">{item.title}</h3>
-
-                                        <div className="flex justify-between items-end mt-2">
-                                            <p className="text-[var(--primary)] font-bold text-base">{item.price}</p>
-
-                                            <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-100">
-                                                <button
-                                                    onClick={() => window.addToCart && window.addToCart(item)}
-                                                    className="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-colors"
-                                                >
-                                                    <IconPlus className="w-4 h-4" />
-                                                </button>
-                                                <span className="text-sm font-bold w-6 text-center text-[var(--text-dark)]">{item.quantity || 1}</span>
+                        <div className="space-y-4">
+                            {cart.map((item, idx) => {
+                                if (!item) return null;
+                                const isLastAdded = item.id === lastAddedId;
+                                return (
+                                    <div 
+                                        key={idx} 
+                                        className={`flex gap-4 items-center bg-[var(--bg-light)] rounded-xl p-4 transition-all ${isLastAdded ? 'ring-2 ring-[var(--primary)] animate-pulse' : ''}`}
+                                    >
+                                        <div className="w-20 h-20 rounded-xl overflow-hidden border border-[var(--border-color)] flex-shrink-0 bg-white">
+                                            <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="flex-grow min-w-0">
+                                            <h3 className="font-bold text-sm text-[var(--text-dark)] line-clamp-1">{item.title}</h3>
+                                            <p className="text-[var(--primary)] font-bold text-sm mt-1">{item.price}</p>
+                                            <div className="flex items-center gap-2 mt-2">
                                                 <button
                                                     onClick={() => window.decreaseQuantity && window.decreaseQuantity(item.id)}
-                                                    className={`w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 hover:bg-gray-100 transition-colors ${(!item.quantity || item.quantity <= 1) ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                    className={`w-7 h-7 bg-white border border-[var(--border-color)] rounded-lg hover:bg-[var(--primary)] hover:border-[var(--primary)] hover:text-white transition-all flex items-center justify-center text-[var(--primary)] ${(!item.quantity || item.quantity <= 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     disabled={!item.quantity || item.quantity <= 1}
                                                 >
-                                                    <IconMinus className="w-4 h-4" />
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/></svg>
+                                                </button>
+                                                <span className="font-bold text-sm w-6 text-center">{item.quantity || 1}</span>
+                                                <button
+                                                    onClick={() => window.addToCart && window.addToCart(item)}
+                                                    className="w-7 h-7 bg-white border border-[var(--border-color)] rounded-lg hover:bg-[var(--primary)] hover:border-[var(--primary)] hover:text-white transition-all flex items-center justify-center text-[var(--primary)]"
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                                                 </button>
                                             </div>
                                         </div>
+                                        <button
+                                            onClick={() => window.removeFromCart && window.removeFromCart(item.id)}
+                                            className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors flex-shrink-0"
+                                        >
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => window.removeFromCart && window.removeFromCart(item.id)}
-                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors self-center relative z-10"
-                                        title="حذف"
-                                    >
-                                        <IconTrash2 className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            );
-                        })
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                {cart.length > 0 && (
-                    <div className="p-4 border-t bg-white shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-10">
-                        <div className="flex justify-between items-center mb-4 text-xl font-bold text-[var(--text-dark)]">
+                {cart && cart.length > 0 && (
+                    <div className="border-t border-[var(--border-color)] p-6 space-y-4">
+                        <div className="flex justify-between items-center text-xl font-extrabold text-[var(--text-dark)]">
                             <span>المجموع:</span>
-                            <span>{total.toLocaleString()} د.ج</span>
+                            <span className="text-[var(--primary)]">{calculateTotal().toLocaleString()} د.ج</span>
                         </div>
-                        <div className="flex gap-3">
-                            <Link
-                                to="/checkout"
-                                onClick={onClose}
-                                className="flex-1 bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2"
-                            >
-                                <span>إتمام الطلب</span>
-                                <IconArrowLeft className="w-5 h-5" />
-                            </Link>
-                            <button
-                                onClick={() => {
-                                    if (confirm('هل أنت متأكد من إفراغ السلة؟')) {
-                                        window.clearCart && window.clearCart();
-                                    }
-                                }}
-                                className="px-4 py-3 border border-red-200 text-red-500 hover:bg-red-50 rounded-xl font-bold transition-colors"
-                            >
-                                <IconTrash2 className="w-6 h-6" />
-                            </button>
-                        </div>
+                        <ReactRouterDOM.Link
+                            to="/checkout"
+                            onClick={onClose}
+                            className="btn-primary w-full text-center block text-lg py-4"
+                        >
+                            إتمام الطلب
+                        </ReactRouterDOM.Link>
+                        <button 
+                            onClick={onClose}
+                            className="w-full text-center text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors text-sm"
+                        >
+                            مواصلة التسوق
+                        </button>
                     </div>
                 )}
             </div>
-        </div>
+        </>
     );
 }

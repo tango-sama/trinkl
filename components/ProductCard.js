@@ -6,61 +6,82 @@ function ProductCard({ product }) {
         navigate(`/product/${product.id}`);
     };
 
+    // Format price with proper display
+    const formatPrice = (price) => {
+        if (!price) return '0 DA';
+        const priceStr = String(price);
+        const numericPrice = priceStr.replace(/[^0-9]/g, '');
+        return `${parseInt(numericPrice).toLocaleString('fr-DZ')} DA`;
+    };
+
     return (
         <div
             onClick={handleCardClick}
-            className="relative rounded-2xl overflow-hidden shadow-lg h-96 group border border-white/20 hover:shadow-2xl transition-all duration-500 cursor-pointer"
+            className="group relative bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer border border-[var(--border-color)] h-[420px]"
         >
-            {/* Background Image - Full Cover */}
-            <div className="absolute inset-0 bg-gray-100">
+            {/* Image Container */}
+            <div className="relative h-64 overflow-hidden bg-gradient-to-br from-[var(--bg-beige)] to-[var(--bg-light)]">
                 <img
                     src={product.image}
                     alt={product.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     loading="lazy"
                 />
+                {/* Overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                
+                {/* Category badge */}
+                {product.category && (
+                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[var(--primary)] shadow-sm">
+                        {window.categories?.find(c => c.id === product.category)?.name || product.category}
+                    </div>
+                )}
             </div>
 
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none z-10 opacity-70 group-hover:opacity-90 transition-opacity"></div>
+            {/* Content */}
+            <div className="p-4 flex flex-col h-[156px]">
+                <h3 className="font-bold text-[var(--text-dark)] text-base mb-2 line-clamp-2 group-hover:text-[var(--primary)] transition-colors">
+                    {product.title}
+                </h3>
+                
+                {product.subtitle && (
+                    <p className="text-[var(--text-muted)] text-sm mb-3 line-clamp-1">
+                        {product.subtitle}
+                    </p>
+                )}
 
-            {/* Top Title */}
-            <div className="absolute top-0 left-0 right-0 p-4 z-20">
-                <div className="backdrop-blur-md bg-white/10 border border-white/10 p-2 rounded-lg text-center shadow-lg hover:bg-white/20 transition-colors">
-                    <h3 className="font-bold text-white text-xs md:text-sm drop-shadow-md line-clamp-2">
-                        {product.title}
-                    </h3>
+                <div className="mt-auto flex items-center justify-between">
+                    <span className="text-xl font-bold text-[var(--primary)]">
+                        {formatPrice(product.price)}
+                    </span>
+                    
+                    <div className="flex items-center gap-2">
+                        {/* WhatsApp button */}
+                        <a
+                            href={`https://wa.me/213662705830?text=${encodeURIComponent(`مرحباً، أريد طلب المنتج: ${product.title}`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-10 h-10 bg-green-500 text-white rounded-xl flex items-center justify-center hover:bg-green-600 hover:scale-110 transition-all shadow-md"
+                            title="اطلب عبر واتساب"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        </a>
+                        
+                        {/* Add to cart button */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                if (window.addToCart) window.addToCart(product);
+                            }}
+                            className="w-10 h-10 bg-[var(--primary)] text-white rounded-xl flex items-center justify-center hover:bg-[var(--primary-dark)] hover:scale-110 transition-all shadow-md"
+                            title="إضافة للسلة"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                        </button>
+                    </div>
                 </div>
-            </div>
-
-            {/* Buttons - Bottom Corners */}
-            {/* WhatsApp - Bottom Right */}
-            <div className="absolute bottom-4 right-4 z-30">
-                <a
-                    href={`https://wa.me/213662705830?text=${encodeURIComponent(`مرحباً، أريد طلب المنتج: ${product.title}`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-12 h-12 bg-green-500/20 hover:bg-green-500/60 text-white rounded-xl shadow-lg flex items-center justify-center backdrop-blur-md border border-white/20 transition-all hover:scale-110 hover:rotate-3"
-                    title="اطلب عبر واتساب"
-                >
-                    <div className="icon-message-circle text-2xl"></div>
-                </a>
-            </div>
-
-            {/* Add to Cart - Bottom Left */}
-            <div className="absolute bottom-4 left-4 z-30">
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if (window.addToCart) window.addToCart(product);
-                    }}
-                    className="w-12 h-12 bg-[var(--primary)]/20 hover:bg-[var(--primary)]/60 text-white rounded-xl shadow-lg flex items-center justify-center backdrop-blur-md border border-white/20 transition-all hover:scale-110 hover:-rotate-3 cursor-pointer"
-                    title="إضافة للسلة"
-                >
-                    <div className="icon-shopping-cart text-2xl"></div>
-                </button>
             </div>
         </div>
     );

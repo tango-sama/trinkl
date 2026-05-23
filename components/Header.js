@@ -1,9 +1,18 @@
 function Header({ cartCount = 0 }) {
     const [isOpen, setIsOpen] = React.useState(false);
+    const [scrolled, setScrolled] = React.useState(false);
     const { Link, useLocation } = ReactRouterDOM;
-    const { IconShoppingCart, IconMenu, IconX } = window.Icons;
+    const location = useLocation();
+    const isAdmin = location.pathname.startsWith('/amelhadj');
 
-    const isLoggedIn = sessionStorage.getItem('adminToken') === 'true';
+    // Handle scroll effect
+    React.useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 20);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     // Close on Back Button
     React.useEffect(() => {
@@ -25,95 +34,119 @@ function Header({ cartCount = 0 }) {
     }, [isOpen]);
 
     // Close on Route Change
-    const location = useLocation();
     React.useEffect(() => {
         setIsOpen(false);
     }, [location]);
 
+    const navLinks = [
+        { to: '/', label: 'الرئيسية' },
+        { to: '/categories', label: 'التصنيفات' },
+        { to: '/products', label: 'المنتجات' },
+        { to: '/contact', label: 'اتصل بنا' },
+    ];
+
     return (
         <>
-            <header className="sticky top-0 z-50 bg-[var(--bg-light)]/90 backdrop-blur-md shadow-sm border-b border-[var(--secondary)]">
+            <header className={`sticky top-0 z-50 transition-all duration-300 ${
+                scrolled 
+                    ? 'bg-white/90 backdrop-blur-lg shadow-lg border-b border-[var(--border-color)]' 
+                    : 'bg-transparent'
+            }`}>
                 <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-                    {/* Logo / Brand Name */}
+                    {/* Logo */}
                     <div className="flex items-center gap-4">
-                        <Link to="/" className="flex items-center gap-2">
-                            <img src="./assets/logo.webp" alt="Desert Shop Logo" className="h-16 w-auto object-contain hover:scale-105 transition-transform" />
+                        <Link to="/" className="flex items-center gap-2 group">
+                            <div className="relative">
+                                <img src="./assets/logo.webp" alt="Desert Shop Logo" className="h-14 w-auto object-contain group-hover:scale-105 transition-transform" />
+                            </div>
                         </Link>
-                        {isLoggedIn && (
-                            <Link to="/amelhadj" className="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition-colors">
-                                لوحة التحكم
-                            </Link>
-                        )}
                     </div>
 
                     {/* Desktop Nav */}
-                    <div className="hidden lg:block text-center absolute left-1/2 transform -translate-x-1/2">
-                        <span className="text-[var(--text-dark)]/80 font-bold border-b border-[var(--primary)] pb-0.5">
-                            جودة، ضمان ومصداقية
-                        </span>
-                    </div>
-
-                    <nav className="hidden md:flex items-center gap-8 font-semibold text-[var(--text-dark)]">
-                        <Link to="/" className="hover:text-[var(--primary)] transition-colors">الرئيسية</Link>
-                        <Link to="/categories" className="hover:text-[var(--primary)] transition-colors">التصنيفات</Link>
-                        <Link to="/contact" className="hover:text-[var(--primary)] transition-colors">اتصل بنا</Link>
-
-                        {/* Cart Icon */}
-                        <Link to="/checkout" className="relative bg-[var(--primary)]/10 p-2 rounded-full hover:bg-[var(--primary)]/20 transition-colors text-[var(--primary)]">
-                            <IconShoppingCart className="w-6 h-6" />
-                            {cartCount > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm animate-bounce font-bold">
-                                    {cartCount}
-                                </span>
-                            )}
-                        </Link>
+                    <nav className="hidden md:flex items-center gap-1">
+                        {navLinks.map((link) => (
+                            <Link
+                                key={link.to}
+                                to={link.to}
+                                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all duration-300 ${
+                                    location.pathname === link.to || location.pathname === link.to + '/'
+                                        ? 'bg-[var(--primary)] text-white shadow-md'
+                                        : 'text-[var(--text-dark)] hover:bg-[var(--primary)]/10 hover:text-[var(--primary)]'
+                                }`}
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
                     </nav>
 
-                    {/* Backdrop for Mobile Menu */}
-                    {isOpen && (
-                        <div
-                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden animate-fade-in"
-                            onClick={() => setIsOpen(false)}
-                        ></div>
-                    )}
-
-                    {/* Mobile Menu Button + Cart */}
-                    <div className="flex items-center gap-4 md:hidden relative z-50">
-                        <Link to="/checkout" className="relative text-[var(--primary)]">
-                            <IconShoppingCart className="w-7 h-7" />
+                    {/* Cart & Mobile Menu */}
+                    <div className="flex items-center gap-3">
+                        {/* Cart */}
+                        <Link 
+                            to="/checkout" 
+                            className="relative bg-[var(--primary)]/10 p-2.5 rounded-xl hover:bg-[var(--primary)]/20 transition-all text-[var(--primary)]"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
                             {cartCount > 0 && (
-                                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full shadow-sm font-bold">
+                                <span className="absolute -top-1.5 -right-1.5 bg-[var(--primary)] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full shadow-md font-bold animate-bounce">
                                     {cartCount}
                                 </span>
                             )}
                         </Link>
 
+                        {/* Mobile Menu Button */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className="text-[var(--primary)] p-1 rounded hover:bg-[var(--secondary)]/20"
+                            className="md:hidden p-2.5 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/20 transition-all"
                         >
-                            {isOpen ? <IconX className="w-7 h-7" /> : <IconMenu className="w-7 h-7" />}
+                            {isOpen ? (
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            ) : (
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
+                            )}
                         </button>
                     </div>
                 </div>
-
-                {/* Mobile Nav Dropdown */}
-                <nav className={`md:hidden absolute top-full left-0 right-0 bg-[var(--bg-light)] border-[var(--secondary)] px-4 flex flex-col gap-4 font-semibold text-[var(--text-dark)] shadow-lg transition-all duration-300 ease-in-out overflow-hidden z-50 ${isOpen ? 'max-h-[80vh] py-4 border-b opacity-100 visible' : 'max-h-0 py-0 border-none opacity-0 invisible'}`}>
-                    <Link to="/" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">الرئيسية</Link>
-                    <Link to="/categories" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">التصنيفات</Link>
-                    <Link to="/contact" onClick={() => setIsOpen(false)} className="block hover:text-[var(--primary)]">اتصل بنا</Link>
-                    <Link to="/checkout" onClick={() => setIsOpen(false)} className="flex items-center gap-2 text-[var(--primary)] font-bold">
-                        <span>سلة المشتريات ({cartCount})</span>
-                        <IconShoppingCart className="w-5 h-5" />
-                    </Link>
-                </nav>
             </header>
 
-            {/* Backdrop - Moved outside Header to escape backdrop-filter context */}
-            <div
-                className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
-                onClick={() => setIsOpen(false)}
-            ></div>
+            {/* Mobile Menu Overlay */}
+            {isOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+                        onClick={() => setIsOpen(false)}
+                    ></div>
+                    <div className="fixed top-0 right-0 h-full w-72 bg-white shadow-2xl z-50 md:hidden animate-slide-up">
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-8">
+                                <img src="./assets/logo.webp" alt="Logo" className="h-12 w-auto" />
+                                <button 
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-2 rounded-xl bg-[var(--bg-beige)] text-[var(--text-muted)] hover:bg-[var(--primary)]/10 transition-all"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                            </div>
+                            <nav className="flex flex-col gap-2">
+                                {navLinks.map((link) => (
+                                    <Link
+                                        key={link.to}
+                                        to={link.to}
+                                        onClick={() => setIsOpen(false)}
+                                        className={`px-4 py-3 rounded-xl font-bold transition-all ${
+                                            location.pathname === link.to || location.pathname === link.to + '/'
+                                                ? 'bg-[var(--primary)] text-white shadow-md'
+                                                : 'text-[var(--text-dark)] hover:bg-[var(--bg-beige)]'
+                                        }`}
+                                    >
+                                        {link.label}
+                                    </Link>
+                                ))}
+                            </nav>
+                        </div>
+                    </div>
+                </>
+            )}
         </>
     );
 }
