@@ -1,6 +1,7 @@
 const SiteSettingsView = ({ onBack }) => {
     const [settings, setSettings] = React.useState(window.siteSettings || {});
     const [isSaving, setIsSaving] = React.useState(false);
+    const [uploadingHero, setUploadingHero] = React.useState(false);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -69,23 +70,35 @@ const SiteSettingsView = ({ onBack }) => {
                                 onChange={async (e) => {
                                     const file = e.target.files[0];
                                     if (file) {
+                                        setUploadingHero(true);
                                         try {
-                                            // Show loading state/preview?
                                             const url = await window.uploadImageToFirebase(file, 'site_assets');
                                             setSettings(prev => ({ ...prev, heroImage: url }));
                                         } catch (error) {
                                             alert("Upload Failed: " + error.message);
+                                        } finally {
+                                            setUploadingHero(false);
                                         }
                                     }
                                 }}
                                 className="hidden"
+                                disabled={uploadingHero}
                             />
                             <label
                                 htmlFor="hero-upload"
-                                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-center block w-full border border-gray-300 border-dashed"
+                                className={`bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-center block w-full border border-gray-300 border-dashed ${uploadingHero ? 'opacity-70 pointer-events-none' : ''}`}
                             >
-                                <span className="icon-upload-cloud mr-2"></span>
-                                رفع صورة جديدة
+                                {uploadingHero ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                        جاري الرفع...
+                                    </span>
+                                ) : (
+                                    <>
+                                        <span className="icon-upload-cloud mr-2"></span>
+                                        رفع صورة جديدة
+                                    </>
+                                )}
                             </label>
                         </div>
                     </div>
@@ -189,6 +202,7 @@ const FeaturedProductsView = ({ onBack }) => {
     const [featuredProducts, setFeaturedProducts] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [editingProduct, setEditingProduct] = React.useState(null);
+    const [uploadingFeatured, setUploadingFeatured] = React.useState(false);
     const [productForm, setProductForm] = React.useState({
         productName: '',
         rightText: '',
@@ -388,22 +402,35 @@ const FeaturedProductsView = ({ onBack }) => {
                                         onChange={async (e) => {
                                             const file = e.target.files[0];
                                             if (file) {
+                                                setUploadingFeatured(true);
                                                 try {
                                                     const url = await window.uploadImageToFirebase(file, 'featured_products');
                                                     setProductForm({ ...productForm, image: url });
                                                 } catch (error) {
                                                     alert('فشل رفع الصورة: ' + error.message);
+                                                } finally {
+                                                    setUploadingFeatured(false);
                                                 }
                                             }
                                         }}
                                         className="hidden"
+                                        disabled={uploadingFeatured}
                                     />
                                     <label
                                         htmlFor="featured-product-upload"
-                                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors inline-block border border-gray-300 border-dashed"
+                                        className={`bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors inline-block border border-gray-300 border-dashed ${uploadingFeatured ? 'opacity-70 pointer-events-none' : ''}`}
                                     >
-                                        <span className="icon-upload-cloud mr-2"></span>
-                                        رفع صورة جديدة
+                                        {uploadingFeatured ? (
+                                            <span className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                                جاري الرفع...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <span className="icon-upload-cloud mr-2"></span>
+                                                رفع صورة جديدة
+                                            </>
+                                        )}
                                     </label>
                                 </div>
                             </div>
@@ -913,6 +940,7 @@ function AdminPage() {
 
     // Products Management View
     const ProductsView = () => {
+        const [uploadingProduct, setUploadingProduct] = React.useState(false);
 
 
         return (
@@ -971,6 +999,7 @@ function AdminPage() {
                                     onChange={async (e) => {
                                         const file = e.target.files[0];
                                         if (file) {
+                                            setUploadingProduct(true);
                                             try {
                                                 // Convert to WebP
                                                 const convertToWebP = (file) => {
@@ -1007,20 +1036,32 @@ function AdminPage() {
                                             } catch (error) {
                                                 alert("فشل رفع او تحويل الصورة. تأكد من إعدادات Firebase");
                                                 console.error(error);
+                                            } finally {
+                                                setUploadingProduct(false);
                                             }
                                         }
                                     }}
                                     className="hidden"
                                     id="product-image-upload"
+                                    disabled={uploadingProduct}
                                 />
                                 <label
                                     htmlFor="product-image-upload"
-                                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-sm font-bold flex items-center gap-2"
+                                    className={`bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer transition-colors text-sm font-bold flex items-center gap-2 ${uploadingProduct ? 'opacity-70 pointer-events-none' : ''}`}
                                 >
-                                    <div className="icon-upload-cloud"></div>
-                                    رفع صورة
+                                    {uploadingProduct ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                            <span>جاري الرفع...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="icon-upload-cloud"></div>
+                                            <span>رفع صورة</span>
+                                        </>
+                                    )}
                                 </label>
-                                {newProductForm.image && <span className="text-green-600 text-xs font-bold">تم اختيار الصورة</span>}
+                                {newProductForm.image && !uploadingProduct && <span className="text-green-600 text-xs font-bold">تم اختيار الصورة</span>}
                             </div>
                         </div>
 
@@ -1282,6 +1323,7 @@ function AdminPage() {
 
     // Categories Management View
     const CategoriesView = () => {
+        const [uploadingCategory, setUploadingCategory] = React.useState(false);
         // We still sort it for display
         const sortedCategories = [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
@@ -1336,23 +1378,36 @@ function AdminPage() {
                                         onChange={async (e) => {
                                             const file = e.target.files[0];
                                             if (file) {
+                                                setUploadingCategory(true);
                                                 try {
                                                     const url = await window.uploadImageToFirebase(file, 'categories');
                                                     setCategoryForm(prev => ({ ...prev, image: url }));
                                                 } catch (error) {
                                                     alert("فشل رفع الصورة");
+                                                } finally {
+                                                    setUploadingCategory(false);
                                                 }
                                             }
                                         }}
                                         className="hidden"
                                         id="category-image-upload-main"
+                                        disabled={uploadingCategory}
                                     />
                                     <label
                                         htmlFor="category-image-upload-main"
-                                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded cursor-pointer transition-colors text-sm font-bold flex items-center justify-center whitespace-nowrap"
+                                        className={`bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded cursor-pointer transition-colors text-sm font-bold flex items-center justify-center whitespace-nowrap ${uploadingCategory ? 'opacity-70 pointer-events-none' : ''}`}
                                     >
-                                        <div className="icon-upload-cloud mr-1"></div>
-                                        رفع
+                                        {uploadingCategory ? (
+                                            <span className="flex items-center gap-1">
+                                                <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                                جاري...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <div className="icon-upload-cloud mr-1"></div>
+                                                رفع
+                                            </>
+                                        )}
                                     </label>
                                 </div>
                             </div>
