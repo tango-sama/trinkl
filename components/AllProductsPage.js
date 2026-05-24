@@ -1,9 +1,37 @@
 function AllProductsPage() {
     const { Link } = ReactRouterDOM;
     const [currentPage, setCurrentPage] = React.useState(1);
+    const [allProducts, setAllProducts] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
     const productsPerPage = 20;
 
-    const allProducts = window.products || [];
+    React.useEffect(() => {
+        const loadProducts = async () => {
+            try {
+                if (window.db) {
+                    const dbProducts = await window.db.getCollection('products');
+                    if (dbProducts && dbProducts.length > 0) {
+                        setAllProducts(dbProducts);
+                        setLoading(false);
+                        return;
+                    }
+                }
+                // Fallback to window.products
+                if (window.products && window.products.length > 0) {
+                    setAllProducts(window.products);
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+                if (window.products) {
+                    setAllProducts(window.products);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadProducts();
+    }, []);
 
     // Pagination Logic
     const indexOfLastProduct = currentPage * productsPerPage;
@@ -33,7 +61,12 @@ function AllProductsPage() {
                 جميع المنتجات ({allProducts.length})
             </h1>
 
-            {currentProducts.length > 0 ? (
+            {loading ? (
+                <div className="text-center py-20">
+                    <div className="w-16 h-16 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-500">جاري تحميل المنتجات...</p>
+                </div>
+            ) : currentProducts.length > 0 ? (
                 <React.Fragment>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {currentProducts.map(product => (
