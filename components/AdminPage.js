@@ -253,21 +253,8 @@ const FeaturedProductsView = ({ onBack }) => {
     };
 
     const handleEdit = (product) => {
-        if (!product || !product.id) {
-            console.error('Invalid product:', product);
-            alert('خطأ: بيانات المنتج غير صالحة');
-            return;
-        }
         setEditingProduct(product);
-        setProductForm({
-            productName: product.productName || '',
-            rightText: product.rightText || '',
-            leftText: product.leftText || '',
-            ctaText: product.ctaText || '',
-            productLink: product.productLink || '',
-            image: product.image || '',
-            order: product.order || 0
-        });
+        setProductForm(product);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -659,20 +646,15 @@ function AdminPage() {
     };
 
     const handleStartProductInlineEdit = (product) => {
-        if (!product || !product.id) {
-            console.error('Invalid product:', product);
-            alert('خطأ: بيانات المنتج غير صالحة');
-            return;
-        }
         setProductInlineEditId(product.id);
         setProductInlineEditForm({ ...product });
         // Populate Top Form
         setEditingProductId(product.id);
         setNewProductForm({
-            title: product.title || '',
-            price: product.price || '',
-            category: product.category || '',
-            image: product.image || '',
+            title: product.title,
+            price: product.price,
+            category: product.category,
+            image: product.image,
             description: Array.isArray(product.description) ? product.description.join('\n') : (product.description || '')
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -711,11 +693,6 @@ function AdminPage() {
     const [inlineEditForm, setInlineEditForm] = React.useState({});
 
     const handleStartInlineEdit = (category) => {
-        if (!category || !category.id) {
-            console.error('Invalid category:', category);
-            alert('خطأ: بيانات التصنيف غير صالحة');
-            return;
-        }
         setInlineEditId(category.id);
         setInlineEditForm({ ...category });
     };
@@ -755,18 +732,8 @@ function AdminPage() {
     };
 
     const handleEditCategory = (category) => {
-        if (!category || !category.id) {
-            console.error('Invalid category:', category);
-            alert('خطأ: بيانات التصنيف غير صالحة');
-            return;
-        }
         setEditingCategory(category);
-        setCategoryForm({
-            name: category.name || '',
-            id: category.id || '',
-            image: category.image || '',
-            sortOrder: category.sortOrder || 0
-        });
+        setCategoryForm(category);
         // Scroll to top to see form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -1504,22 +1471,10 @@ function AdminPage() {
                                     <td className="p-4">
                                         <div
                                             className="w-12 h-12 rounded object-cover border cursor-pointer hover:opacity-80 relative overflow-hidden group"
-                                            onClick={() => {
-                                                try {
-                                                    handleEditCategory(cat);
-                                                } catch (err) {
-                                                    console.error('Error editing category:', err);
-                                                    alert('خطأ في فتح التعديل: ' + err.message);
-                                                }
-                                            }}
+                                            onClick={() => handleEditCategory(cat)}
                                             title="تعديل"
                                         >
-                                            <img 
-                                                src={inlineEditId === cat.id ? (inlineEditForm.image || '') : (cat.image || 'https://via.placeholder.com/48?text=No+Image')} 
-                                                alt={cat.name || 'Category'} 
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => { e.target.src = 'https://via.placeholder.com/48?text=Error'; }}
-                                            />
+                                            <img src={inlineEditId === cat.id ? inlineEditForm.image : cat.image} alt={cat.name} className="w-full h-full object-cover" />
                                         </div>
                                     </td>
 
