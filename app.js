@@ -67,6 +67,7 @@ const CategoriesPageWrapper = () => window.CategoriesPage ? <CategoriesPage /> :
 const ProductPageWrapper = () => window.ProductPage ? <ProductPage /> : <div className="p-10 text-center">جاري تحميل صفحة المنتج...</div>;
 const ContactPageWrapper = () => window.ContactPage ? <ContactPage /> : <div className="p-10 text-center">جاري تحميل صفحة اتصل بنا...</div>;
 const AllProductsPageWrapper = () => window.AllProductsPage ? <AllProductsPage /> : <div className="p-10 text-center">جاري تحميل المنتجات...</div>;
+const ProductLandingPageWrapper = () => window.ProductLandingPage ? <ProductLandingPage /> : <div className="p-10 text-center">جاري تحميل صفحة المنتج...</div>;
 const AdminPageWrapper = () => window.AdminPage ? <AdminPage /> : <div className="p-10 text-center">جاري تحميل لوحة التحكم...</div>;
 
 const ScrollToTop = () => {
@@ -237,6 +238,7 @@ function App() {
                     <Route path="/amelhadj" element={<AdminPageWrapper />} />
                     <Route path="/category/:id" element={<CategoryPageWrapper />} />
                     <Route path="/product/:id" element={<ProductPageWrapper />} />
+                    <Route path="/landing/vitamin-e" element={<ProductLandingPageWrapper />} />
                 </Routes>
             </Layout>
         </HashRouter>
