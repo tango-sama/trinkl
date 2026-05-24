@@ -253,8 +253,21 @@ const FeaturedProductsView = ({ onBack }) => {
     };
 
     const handleEdit = (product) => {
+        if (!product || !product.id) {
+            console.error('Invalid product:', product);
+            alert('خطأ: بيانات المنتج غير صالحة');
+            return;
+        }
         setEditingProduct(product);
-        setProductForm(product);
+        setProductForm({
+            productName: product.productName || '',
+            rightText: product.rightText || '',
+            leftText: product.leftText || '',
+            ctaText: product.ctaText || '',
+            productLink: product.productLink || '',
+            image: product.image || '',
+            order: product.order || 0
+        });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -646,15 +659,20 @@ function AdminPage() {
     };
 
     const handleStartProductInlineEdit = (product) => {
+        if (!product || !product.id) {
+            console.error('Invalid product:', product);
+            alert('خطأ: بيانات المنتج غير صالحة');
+            return;
+        }
         setProductInlineEditId(product.id);
         setProductInlineEditForm({ ...product });
         // Populate Top Form
         setEditingProductId(product.id);
         setNewProductForm({
-            title: product.title,
-            price: product.price,
-            category: product.category,
-            image: product.image,
+            title: product.title || '',
+            price: product.price || '',
+            category: product.category || '',
+            image: product.image || '',
             description: Array.isArray(product.description) ? product.description.join('\n') : (product.description || '')
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -693,6 +711,11 @@ function AdminPage() {
     const [inlineEditForm, setInlineEditForm] = React.useState({});
 
     const handleStartInlineEdit = (category) => {
+        if (!category || !category.id) {
+            console.error('Invalid category:', category);
+            alert('خطأ: بيانات التصنيف غير صالحة');
+            return;
+        }
         setInlineEditId(category.id);
         setInlineEditForm({ ...category });
     };
