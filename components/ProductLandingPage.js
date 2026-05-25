@@ -1,9 +1,9 @@
 function ProductLandingPage() {
-    const { Link, useParams } = ReactRouterDOM;
+    const { Link } = ReactRouterDOM;
     const [quantity, setQuantity] = React.useState(1);
     const [addedToCart, setAddedToCart] = React.useState(false);
     
-    // Product data - can be passed as props or fetched from Firebase
+    // Product data
     const product = {
         id: 'vitamin-e-1000',
         title: 'فيتامين E 1000 وحدة دولية',
@@ -25,22 +25,22 @@ function ProductLandingPage() {
         ],
         benefits: [
             {
-                icon: 'icon-heart',
+                icon: '❤️',
                 title: 'صحة القلب',
                 description: 'يساعد في حماية الخلايا من التلف ويدعم صحة القلب والأوعية الدموية'
             },
             {
-                icon: 'icon-sparkles',
+                icon: '✨',
                 title: 'بشرة نضرة',
                 description: 'مضاد أكسدة قوي يساعد في الحفاظ على شباب البشرة ونضارتها'
             },
             {
-                icon: 'icon-shield',
+                icon: '🛡️',
                 title: 'جهاز مناعي قوي',
                 description: 'يدعم وظائف الجهاز المناعي ويساعد في محاربة الجذور الحرة'
             },
             {
-                icon: 'icon-eye',
+                icon: '👁️',
                 title: 'صحة العيون',
                 description: 'يدعم صحة العيون ويحمي من التدهور المرتبط بالعمر'
             }
@@ -63,7 +63,6 @@ function ProductLandingPage() {
     };
 
     const handleAddToCart = () => {
-        // Add to cart logic
         if (window.addToCart) {
             window.addToCart({ ...product, quantity });
         }
@@ -104,15 +103,8 @@ function ProductLandingPage() {
                                     src={product.image} 
                                     alt={product.title}
                                     className="max-w-full h-auto max-h-[500px] object-contain drop-shadow-2xl"
+                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x500?text=Vitamin+E'; }}
                                 />
-                            </div>
-                            {/* Thumbnail Gallery */}
-                            <div className="flex gap-3 mt-4 justify-center">
-                                {[1,2,3].map(i => (
-                                    <div key={i} className="w-20 h-20 rounded-xl border-2 border-[var(--border-color)] hover:border-[var(--primary)] cursor-pointer overflow-hidden transition-all">
-                                        <img src={product.image} alt="" className="w-full h-full object-cover" />
-                                    </div>
-                                ))}
                             </div>
                         </div>
 
@@ -123,10 +115,9 @@ function ProductLandingPage() {
                             
                             {/* Rating */}
                             <div className="flex items-center gap-2 mb-4">
-                                <div className="flex text-yellow-400">
-                                    {[1,2,3,4,5].map(star => (
-                                        <span key={star} className={star <= Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-                                    ))}
+                                <div className="flex text-yellow-400 text-xl">
+                                    {'★'.repeat(Math.floor(product.rating))}
+                                    {'☆'.repeat(5 - Math.floor(product.rating))}
                                 </div>
                                 <span className="text-gray-500 text-sm">({product.reviews} تقييم)</span>
                             </div>
@@ -154,7 +145,7 @@ function ProductLandingPage() {
 
                             {/* Delivery Info */}
                             <div className="flex items-center gap-2 text-sm text-gray-500 mb-6 bg-[var(--bg-beige)] p-3 rounded-xl">
-                                <span className="icon-truck"></span>
+                                <span>🚚</span>
                                 <span>توصيل خلال {product.deliveryTime} - مجاني للطلبات فوق 5000 د.ج</span>
                             </div>
 
@@ -163,14 +154,14 @@ function ProductLandingPage() {
                                 <div className="flex items-center border-2 border-[var(--border-color)] rounded-xl overflow-hidden">
                                     <button 
                                         onClick={() => handleQuantityChange(-1)}
-                                        className="px-4 py-3 hover:bg-[var(--bg-beige)] transition-colors"
+                                        className="px-4 py-3 hover:bg-[var(--bg-beige)] transition-colors text-xl"
                                     >
                                         -
                                     </button>
                                     <span className="px-6 py-3 font-bold min-w-[60px] text-center">{quantity}</span>
                                     <button 
                                         onClick={() => handleQuantityChange(1)}
-                                        className="px-4 py-3 hover:bg-[var(--bg-beige)] transition-colors"
+                                        className="px-4 py-3 hover:bg-[var(--bg-beige)] transition-colors text-xl"
                                     >
                                         +
                                     </button>
@@ -197,9 +188,7 @@ function ProductLandingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {product.benefits.map((benefit, index) => (
                         <div key={index} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-2 text-center">
-                            <div className={`w-16 h-16 rounded-full bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-4 text-[var(--primary)] text-2xl`}>
-                                {benefit.icon}
-                            </div>
+                            <div className="text-4xl mb-4">{benefit.icon}</div>
                             <h3 className="font-bold text-lg mb-2">{benefit.title}</h3>
                             <p className="text-gray-500 text-sm">{benefit.description}</p>
                         </div>

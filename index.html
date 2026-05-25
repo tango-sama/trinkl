@@ -9,34 +9,90 @@
     <meta name="description" content="متجر متخصص في منتجات الجمال والعناية بالشعر والبشرة">
     <meta name="keywords" content="جمال, عناية, شعر, بشرة, تسوق">
 
-    <!-- React 18 -->
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@remix-run/router@1.6.3/dist/router.umd.min.js"></script>
-    <script src="https://unpkg.com/react-router@6.4.5/dist/umd/react-router.production.min.js"></script>
-    <script src="https://unpkg.com/react-router-dom@6.4.5/dist/umd/react-router-dom.production.min.js"></script>
+    <!-- Performance: Preconnect to critical domains -->
+    <link rel="preconnect" href="https://resource.trickle.so" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="dns-prefetch" href="https://resource.trickle.so">
 
-    <!-- Babel -->
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
+    <!-- Performance: Preload critical resources -->
+    <link rel="preload" href="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js" as="script" crossorigin>
+    <link rel="preload" href="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" as="script" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" as="style">
+
+    <!-- React 18 - Async loading -->
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js" crossorigin async></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" crossorigin async></script>
+    <script src="https://unpkg.com/@remix-run/router@1.6.3/dist/router.umd.min.js" crossorigin async></script>
+    <script src="https://unpkg.com/react-router@6.4.5/dist/umd/react-router.production.min.js" crossorigin async></script>
+    <script src="https://unpkg.com/react-router-dom@6.4.5/dist/umd/react-router-dom.production.min.js" crossorigin async></script>
+
+    <!-- Babel - Defer non-critical -->
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js" defer></script>
 
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Lucide Icons -->
-    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+    <!-- Lucide Icons - Async -->
+    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet"></noscript>
 
+    <!-- Firebase SDK (Compat) - Async -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" async></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js" async></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js" async></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js" async></script>
 
-    <!-- Firebase SDK (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-    <!-- Google Fonts: Cairo for Arabic -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Google Fonts: Cairo for Arabic - With display=swap for faster rendering -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- Critical CSS Inline - Above the fold styles -->
+    <style>
+        /* Critical CSS for initial render */
+        :root {
+            --primary: #c4786a;
+            --primary-dark: #b06a5d;
+            --secondary: #d4a574;
+            --accent: #8fb9a8;
+            --bg-light: #faf8f5;
+            --bg-card: #ffffff;
+            --bg-beige: #f5f0eb;
+            --text-dark: #2d2d2d;
+            --text-muted: #7a7a7a;
+            --border-color: #e8e0d8;
+            --white: #ffffff;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            margin: 0;
+            padding: 0;
+        }
+        #root {
+            min-height: 100vh;
+        }
+        /* Loading skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        /* Prevent FOUC */
+        .no-fouc {
+            visibility: hidden;
+        }
+    </style>
+
+    <!-- Non-critical CSS - Lazy loaded -->
     <style type="text/tailwindcss">
         @layer theme {
         :root {
@@ -157,14 +213,31 @@
         }
     }
     </style>
+
+    <!-- Performance: Service Worker for caching -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').catch(function() {
+                    console.log('Service Worker registration failed');
+                });
+            });
+        }
+    </script>
 </head>
 
 <body>
-    <div id="root"></div>
+    <!-- Loading state while React loads -->
+    <div id="root">
+        <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; flex-direction: column; gap: 20px;">
+            <div style="width: 50px; height: 50px; border: 4px solid #c4786a; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="color: #c4786a; font-family: 'Cairo', sans-serif; font-weight: 600;">جاري التحميل...</p>
+        </div>
+    </div>
 
-    <!-- App Entry -->
-    <script src="utils/firebase.js"></script>
-    <script src="utils/data.js"></script>
+    <!-- App Entry - Defer non-critical scripts -->
+    <script src="utils/firebase.js" defer></script>
+    <script src="utils/data.js" defer></script>
     <script type="text/babel">
         // --- Icons Configuration ---
         const IconBase = ({ children, className = "", ...props }) => (
@@ -343,27 +416,29 @@
             IconMap
         };
     </script>
-    <script type="text/babel" src="components/WhatsAppFloat.js"></script>
-    <script type="text/babel" src="components/Header.js"></script>
-    <script type="text/babel" src="components/Hero.js"></script>
-    <script type="text/babel" src="components/Features.js"></script>
-    <script type="text/babel" src="components/ProductCard.js"></script>
-    <script type="text/babel" src="components/ProductGrid.js"></script>
-    <script type="text/babel" src="components/CategoriesPage.js"></script>
-    <script type="text/babel" src="components/CategoryPage.js"></script>
-    <script type="text/babel" src="components/ProductPage.js"></script>
-    <script type="text/babel" src="components/CheckoutPage.js"></script>
-    <script type="text/babel" src="components/CartSidebar.js"></script>
-    <script type="text/babel" src="components/AdminPage.js"></script>
-    <script type="text/babel" src="components/AllProductsPage.js"></script>
-    <script type="text/babel" src="components/ProductLandingPage.js"></script>
-    <script type="text/babel" src="components/CategorySlider.js"></script>
-    <script type="text/babel" src="components/ProductCarousel.js"></script>
-    <script type="text/babel" src="components/ContactPage.js"></script>
-    <script type="text/babel" src="components/Footer.js"></script>
-    <script type="text/babel" src="components/FeaturedCategories.js"></script>
-    <script type="text/babel" src="components/AnimatedCategoryCard.js"></script>
-    <script type="text/babel" src="app.js"></script>
+    
+    <!-- Lazy load non-critical components -->
+    <script type="text/babel" src="components/WhatsAppFloat.js" defer></script>
+    <script type="text/babel" src="components/Header.js" defer></script>
+    <script type="text/babel" src="components/Hero.js" defer></script>
+    <script type="text/babel" src="components/Features.js" defer></script>
+    <script type="text/babel" src="components/ProductCard.js" defer></script>
+    <script type="text/babel" src="components/ProductGrid.js" defer></script>
+    <script type="text/babel" src="components/CategoriesPage.js" defer></script>
+    <script type="text/babel" src="components/CategoryPage.js" defer></script>
+    <script type="text/babel" src="components/ProductPage.js" defer></script>
+    <script type="text/babel" src="components/CheckoutPage.js" defer></script>
+    <script type="text/babel" src="components/CartSidebar.js" defer></script>
+    <script type="text/babel" src="components/AdminPage.js" defer></script>
+    <script type="text/babel" src="components/AllProductsPage.js" defer></script>
+    <script type="text/babel" src="components/ProductLandingPage.js" defer></script>
+    <script type="text/babel" src="components/CategorySlider.js" defer></script>
+    <script type="text/babel" src="components/ProductCarousel.js" defer></script>
+    <script type="text/babel" src="components/ContactPage.js" defer></script>
+    <script type="text/babel" src="components/Footer.js" defer></script>
+    <script type="text/babel" src="components/FeaturedCategories.js" defer></script>
+    <script type="text/babel" src="components/AnimatedCategoryCard.js" defer></script>
+    <script type="text/babel" src="app.js" defer></script>
 </body>
 
 </html>
