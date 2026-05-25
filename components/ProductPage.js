@@ -8,17 +8,15 @@ function ProductPage() {
     });
     const [loading, setLoading] = React.useState(!product);
     const [activeTab, setActiveTab] = React.useState('description');
-    const [stockCount, setStockCount] = React.useState(12);
-    const [recentBuyers, setRecentBuyers] = React.useState(3);
-    const [showStickyCTA, setShowStickyCTA] = React.useState(false);
 
     // Fetch product if not found locally
     React.useEffect(() => {
         const fetchProduct = async () => {
-            if (product) return;
+            if (product) return; // Already have it
 
             setLoading(true);
             try {
+                // Try to find in existing list again (in case it loaded late)
                 const foundLocally = window.products?.find(p => p.id === parseInt(id));
                 if (foundLocally) {
                     setProduct(foundLocally);
@@ -26,12 +24,20 @@ function ProductPage() {
                     return;
                 }
 
+                // Query Firestore
+                console.log(`[ProductPage] Fetching product ${id}...`);
                 const productsRef = window.db ? firebase.firestore().collection('products') : null;
+
                 if (productsRef) {
+                    // Try to find by numeric ID field
                     const snapshot = await productsRef.where('id', '==', parseInt(id)).limit(1).get();
+
                     if (!snapshot.empty) {
                         const productData = snapshot.docs[0].data();
+                        console.log('[ProductPage] Found product:', productData.title);
                         setProduct(productData);
+                    } else {
+                        console.log('[ProductPage] Product not found in DB');
                     }
                 }
             } catch (error) {
@@ -44,38 +50,13 @@ function ProductPage() {
         fetchProduct();
     }, [id]);
 
-    // Show sticky CTA on scroll
-    React.useEffect(() => {
-        const handleScroll = () => {
-            setShowStickyCTA(window.scrollY > 500);
-        };
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-
-    // Simulate stock decreasing
-    React.useEffect(() => {
-        const interval = setInterval(() => {
-            setStockCount(prev => Math.max(3, prev - Math.random() > 0.7 ? 1 : 0));
-        }, 30000);
-        return () => clearInterval(interval);
-    }, []);
-
     const { IconTruck, IconShieldCheck, IconMessageCircle, IconShield, IconSparkles, IconInstagram, IconFacebook, IconTikTok, IconWhatsApp } = window.Icons || {};
 
-    // Inline SVG icons for missing ones
-    const IconClock = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
-    const IconPackage = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>;
-    const IconCheck = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
-    const IconStar = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
-    const IconFire = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>;
-    const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-
     // Helper for Star Rating
-    const StarRating = ({ size = 16 }) => (
+    const StarRating = () => (
         <div className="flex text-yellow-400 gap-0.5">
             {[1, 2, 3, 4, 5].map(i => (
-                <svg key={i} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <svg key={i} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
             ))}
@@ -105,151 +86,71 @@ function ProductPage() {
         );
     }
 
+
+
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#faf8f5] to-white">
-            {/* Sticky CTA Bar */}
-            <div className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-50 transform transition-transform duration-300 ${showStickyCTA ? 'translate-y-0' : 'translate-y-full'}`}>
-                <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <img src={product.image} alt="" className="w-12 h-12 object-cover rounded-lg" />
-                        <div className="min-w-0">
-                            <div className="font-bold text-sm truncate">{product.title}</div>
-                            <div className="text-[var(--primary)] font-bold">{product.price} DA</div>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => window.addToCart(product)} className="bg-[var(--primary)] hover:bg-[var(--accent)] text-white font-bold py-2 px-4 rounded-lg text-sm whitespace-nowrap transition-colors">
-                            أضف للسلة
-                        </button>
-                        <a href={`https://wa.me/213662705830?text=${encodeURIComponent(`مرحباً، أريد طلب المنتج: ${product.title}`)}`} target="_blank" rel="noreferrer" className="bg-[#25D366] hover:bg-[#128C7E] text-white p-2 rounded-lg transition-colors">
-                            <IconMessageCircle className="w-5 h-5" />
-                        </a>
-                    </div>
-                </div>
+        <div className="container mx-auto px-4 py-8 animate-fade-in-up">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+                <Link to="/" className="hover:text-[var(--primary)] transition-colors">الرئيسية</Link>
+                <span>/</span>
+                {product.category && (
+                    <>
+                        <Link to={`/category/${product.category}`} className="hover:text-[var(--primary)] transition-colors">
+                            {window.categories?.find(c => c.id === product.category)?.name}
+                        </Link>
+                        <span>/</span>
+                    </>
+                )}
+                <span className="font-bold text-[var(--text-dark)] line-clamp-1">{product.title}</span>
             </div>
 
-            <div className="container mx-auto px-4 py-6">
-                {/* Breadcrumb */}
-                <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6 animate-fade-in">
-                    <Link to="/" className="hover:text-[var(--primary)] transition-colors">الرئيسية</Link>
-                    <span className="text-gray-300">/</span>
-                    {product.category && (
-                        <>
-                            <Link to={`/category/${product.category}`} className="hover:text-[var(--primary)] transition-colors">
-                                {window.categories?.find(c => c.id === product.category)?.name}
-                            </Link>
-                            <span className="text-gray-300">/</span>
-                        </>
-                    )}
-                    <span className="font-medium text-[var(--text-dark)] truncate max-w-[200px]">{product.title}</span>
-                </nav>
-
-                {/* Main Product Hero - Modern Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                    {/* Image Section - Enhanced */}
-                    <div className="relative">
-                        {/* Badges */}
-                        <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-                            <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse flex items-center gap-2">
-                                <IconFire className="w-4 h-4" />
-                                عرض خاص
-                            </div>
-                            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
-                                <IconCheck className="w-4 h-4" />
-                                أصلي 100%
-                            </div>
+            {/* Main Product Hero */}
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-[var(--bg-card)] mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8">
+                    {/* Image Section */}
+                    <div className="h-96 md:h-[600px] bg-[#FAF3F3] flex items-center justify-center p-8 relative overflow-hidden group">
+                        <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md z-10 animate-pulse">
+                            عرض خاص
                         </div>
-
-                        {/* Main Image Card */}
-                        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-                            <div className="h-[400px] lg:h-[500px] bg-gradient-to-br from-[#faf8f5] via-white to-[#f5ebe4] flex items-center justify-center p-8 relative group">
-                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--primary)_0%,_transparent_70%)] opacity-5"></div>
-                                <img
-                                    src={product.image}
-                                    alt={product.title}
-                                    className="max-h-full max-w-full object-contain transform group-hover:scale-110 transition-transform duration-700 drop-shadow-2xl"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Thumbnail Gallery */}
-                        <div className="flex gap-3 mt-4 justify-center">
-                            {[product.image, product.image, product.image].map((img, i) => (
-                                <div key={i} className={`w-20 h-20 rounded-xl border-2 overflow-hidden cursor-pointer transition-all hover:scale-105 ${i === 0 ? 'border-[var(--primary)]' : 'border-gray-200'}`}>
-                                    <img src={img} alt="" className="w-full h-full object-cover" />
-                                </div>
-                            ))}
-                        </div>
+                        <img
+                            src={product.image}
+                            alt={product.title}
+                            className="max-h-full max-w-full object-contain transform group-hover:scale-105 transition-transform duration-700 drop-shadow-xl"
+                        />
                     </div>
 
-                    {/* Info Section - Enhanced */}
-                    <div className="flex flex-col">
-                        {/* Rating */}
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="flex items-center gap-2 bg-yellow-50 px-3 py-1.5 rounded-full">
-                                <StarRating size={14} />
-                                <span className="text-sm font-bold text-yellow-700">4.9</span>
-                            </div>
-                            <span className="text-sm text-gray-500">(120+ تقييم)</span>
-                            <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                متوفر الآن
-                            </span>
+                    {/* Info Section */}
+                    <div className="p-8 md:p-12 flex flex-col justify-center bg-white">
+                        <div className="flex items-center gap-2 mb-2">
+                            <StarRating />
+                            <span className="text-sm text-gray-500">(4.9/5 تقييم)</span>
                         </div>
 
-                        {/* Title */}
-                        <h1 className="text-3xl lg:text-4xl font-bold text-[var(--text-dark)] mb-4 leading-tight">
-                            {product.title}
-                        </h1>
-
-                        {/* Price Section */}
-                        <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent rounded-2xl p-6 mb-6">
-                            <div className="flex items-baseline gap-4">
-                                <span className="text-4xl font-bold text-[var(--primary)]">{product.price}</span>
-                                <span className="text-xl text-gray-400 line-through">{(parseInt(product.price) * 1.3).toFixed(0)} DA</span>
-                                <span className="bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">وفر 23%</span>
-                            </div>
-                            <p className="text-gray-600 mt-2 text-sm">السعر يشمل الضرائب والتوصيل</p>
+                        <h1 className="text-3xl md:text-5xl font-bold text-[var(--text-dark)] mb-4 leading-tight">{product.title}</h1>
+                        <div className="text-3xl font-bold text-[var(--primary)] mb-6 flex items-end gap-2">
+                            {product.price}
+                            <span className="text-lg text-gray-400 line-through font-normal">{(parseInt(product.price) * 1.3).toFixed(0)} DA</span>
                         </div>
 
-                        {/* Stock Urgency */}
-                        <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-red-600 font-bold text-sm flex items-center gap-2">
-                                    <IconClock className="w-4 h-4" />
-                                    الكمية محدودة!
-                                </span>
-                                <span className="text-red-600 font-bold">تبقى {stockCount} فقط</span>
-                            </div>
-                            <div className="w-full bg-red-200 rounded-full h-2">
-                                <div className="bg-red-500 h-2 rounded-full transition-all duration-500" style={{ width: `${(stockCount / 20) * 100}%` }}></div>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">{recentBuyers} شخص يشاهدون هذا المنتج الآن</p>
-                        </div>
+                        <p className="text-lg text-gray-700 leading-relaxed mb-8 border-r-4 border-[var(--secondary)] pr-4">
+                            {product.subtitle} - استمتعي بجمال طبيعي وثقة لا تضاهى. منتجنا مصمم بعناية فائقة ليمنحك النتائج التي تحلمين بها في وقت قياسي.
+                        </p>
 
-                        {/* Trust Badges */}
-                        <div className="grid grid-cols-2 gap-3 mb-6">
-                            {[
-                                { icon: <IconShieldCheck className="w-5 h-5" />, text: 'منتج أصلي 100%' },
-                                { icon: <IconPackage className="w-5 h-5" />, text: 'توصيل لجميع الولايات' },
-                                { icon: <IconClock className="w-5 h-5" />, text: 'توصيل سريع 1-3 أيام' },
-                                { icon: <IconShield className="w-5 h-5" />, text: 'ضمان استرجاع 14 يوم' }
-                            ].map((badge, idx) => (
-                                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-3 rounded-xl">
-                                    <div className="text-[var(--primary)]">{badge.icon}</div>
-                                    <span className="text-sm font-medium text-gray-700">{badge.text}</span>
+                        {/* Feature Bullets */}
+                        <div className="grid grid-cols-2 gap-3 mb-8">
+                            {['مكونات طبيعية 100%', 'نتائج مضمونة', 'توصيل لباب المنزل', 'دفع آمن عند الاستلام'].map((feat, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-[var(--bg-light)]/50 p-2 rounded-lg">
+                                    <CheckIcon />
+                                    <span className="text-sm font-semibold text-[var(--text-dark)]">{feat}</span>
                                 </div>
                             ))}
                         </div>
 
-                        {/* CTA Buttons */}
-                        <div className="flex flex-col gap-3 mb-6">
-                            <button 
-                                onClick={() => window.addToCart(product)} 
-                                className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] hover:from-[var(--accent)] hover:to-[var(--primary)] text-white font-bold py-4 px-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3 text-lg relative overflow-hidden group"
-                            >
-                                <IconTruck className="w-6 h-6" />
-                                <span>اطلب الآن - الدفع عند الاستلام</span>
+                        <div className="flex flex-col gap-4 mt-auto">
+                            <button onClick={() => window.addToCart(product)} className="w-full bg-[var(--primary)] hover:bg-[var(--accent)] text-white font-bold py-4 px-8 rounded-xl shadow-[0_10px_20px_rgba(142,84,101,0.3)] hover:shadow-[0_15px_25px_rgba(142,84,101,0.4)] transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3 text-lg relative overflow-hidden group">
+                                <span className="relative z-10">إتمام الطلب (الدفع عند الاستلام)</span>
+                                <IconTruck className="relative z-10 w-6 h-6" />
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                             </button>
 
@@ -257,215 +158,186 @@ function ProductPage() {
                                 href={`https://wa.me/213662705830?text=${encodeURIComponent(`مرحباً، أريد طلب المنتج: ${product.title}`)}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 text-lg"
+                                className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 text-lg"
                             >
-                                <IconMessageCircle className="w-6 h-6" />
                                 <span>اطلب عبر واتساب</span>
+                                <IconMessageCircle className="w-6 h-6" />
                             </a>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        {/* Recent Activity */}
-                        <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
-                            <div className="flex -space-x-2">
-                                {['س', 'أ', 'ل'].map((letter, i) => (
-                                    <div key={i} className="w-8 h-8 rounded-full bg-[var(--primary)] text-white flex items-center justify-center text-sm font-bold border-2 border-white">
-                                        {letter}
-                                    </div>
-                                ))}
+            {/* Sales Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* Right Column: Description & Details */}
+                <div className="md:col-span-2 flex flex-col gap-8">
+
+                    {/* Why Choose Us */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="bg-[var(--bg-light)] p-3 rounded-full text-[var(--primary)]">
+                                <IconSparkles className="w-6 h-6" />
                             </div>
-                            <p className="text-sm text-gray-600">
-                                <span className="font-bold text-[var(--primary)]">+47</span> طلبية خلال الـ24 ساعة الماضية
+                            <h2 className="text-2xl font-bold text-[var(--text-dark)]">لماذا ستحبين هذا المنتج؟</h2>
+                        </div>
+                        <div className="prose prose-lg text-gray-700 max-w-none">
+                            <p className="mb-4">
+                                اكتشفي السر وراء إطلالة أكثر جاذبية وأنوثة. تم تطوير {product.title} بناءً على أبحاث مكثفة لتقديم أفضل النتائج بأمان تام.
                             </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Benefits Section - Cards */}
-                <div className="mb-12">
-                    <div className="text-center mb-8">
-                        <h2 className="text-2xl lg:text-3xl font-bold text-[var(--text-dark)] mb-2">لماذا تختارين {product.title}؟</h2>
-                        <p className="text-gray-500">اكتشفي الفرق بنفسك</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                            { icon: <IconSparkles className="w-8 h-8" />, title: 'تركيبة فريدة', desc: 'مكونات طبيعية مختارة بعناية لأفضل النتائج' },
-                            { icon: <IconUsers className="w-8 h-8" />, title: 'ثقة آلاف العملاء', desc: 'أكثر من 10,000 عميلة راضية عن النتائج' },
-                            { icon: <IconClock className="w-8 h-8" />, title: 'نتائج سريعة', desc: 'لاحظي الفرق من الأسابيع الأولى' }
-                        ].map((card, i) => (
-                            <div key={i} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow text-center group">
-                                <div className="w-16 h-16 bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] rounded-2xl flex items-center justify-center text-white mx-auto mb-4 group-hover:scale-110 transition-transform">
-                                    {card.icon}
-                                </div>
-                                <h3 className="font-bold text-lg mb-2">{card.title}</h3>
-                                <p className="text-gray-500 text-sm">{card.desc}</p>
+                            <p className="mb-4">
+                                تركيبتنا الفريدة تجمع بين {product.category === 'hair_care' ? 'الزيوت الطبيعية والفيتامينات' : 'المكونات الفعالة والمغذية'} التي تعمل بعمق لتحسين المظهر والملمس من أول استخدام.
+                            </p>
+                            <div className="my-6">
+                                <img
+                                    src="https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=800"
+                                    alt="Product Lifestyle"
+                                    className="w-full h-64 object-cover rounded-xl shadow-md"
+                                />
                             </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Product Details Tabs */}
-                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden mb-12">
-                    <div className="flex border-b border-gray-100">
-                        {['الوصف', 'الفوائد', 'كيفية الاستخدام'].map((tab, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setActiveTab(['description', 'benefits', 'usage'][i])}
-                                className={`flex-1 py-4 px-6 font-bold text-sm transition-colors ${activeTab === ['description', 'benefits', 'usage'][i] ? 'text-[var(--primary)] border-b-2 border-[var(--primary)] bg-[var(--primary)]/5' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
-                    </div>
-                    
-                    <div className="p-8">
-                        {activeTab === 'description' && (
-                            <div className="prose prose-lg max-w-none text-gray-700">
-                                <p className="mb-4">اكتشفي السر وراء إطلالة أكثر جاذبية وأنوثة. تم تطوير {product.title} بناءً على أبحاث مكثفة لتقديم أفضل النتائج بأمان تام.</p>
-                                <p>تركيبتنا الفريدة تجمع بين المكونات الفعالة والمغذية التي تعمل بعمق لتحسين المظهر والملمس من أول استخدام.</p>
-                            </div>
-                        )}
-                        {activeTab === 'benefits' && (
-                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {(Array.isArray(product.description) ? product.description : (product.description || '').split('\n'))
-                                    .filter(b => b.trim() !== '')
-                                    .map((benefit, idx) => (
-                                        <li key={idx} className="flex items-start gap-3 bg-gray-50 p-4 rounded-xl">
-                                            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <IconCheck className="w-4 h-4 text-white" />
-                                            </div>
-                                            <span className="text-gray-700">{benefit}</span>
-                                        </li>
-                                    ))}
+                            <h3 className="text-xl font-bold text-[var(--text-dark)] mb-3">فوائد رئيسية:</h3>
+                            <ul className="list-disc list-inside space-y-2 marker:text-[var(--primary)]">
+                                {product.description ? (
+                                    (Array.isArray(product.description) ? product.description : product.description.split('\n'))
+                                        .filter(b => b.trim() !== '')
+                                        .map((benefit, idx) => (
+                                            <li key={idx}>{benefit}</li>
+                                        ))
+                                ) : (
+                                    <>
+                                        <li>عناية فائقة وتغذية عميقة تدوم طويلاً.</li>
+                                        <li>مكونات آمنة تماماً وخالية من المواد الضارة.</li>
+                                        <li>نتائج ملحوظة وسريعة أشاد بها الآلاف.</li>
+                                        <li>سهل الاستخدام ويمكن إضافته لروتينك اليومي.</li>
+                                    </>
+                                )}
                             </ul>
-                        )}
-                        {activeTab === 'usage' && (
-                            <div className="bg-[var(--primary)]/5 rounded-2xl p-6">
-                                <h4 className="font-bold text-lg mb-4">طريقة الاستخدام:</h4>
-                                <ol className="space-y-3 text-gray-700">
-                                    <li className="flex items-center gap-3">
-                                        <span className="w-8 h-8 bg-[var(--primary)] text-white rounded-full flex items-center justify-center font-bold">1</span>
-                                        تناولي كبسولة واحدة مرتين يومياً مع الطعام
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <span className="w-8 h-8 bg-[var(--primary)] text-white rounded-full flex items-center justify-center font-bold">2</span>
-                                        اشربي كمية كافية من الماء
-                                    </li>
-                                    <li className="flex items-center gap-3">
-                                        <span className="w-8 h-8 bg-[var(--primary)] text-white rounded-full flex items-center justify-center font-bold">3</span>
-                                        استمري على الاستخدام لمدة شهرين للحصول على أفضل النتائج
-                                    </li>
-                                </ol>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Reviews Section */}
-                <div className="bg-gradient-to-br from-white to-[#faf8f5] rounded-3xl shadow-xl border border-gray-100 p-8 mb-12">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-1">تجارب العملاء</h2>
-                            <p className="text-gray-500 text-sm">شاهدي ما تقوله عملاؤنا عن المنتج</p>
-                        </div>
-                        <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold flex items-center gap-2">
-                            <StarRating size={14} />
-                            4.9/5
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                            { name: "سارة م.", location: "الجزائر العاصمة", date: "منذ يومين", text: "صراحة منتج رائع جداً، لاحظت الفرق من أول أسبوع. التوصيل كان سريع والتعامل راقي. أنصح به بشدة!", rating: 5 },
-                            { name: "أميرة ك.", location: "وهران", date: "منذ أسبوع", text: "جربت منتجات كثيرة لكن هذا الوحيد اللي عطاني نتيجة حقيقية. شكراً لكم على المصداقية.", rating: 5 },
-                            { name: "ليلى ب.", location: "قسنطينة", date: "منذ 3 أسابيع", text: "المنتج أصلي والتغليف ممتاز. أحببت الرائحة والقوام، سأطلب مرة أخرى بالتأكيد.", rating: 5 }
-                        ].map((review, i) => (
-                            <div key={i} className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] flex items-center justify-center text-white font-bold text-lg">
-                                        {review.name[0]}
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-[var(--text-dark)]">{review.name}</div>
-                                        <div className="text-xs text-gray-500">{review.location}</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <StarRating size={12} />
-                                    <span className="text-xs text-gray-400">{review.date}</span>
-                                </div>
-                                <p className="text-gray-700 text-sm leading-relaxed">{review.text}</p>
+                    {/* Reviews */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-2xl font-bold text-[var(--text-dark)]">تجارب العملاء</h2>
+                            <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-bold">
+                                4.9/5 (120+ تقييم)
                             </div>
-                        ))}
+                        </div>
+
+                        <div className="grid gap-6">
+                            {[
+                                { name: "سارة م.", date: "منذ يومين", text: "صراحة منتج رائع جداً، لاحظت الفرق من أول أسبوع. التوصيل كان سريع والتعامل راقي. أنصح به بشدة!" },
+                                { name: "أميرة ك.", date: "منذ أسبوع", text: "جربت منتجات كثيرة لكن هذا الوحيد اللي عطاني نتيجة حقيقية. شكراً لكم على المصداقية." },
+                                { name: "ليلى ب.", date: "منذ 3 أسابيع", text: "المنتج أصلي والتغليف ممتاز. أحببت الرائحة والقوام، سأطلب مرة أخرى بالتأكيد." }
+                            ].map((review, i) => (
+                                <div key={i} className="bg-[var(--bg-light)]/30 p-6 rounded-xl relative">
+                                    <div className="absolute top-6 left-6 opacity-10 text-[var(--primary)]">
+                                        <svg height="40" width="40" viewBox="0 0 512 512"><path fill="currentColor" d="M464 256h-80v-64c0-35.3 28.7-64 64-64h8c13.3 0 24-10.7 24-24V56c0-13.3-10.7-24-24-24h-8c-88.4 0-160 71.6-160 160v240c0 26.5 21.5 48 48 48h128c26.5 0 48-21.5 48-48V304c0-26.5-21.5-48-48-48zm-288 0H96v-64c0-35.3 28.7-64 64-64h8c13.3 0 24-10.7 24-24V56c0-13.3-10.7-24-24-24h-8C71.6 32 0 103.6 0 192v240c0 26.5 21.5 48 48 48h128c26.5 0 48-21.5 48-48V304c0-26.5-21.5-48-48-48z" /></svg>
+                                    </div>
+                                    <div className="flex items-center gap-4 mb-3">
+                                        <div className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center text-[var(--primary)] font-bold">
+                                            {review.name[0]}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-[var(--text-dark)]">{review.name}</div>
+                                            <div className="flex items-center gap-2">
+                                                <StarRating />
+                                                <span className="text-xs text-gray-500">{review.date}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-gray-700 relative z-10">{review.text}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Social Media Identity */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
+                        <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-6">هويتنا على مواقع التواصل الاجتماعي</h2>
+                        <div className="flex justify-center gap-6">
+                            <a href="https://wa.me/213662705830" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/whatsapp.png" alt="WhatsApp" className="w-14 h-14 object-contain drop-shadow-md" />
+                            </a>
+                            <a href="https://www.facebook.com/desertshop.dz" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/facebook.png" alt="Facebook" className="w-14 h-14 object-contain drop-shadow-md" />
+                            </a>
+                            <a href="https://www.instagram.com/x_desert.shop_x/" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/instagram.png" alt="Instagram" className="w-14 h-14 object-contain drop-shadow-md" />
+                            </a>
+                            <a href="https://www.tiktok.com/@desertshop.online?lang=en-GB" target="_blank" rel="noreferrer" className="transform hover:scale-110 transition-transform duration-300">
+                                <img src="./assets/tiktok.png" alt="TikTok" className="w-14 h-14 object-contain drop-shadow-md" />
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                {/* FAQ Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    <div className="lg:col-span-2">
-                        <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-6">الأسئلة الشائعة</h2>
+                {/* Left Column: FAQ & Trust */}
+                <div className="flex flex-col gap-8">
+                    {/* Trust Box */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-[var(--secondary)]">
+                        <h3 className="font-bold text-lg mb-4 text-[var(--text-dark)] text-center">خدماتنا المميزة</h3>
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-green-100 p-2 rounded-lg text-green-600"><IconTruck /></div>
+                                <div>
+                                    <div className="font-bold text-sm">توصيل سريع</div>
+                                    <div className="text-xs text-gray-500">لجميع الولايات (58 ولاية)</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><IconShieldCheck /></div>
+                                <div>
+                                    <div className="font-bold text-sm">ضمان الجودة</div>
+                                    <div className="text-xs text-gray-500">منتج أصلي 100%</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="bg-purple-100 p-2 rounded-lg text-purple-600"><IconShield /></div>
+                                <div>
+                                    <div className="font-bold text-sm">دفع آمن</div>
+                                    <div className="text-xs text-gray-500">الدفع عند استلام الطلبية</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* FAQ Accordion */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-lg mb-4 text-[var(--text-dark)]">أسئلة شائعة</h3>
                         <div className="space-y-3">
                             {[
-                                { q: "كم مدة التوصيل؟", a: "يتم التوصيل عادةً خلال 1 إلى 3 أيام عمل حسب ولايتك. نغطي جميع ولايات الجزائر الـ58." },
-                                { q: "كيف أستعمل المنتج؟", a: "طريقة الاستعمال مرفقة مع المنتج بالتفصيل. عموماً، يتم تناول كبسولة واحدة مرتين يومياً مع الطعام." },
-                                { q: "هل هناك ضمان؟", a: "نعم، نضمن لك أن المنتج أصلي 100% ومطابق للمواصفات. في حال وجود أي مشكلة، يمكنك التواصل معنا مباشرة." },
-                                { q: "هل يمكنني إرجاع المنتج؟", a: "نعم، لديك 14 يوماً لإرجاع المنتج في حال وجود عيب مصنعي أو خطأ في الطلب." },
-                                { q: "هل المنتج آمن؟", a: "نعم، جميع منتجاتنا معتمدة وآمنة للاستخدام. مصنوعة من مكونات طبيعية 100% وخالية من المواد الضارة." }
+                                { q: "كم مدة التوصيل؟", a: "يتم التوصيل عادةً خلال 1 إلى 3 أيام عمل حسب ولايتك." },
+                                { q: "كيف أستعمل المنتج؟", a: "طريقة الاستعمال مرفقة مع المنتج، وهي سهلة وبسيطة." },
+                                { q: "هل هناك ضمان؟", a: "نعم، نضمن لك أن المنتج أصلي ومطابق للمواصفات." },
+                                { q: "هل يمكنني إرجاع المنتج؟", a: "نعم، في حال وجود عيب مصنعي أو خطأ في الطلب." }
                             ].map((item, i) => (
-                                <details key={i} className="group bg-white rounded-xl border border-gray-100 overflow-hidden">
-                                    <summary className="flex cursor-pointer items-center justify-between p-5 font-bold text-[var(--text-dark)] hover:bg-gray-50 transition-colors">
+                                <details key={i} className="group p-3 bg-gray-50 rounded-lg open:bg-[var(--bg-light)]/20 transition-all">
+                                    <summary className="flex cursor-pointer items-center justify-between font-medium text-sm text-[var(--text-dark)]">
                                         {item.q}
-                                        <span className="transition-transform duration-300 group-open:rotate-180">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        <span className="transition group-open:rotate-180">
+                                            <svg fill="none" class="w-4 h-4" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>
                                         </span>
                                     </summary>
-                                    <div className="px-5 pb-5 text-gray-600 leading-relaxed">
-                                        {item.a}
-                                    </div>
+                                    <p className="mt-2 text-sm text-gray-600 leading-relaxed border-t border-gray-200 pt-2">{item.a}</p>
                                 </details>
                             ))}
                         </div>
                     </div>
 
-                    {/* Trust Sidebar */}
-                    <div className="space-y-6">
-                        <div className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] rounded-2xl p-6 text-white">
-                            <h3 className="font-bold text-xl mb-4">لماذا تثقي بنا؟</h3>
-                            <ul className="space-y-3">
-                                {['أكثر من 10,000 عميلة راضية', 'منتجات أصلية 100%', 'توصيل سريع لجميع الولايات', 'دعم فني على مدار الساعة'].map((item, i) => (
-                                    <li key={i} className="flex items-center gap-2">
-                                        <IconCheck className="w-5 h-5" />
-                                        <span className="text-sm">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                    {/* Small Banner */}
+                    <div className="rounded-2xl overflow-hidden shadow-md relative h-48 group">
+                        <img
+                            src="https://images.unsplash.com/photo-1541658016709-82535e94bc69?auto=format&fit=crop&q=80&w=400"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            alt="Banner"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                            <div className="text-white">
+                                <div className="font-bold text-lg">نتائج ممتازة</div>
+                                <div className="text-xs opacity-90">انضمي لأكثر من 10,000 عميلة سعيدة</div>
+                            </div>
                         </div>
-
-                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 text-center">
-                            <h3 className="font-bold text-lg mb-4">تواصلي معنا</h3>
-                            <p className="text-gray-500 text-sm mb-4">لديك سؤال؟ نحن هنا للمساعدة!</p>
-                            <a href="https://wa.me/213662705830" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#25D366] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#128C7E] transition-colors">
-                                <IconMessageCircle className="w-5 h-5" />
-                                واتساب
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Social Media */}
-                <div className="text-center mb-12">
-                    <h2 className="text-2xl font-bold text-[var(--text-dark)] mb-6">تابعينا على مواقع التواصل</h2>
-                    <div className="flex justify-center gap-6">
-                        {[
-                            { icon: <IconWhatsApp className="w-8 h-8" />, href: "https://wa.me/213662705830", color: "bg-[#25D366]" },
-                            { icon: <IconFacebook className="w-8 h-8" />, href: "https://www.facebook.com/desertshop.dz", color: "bg-[#1877F2]" },
-                            { icon: <IconInstagram className="w-8 h-8" />, href: "https://www.instagram.com/x_desert.shop_x/", color: "bg-gradient-to-br from-purple-500 to-pink-500" },
-                            { icon: <IconTikTok className="w-8 h-8" />, href: "https://www.tiktok.com/@desertshop.online", color: "bg-black" }
-                        ].map((social, i) => (
-                            <a key={i} href={social.href} target="_blank" rel="noreferrer" className={`${social.color} w-16 h-16 rounded-2xl flex items-center justify-center text-white transform hover:scale-110 transition-transform shadow-lg`}>
-                                {social.icon}
-                            </a>
-                        ))}
                     </div>
                 </div>
             </div>
