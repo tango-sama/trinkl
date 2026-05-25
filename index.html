@@ -22,24 +22,24 @@
     <link rel="preload" href="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" as="script" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" as="style">
 
-    <!-- React 18 - Async loading -->
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js" crossorigin async></script>
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" crossorigin async></script>
-    <script src="https://unpkg.com/@remix-run/router@1.6.3/dist/router.umd.min.js" crossorigin async></script>
-    <script src="https://unpkg.com/react-router@6.4.5/dist/umd/react-router.production.min.js" crossorigin async></script>
-    <script src="https://unpkg.com/react-router-dom@6.4.5/dist/umd/react-router-dom.production.min.js" crossorigin async></script>
+    <!-- React 18 - Load first (blocking, but needed for everything else) -->
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@remix-run/router@1.6.3/dist/router.umd.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-router@6.4.5/dist/umd/react-router.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-router-dom@6.4.5/dist/umd/react-router-dom.production.min.js" crossorigin></script>
 
-    <!-- Babel - Defer non-critical -->
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js" defer></script>
+    <!-- Babel - needed for JSX compilation -->
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
 
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Lucide Icons - Async -->
+    <!-- Lucide Icons - Async loading with fallback -->
     <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet"></noscript>
 
-    <!-- Firebase SDK (Compat) - Async -->
+    <!-- Firebase SDK (Compat) - Async, non-blocking -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" async></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js" async></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js" async></script>
@@ -235,9 +235,9 @@
         </div>
     </div>
 
-    <!-- App Entry - Defer non-critical scripts -->
-    <script src="utils/firebase.js" defer></script>
-    <script src="utils/data.js" defer></script>
+    <!-- App Entry -->
+    <script src="utils/firebase.js"></script>
+    <script src="utils/data.js"></script>
     <script type="text/babel">
         // --- Icons Configuration ---
         const IconBase = ({ children, className = "", ...props }) => (
@@ -416,29 +416,27 @@
             IconMap
         };
     </script>
-    
-    <!-- Lazy load non-critical components -->
-    <script type="text/babel" src="components/WhatsAppFloat.js" defer></script>
-    <script type="text/babel" src="components/Header.js" defer></script>
-    <script type="text/babel" src="components/Hero.js" defer></script>
-    <script type="text/babel" src="components/Features.js" defer></script>
-    <script type="text/babel" src="components/ProductCard.js" defer></script>
-    <script type="text/babel" src="components/ProductGrid.js" defer></script>
-    <script type="text/babel" src="components/CategoriesPage.js" defer></script>
-    <script type="text/babel" src="components/CategoryPage.js" defer></script>
-    <script type="text/babel" src="components/ProductPage.js" defer></script>
-    <script type="text/babel" src="components/CheckoutPage.js" defer></script>
-    <script type="text/babel" src="components/CartSidebar.js" defer></script>
-    <script type="text/babel" src="components/AdminPage.js" defer></script>
-    <script type="text/babel" src="components/AllProductsPage.js" defer></script>
-    <script type="text/babel" src="components/ProductLandingPage.js" defer></script>
-    <script type="text/babel" src="components/CategorySlider.js" defer></script>
-    <script type="text/babel" src="components/ProductCarousel.js" defer></script>
-    <script type="text/babel" src="components/ContactPage.js" defer></script>
-    <script type="text/babel" src="components/Footer.js" defer></script>
-    <script type="text/babel" src="components/FeaturedCategories.js" defer></script>
-    <script type="text/babel" src="components/AnimatedCategoryCard.js" defer></script>
-    <script type="text/babel" src="app.js" defer></script>
+    <script type="text/babel" src="components/WhatsAppFloat.js"></script>
+    <script type="text/babel" src="components/Header.js"></script>
+    <script type="text/babel" src="components/Hero.js"></script>
+    <script type="text/babel" src="components/Features.js"></script>
+    <script type="text/babel" src="components/ProductCard.js"></script>
+    <script type="text/babel" src="components/ProductGrid.js"></script>
+    <script type="text/babel" src="components/CategoriesPage.js"></script>
+    <script type="text/babel" src="components/CategoryPage.js"></script>
+    <script type="text/babel" src="components/ProductPage.js"></script>
+    <script type="text/babel" src="components/CheckoutPage.js"></script>
+    <script type="text/babel" src="components/CartSidebar.js"></script>
+    <script type="text/babel" src="components/AdminPage.js"></script>
+    <script type="text/babel" src="components/AllProductsPage.js"></script>
+    <script type="text/babel" src="components/ProductLandingPage.js"></script>
+    <script type="text/babel" src="components/CategorySlider.js"></script>
+    <script type="text/babel" src="components/ProductCarousel.js"></script>
+    <script type="text/babel" src="components/ContactPage.js"></script>
+    <script type="text/babel" src="components/Footer.js"></script>
+    <script type="text/babel" src="components/FeaturedCategories.js"></script>
+    <script type="text/babel" src="components/AnimatedCategoryCard.js"></script>
+    <script type="text/babel" src="app.js"></script>
 </body>
 
 </html>
