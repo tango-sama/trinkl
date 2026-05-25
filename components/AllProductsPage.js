@@ -8,21 +8,29 @@ function AllProductsPage() {
     React.useEffect(() => {
         const loadProducts = async () => {
             try {
-                if (window.db) {
+                // Wait a bit for Firebase to initialize
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                if (window.db && typeof firebase !== 'undefined') {
+                    console.log('[AllProductsPage] Loading from Firebase...');
                     const dbProducts = await window.db.getCollection('products');
+                    console.log('[AllProductsPage] Firebase returned:', dbProducts.length, 'products');
                     if (dbProducts && dbProducts.length > 0) {
                         setAllProducts(dbProducts);
                         setLoading(false);
                         return;
                     }
                 }
-                // Fallback to window.products
+                
+                // Fallback to window.products (hardcoded data)
+                console.log('[AllProductsPage] Falling back to hardcoded products');
                 if (window.products && window.products.length > 0) {
                     setAllProducts(window.products);
                 }
             } catch (error) {
-                console.error('Error loading products:', error);
-                if (window.products) {
+                console.error('[AllProductsPage] Error loading products:', error);
+                // Fallback to hardcoded
+                if (window.products && window.products.length > 0) {
                     setAllProducts(window.products);
                 }
             } finally {
