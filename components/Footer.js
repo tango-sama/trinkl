@@ -4,7 +4,7 @@ function Footer({ isAdmin }) {
     const currentYear = new Date().getFullYear();
 
     return (
-        <footer className="bg-[var(--text-dark)] text-white mt-20 relative overflow-hidden">
+        <footer className="bg-[#13042a] text-white mt-20 relative overflow-hidden border-t border-[var(--border-color)]">
             {/* Decorative elements */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--primary)] via-[var(--secondary)] to-[var(--accent)]"></div>
             <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-[var(--primary)]/10 blur-3xl"></div>

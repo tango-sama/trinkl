@@ -48,8 +48,8 @@ function Header({ cartCount = 0 }) {
     return (
         <>
             <header className={`sticky top-0 z-50 transition-all duration-300 ${
-                scrolled 
-                    ? 'bg-white/90 backdrop-blur-lg shadow-lg border-b border-[var(--border-color)]' 
+                scrolled
+                    ? 'bg-[rgba(26,6,48,0.9)] backdrop-blur-xl shadow-[0_8px_30px_rgba(155,63,192,0.25)] border-b border-[var(--border-color)]'
                     : 'bg-transparent'
             }`}>
                 <div className="container mx-auto px-4 py-3 flex justify-between items-center">
@@ -116,7 +116,7 @@ function Header({ cartCount = 0 }) {
                         className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden animate-fade-in"
                         onClick={() => setIsOpen(false)}
                     ></div>
-                    <div className="fixed top-0 right-0 h-full w-72 bg-white shadow-2xl z-50 md:hidden animate-slide-up">
+                    <div className="fixed top-0 right-0 h-full w-72 bg-[#2d0a52] border-l border-[var(--border-color)] shadow-2xl z-50 md:hidden animate-slide-up">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-8">
                                 <img src="./assets/logo.webp" alt="Logo" className="h-12 w-auto" />

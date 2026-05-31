@@ -47,7 +47,7 @@ function Features() {
                     {features.map((feature, index) => (
                         <div 
                             key={feature.id} 
-                            className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-500 border border-[var(--border-color)] hover:border-[var(--primary)]/30 text-center"
+                            className="group luxury-card card-hover p-6 text-center"
                             style={{ animationDelay: `${index * 100}ms` }}
                         >
                             <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${feature.color} text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500`}>

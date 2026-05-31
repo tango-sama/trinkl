@@ -63,8 +63,9 @@ function ProductGrid() {
         <section className="py-16 px-4 bg-gradient-to-b from-transparent via-[var(--bg-beige)]/30 to-transparent">
             <div className="container mx-auto">
                 <div className="text-center mb-12">
-                    <span className="text-sm text-[var(--primary)] font-bold mb-2 block">منتجاتنا المميزة</span>
+                    <span className="section-label">منتجاتنا المميزة</span>
                     <h2 className="section-title">أحدث المنتجات</h2>
+                    <div className="gold-underline"></div>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">

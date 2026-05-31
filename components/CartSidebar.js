@@ -22,7 +22,7 @@ function CartSidebar({ isOpen, onClose, cart, lastAddedId }) {
             ></div>
             
             {/* Sidebar */}
-            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col animate-slide-up">
+            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-[#1f0838] border-l border-[var(--border-color)] shadow-2xl z-50 flex flex-col animate-slide-up">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
                     <div className="flex items-center gap-3">

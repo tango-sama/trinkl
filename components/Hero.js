@@ -4,16 +4,16 @@ function Hero() {
         : "https://images.unsplash.com/photo-1599695663667-73b22415170d?q=80&w=800&auto=format&fit=crop";
 
     return (
-        <section className="relative overflow-hidden py-16 md:py-28 px-4">
+        <section className="relative overflow-hidden py-16 md:py-28 px-4" style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #3d0a72 0%, #1a0630 60%)' }}>
             {/* Background decoration */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-gradient-to-br from-[var(--primary)]/10 to-transparent blur-3xl"></div>
-                <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-gradient-to-tr from-[var(--secondary)]/10 to-transparent blur-3xl"></div>
+                <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-gradient-to-br from-[var(--primary)]/25 to-transparent blur-3xl"></div>
+                <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-gradient-to-tr from-[var(--secondary)]/20 to-transparent blur-3xl"></div>
             </div>
 
             <div className="container mx-auto flex flex-col md:flex-row items-center justify-center gap-12 md:gap-20 relative z-10">
                 {/* Image Area */}
-                <div className="relative w-72 h-72 md:w-[420px] md:h-[420px] flex-shrink-0">
+                <div className="relative w-72 h-72 md:w-[420px] md:h-[420px] flex-shrink-0 animate-float">
                     {/* Decorative rings */}
                     <div className="absolute inset-0 rounded-full border-2 border-dashed border-[var(--primary)]/20 animate-spin" style={{ animationDuration: '20s' }}></div>
                     <div className="absolute inset-4 rounded-full border border-[var(--secondary)]/30"></div>

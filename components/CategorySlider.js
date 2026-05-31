@@ -18,8 +18,8 @@ function CategorySlider() {
             <div className="container mx-auto">
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <span className="text-sm text-[var(--primary)] font-bold mb-1 block">تصفحي سريعاً</span>
-                        <h2 className="text-2xl font-bold text-[var(--text-dark)]">التصنيفات</h2>
+                        <span className="section-label">تصفحي سريعاً</span>
+                        <h2 className="text-2xl font-extrabold text-gradient">التصنيفات</h2>
                     </div>
                     <div className="flex gap-2">
                         <button 

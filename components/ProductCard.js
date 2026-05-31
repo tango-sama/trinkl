@@ -17,7 +17,7 @@ function ProductCard({ product }) {
     return (
         <div
             onClick={handleCardClick}
-            className="group relative bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer border border-[var(--border-color)] h-[420px]"
+            className="group relative luxury-card card-hover overflow-hidden cursor-pointer h-[420px]"
         >
             {/* Image Container */}
             <div className="relative h-64 overflow-hidden bg-gradient-to-br from-[var(--bg-beige)] to-[var(--bg-light)]">

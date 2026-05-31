@@ -33,7 +33,7 @@ function WhatsAppFloat() {
                 href="https://wa.me/213662705830"
                 target="_blank"
                 rel="noreferrer"
-                className="group flex items-center gap-3 bg-gradient-to-r from-green-500 to-green-600 text-white px-5 py-4 rounded-full shadow-2xl hover:shadow-green-500/30 transition-all duration-300 hover:scale-105"
+                className="group flex items-center gap-3 bg-gradient-to-br from-[#1a7a34] to-[#25d366] text-white px-5 py-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 animate-pulse-cta"
                 onMouseEnter={() => setShowTooltip(false)}
             >
                 <div className="relative">

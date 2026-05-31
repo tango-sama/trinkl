@@ -51,8 +51,9 @@ function ProductCarousel() {
         <section className="py-16 px-4 bg-gradient-to-b from-[var(--bg-beige)]/50 to-transparent">
             <div className="container mx-auto">
                 <div className="text-center mb-12">
-                    <span className="text-sm text-[var(--primary)] font-bold mb-2 block">منتجات مميزة</span>
+                    <span className="section-label">منتجات مميزة</span>
                     <h2 className="section-title">اكتشفي المميز</h2>
+                    <div className="gold-underline"></div>
                 </div>
 
                 <div className="relative max-w-4xl mx-auto">

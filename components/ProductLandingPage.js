@@ -102,7 +102,7 @@ function ProductLandingPage() {
                                 <img 
                                     src={product.image} 
                                     alt={product.title}
-                                    className="max-w-full h-auto max-h-[500px] object-contain drop-shadow-2xl"
+                                    className="max-w-full h-auto max-h-[500px] object-contain drop-shadow-2xl animate-float"
                                     onError={(e) => { e.target.src = 'https://via.placeholder.com/400x500?text=Vitamin+E'; }}
                                 />
                             </div>
@@ -187,7 +187,7 @@ function ProductLandingPage() {
                 <h2 className="text-3xl font-bold text-center text-[var(--text-dark)] mb-12">فوائد المنتج</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {product.benefits.map((benefit, index) => (
-                        <div key={index} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-2 text-center">
+                        <div key={index} className="luxury-card card-hover p-6 text-center">
                             <div className="text-4xl mb-4">{benefit.icon}</div>
                             <h3 className="font-bold text-lg mb-2">{benefit.title}</h3>
                             <p className="text-gray-500 text-sm">{benefit.description}</p>
@@ -237,9 +237,9 @@ function ProductLandingPage() {
                 <div className="bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] rounded-3xl p-8 md:p-12 text-center text-white">
                     <h2 className="text-3xl font-bold mb-4">اطلب الآن واحصل على توصيل مجاني!</h2>
                     <p className="text-lg mb-8 opacity-90">للطلبات فوق 5000 د.ج - توصيل سريع لجميع ولايات الجزائر</p>
-                    <button 
+                    <button
                         onClick={handleAddToCart}
-                        className="bg-white text-[var(--primary)] px-12 py-4 rounded-xl font-bold text-xl hover:bg-[var(--bg-light)] transition-all transform hover:scale-105 shadow-lg"
+                        className="btn-gold text-xl px-12 py-4"
                     >
                         أضف للسلة - {product.price} د.ج
                     </button>
