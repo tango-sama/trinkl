@@ -368,7 +368,7 @@
         border-color: rgba(155, 63, 192, 0.22) !important;
     }
     /* Form fields on dark theme */
-    input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+    input:where(:not([type="checkbox"]):not([type="radio"])), textarea, select {
         background-color: rgba(255, 255, 255, 0.05) !important;
         color: var(--text-dark) !important;
         border-color: rgba(155, 63, 192, 0.3) !important;
