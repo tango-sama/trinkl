@@ -1314,7 +1314,7 @@ function AdminPage() {
                                 placeholder="اسم التصنيف"
                                 value={categoryForm.name}
                                 onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                                className="border p-3 rounded-lg flex-[2] outline-none focus:border-[var(--primary)]"
+                                className="admin-field border p-3 rounded-lg flex-[2] outline-none focus:border-[var(--primary)]"
                             />
                             <input
                                 type="text"
@@ -1322,7 +1322,7 @@ function AdminPage() {
                                 value={categoryForm.id}
                                 onChange={e => setCategoryForm({ ...categoryForm, id: e.target.value })}
                                 disabled={!!editingCategory}
-                                className={`border p-3 rounded-lg flex-1 outline-none focus:border-[var(--primary)] text-center dir-ltr ${editingCategory ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className={`admin-field border p-3 rounded-lg flex-1 outline-none focus:border-[var(--primary)] text-center dir-ltr ${editingCategory ? 'cursor-not-allowed opacity-70' : ''}`}
                             />
                         </div>
 
@@ -1334,7 +1334,7 @@ function AdminPage() {
                                     placeholder="رابط الصورة"
                                     value={categoryForm.image}
                                     onChange={e => setCategoryForm({ ...categoryForm, image: e.target.value })}
-                                    className="border p-3 rounded-lg w-full outline-none focus:border-[var(--primary)] text-sm"
+                                    className="admin-field border p-3 rounded-lg w-full outline-none focus:border-[var(--primary)] text-sm"
                                 />
                                 <div className="flex items-center gap-2">
                                     <input
@@ -1444,7 +1444,7 @@ function AdminPage() {
                                                 type="text"
                                                 value={inlineEditForm.name}
                                                 onChange={(e) => setInlineEditForm({ ...inlineEditForm, name: e.target.value })}
-                                                className="border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-[var(--text-dark)]"
+                                                className="admin-field border p-2 rounded w-full outline-none focus:border-[var(--primary)]"
                                             />
                                         ) : (
                                             cat.name
@@ -1457,7 +1457,7 @@ function AdminPage() {
                                                 type="text"
                                                 value={inlineEditForm.id}
                                                 onChange={(e) => setInlineEditForm({ ...inlineEditForm, id: e.target.value })}
-                                                className="border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-sm"
+                                                className="admin-field border p-2 rounded w-full outline-none focus:border-[var(--primary)] text-sm"
                                             />
                                         ) : (
                                             cat.id
