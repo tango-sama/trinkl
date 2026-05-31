@@ -381,6 +381,16 @@
         border-color: #d1d5db !important;
     }
     .admin-field::placeholder { color: #9ca3af !important; }
+    /* Keep hovered rows/buttons dark so light text stays readable (instead of flipping to light gray) */
+    .hover\:bg-gray-50:hover,
+    .hover\:bg-gray-100:hover,
+    .hover\:bg-gray-200:hover {
+        background-color: rgba(255, 255, 255, 0.07) !important;
+    }
+    /* Selected (editing) table row -> dark purple tint instead of light blue */
+    .bg-blue-50 {
+        background-color: rgba(155, 63, 192, 0.14) !important;
+    }
     /* Warning / highlight boxes -> gold-tinted on dark */
     .bg-yellow-50 {
         background-color: rgba(240, 180, 41, 0.08) !important;
