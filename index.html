@@ -52,33 +52,32 @@
     <style>
         /* Critical CSS for initial render */
         :root {
-            /* New luxury purple-gold palette */
-            --purple-deep: #1a0630;
-            --purple-rich: #2d0a52;
-            --purple-mid: #4a1275;
-            --purple-glow: #9b3fc0;
-            --purple-soft: #c084e8;
-            --gold-bright: #f0b429;
-            --gold-light: #ffd166;
-            --gold-shimmer: #ffe8a0;
-            --white-muted: #e8d5f5;
+            /* Blush Rose & Gold light palette */
+            --rose: #e0728c;
+            --rose-deep: #c8546f;
+            --rose-soft: #f3b4c2;
+            --gold: #d9a86c;
+            --gold-light: #e8c79a;
+            --gold-shimmer: #f2e2c2;
+            --blush: #fff1ec;
+            --cream: #fff7f4;
 
-            /* Semantic tokens remapped to the new palette (legacy names kept so all components cascade) */
-            --primary: #9b3fc0;
-            --primary-dark: #4a1275;
-            --secondary: #f0b429;
-            --accent: #c084e8;
-            --bg-light: #1a0630;
-            --bg-card: rgba(255, 255, 255, 0.04);
-            --bg-beige: #200840;
-            --text-dark: #e8d5f5;
-            --text-muted: rgba(232, 213, 245, 0.75);
-            --border-color: rgba(155, 63, 192, 0.25);
+            /* Semantic tokens (legacy names kept so all components cascade) */
+            --primary: #e0728c;
+            --primary-dark: #c8546f;
+            --secondary: #d9a86c;
+            --accent: #e8b4a0;
+            --bg-light: #fff7f4;
+            --bg-card: #ffffff;
+            --bg-beige: #fbeeea;
+            --text-dark: #3a2a30;
+            --text-muted: #8a7479;
+            --border-color: rgba(200, 84, 111, 0.16);
             --white: #ffffff;
         }
         body {
             font-family: 'Cairo', 'Tajawal', sans-serif;
-            background-color: #1a0630;
+            background-color: #fff7f4;
             color: var(--text-dark);
             font-size: 15px;
             line-height: 1.7;
@@ -110,29 +109,28 @@
     <style type="text/tailwindcss">
         @layer theme {
         :root {
-            --purple-deep: #1a0630;
-            --purple-rich: #2d0a52;
-            --purple-mid: #4a1275;
-            --purple-glow: #9b3fc0;
-            --purple-soft: #c084e8;
-            --gold-bright: #f0b429;
-            --gold-light: #ffd166;
-            --gold-shimmer: #ffe8a0;
-            --white-muted: #e8d5f5;
+            --rose: #e0728c;
+            --rose-deep: #c8546f;
+            --rose-soft: #f3b4c2;
+            --gold: #d9a86c;
+            --gold-light: #e8c79a;
+            --gold-shimmer: #f2e2c2;
+            --blush: #fff1ec;
+            --cream: #fff7f4;
 
-            --primary: #9b3fc0;
-            --primary-dark: #4a1275;
-            --secondary: #f0b429;
-            --accent: #c084e8;
-            --bg-light: #1a0630;
-            --bg-card: rgba(255, 255, 255, 0.04);
-            --bg-beige: #200840;
-            --text-dark: #e8d5f5;
-            --text-muted: rgba(232, 213, 245, 0.75);
-            --border-color: rgba(155, 63, 192, 0.25);
+            --primary: #e0728c;
+            --primary-dark: #c8546f;
+            --secondary: #d9a86c;
+            --accent: #e8b4a0;
+            --bg-light: #fff7f4;
+            --bg-card: #ffffff;
+            --bg-beige: #fbeeea;
+            --text-dark: #3a2a30;
+            --text-muted: #8a7479;
+            --border-color: rgba(200, 84, 111, 0.16);
             --white: #ffffff;
-            --shadow: 0 12px 40px rgba(155, 63, 192, 0.25);
-            --shadow-lg: 0 20px 60px rgba(155, 63, 192, 0.4);
+            --shadow: 0 10px 30px rgba(224, 114, 140, 0.12);
+            --shadow-lg: 0 20px 50px rgba(224, 114, 140, 0.18);
         }
         html { direction: rtl; }
         body {
@@ -141,58 +139,58 @@
             color: var(--text-dark);
             font-size: 15px;
             line-height: 1.7;
-            background-image: radial-gradient(ellipse 120% 80% at 50% 0%, #3d0a72 0%, #1a0630 60%);
+            background-image: radial-gradient(ellipse 120% 80% at 50% 0%, #fff1ec 0%, #fff7f4 55%);
             background-attachment: fixed;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
         * {
             scrollbar-width: thin;
-            scrollbar-color: var(--purple-glow) var(--bg-light);
+            scrollbar-color: var(--primary) var(--bg-beige);
         }
         ::-webkit-scrollbar {
             width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: var(--bg-light);
+            background: var(--bg-beige);
         }
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(var(--purple-glow), var(--purple-mid));
+            background: linear-gradient(var(--primary), var(--primary-dark));
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--gold-bright);
+            background: var(--secondary);
         }
     }
     
     @layer components {
-        /* Primary action button — purple gradient pill */
+        /* Primary action button — rose gradient pill */
         .btn-primary {
             @apply px-8 py-3 font-extrabold transition-all duration-300;
             border-radius: 50px;
-            background: linear-gradient(135deg, #4a1275, #9b3fc0);
+            background: linear-gradient(135deg, #e0728c, #c8546f);
             color: #fff;
-            box-shadow: 0 8px 25px rgba(155, 63, 192, 0.4);
+            box-shadow: 0 8px 22px rgba(224, 114, 140, 0.35);
             border: none;
         }
         .btn-primary:hover {
             transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 14px 35px rgba(155, 63, 192, 0.55);
+            box-shadow: 0 14px 32px rgba(224, 114, 140, 0.5);
         }
         .btn-primary:active {
             transform: translateY(0);
         }
-        /* Gold-outline secondary button */
+        /* Gold gradient secondary button */
         .btn-gold {
             @apply px-8 py-3 font-extrabold transition-all duration-300;
             border-radius: 50px;
-            background: linear-gradient(135deg, var(--gold-bright), var(--gold-light));
-            color: #1a0630;
-            box-shadow: 0 8px 25px rgba(240, 180, 41, 0.35);
+            background: linear-gradient(135deg, var(--gold), var(--gold-light));
+            color: #4a342a;
+            box-shadow: 0 8px 22px rgba(217, 168, 108, 0.35);
         }
         .btn-gold:hover {
             transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 14px 35px rgba(240, 180, 41, 0.5);
+            box-shadow: 0 14px 32px rgba(217, 168, 108, 0.5);
         }
         /* WhatsApp CTA — green gradient pill with pulse */
         .btn-whatsapp {
@@ -207,21 +205,21 @@
             transform: translateY(-3px) scale(1.02);
             box-shadow: 0 14px 35px rgba(37, 211, 102, 0.55);
         }
-        /* Section label chip — gold border pill */
+        /* Section label chip — gold/rose pill */
         .section-label {
             @apply inline-block text-sm font-bold mb-4;
             padding: 6px 18px;
             border-radius: 50px;
-            color: var(--gold-light);
-            background: rgba(240, 180, 41, 0.1);
-            border: 1px solid rgba(240, 180, 41, 0.45);
+            color: var(--rose-deep);
+            background: rgba(217, 168, 108, 0.14);
+            border: 1px solid rgba(217, 168, 108, 0.5);
             letter-spacing: 0.3px;
         }
-        /* Section title — white→gold gradient text */
+        /* Section title — rose→gold gradient text */
         .section-title {
             @apply text-3xl md:text-4xl text-center mb-4 inline-block;
             font-weight: 900;
-            background: linear-gradient(135deg, #ffffff 30%, #ffd166 100%);
+            background: linear-gradient(135deg, #c8546f 0%, #d9a86c 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -233,38 +231,36 @@
             height: 3px;
             margin: 0 auto 8px;
             border-radius: 50px;
-            background: linear-gradient(90deg, var(--gold-bright), var(--gold-light));
+            background: linear-gradient(90deg, var(--gold), var(--rose));
         }
-        /* Luxury glass card */
+        /* Light luxury card */
         .luxury-card {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(155, 63, 192, 0.25);
+            background: #ffffff;
+            border: 1px solid var(--border-color);
             border-radius: 20px;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            box-shadow: 0 20px 60px rgba(155, 63, 192, 0.25);
+            box-shadow: 0 12px 36px rgba(224, 114, 140, 0.10);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .luxury-card:hover {
             transform: translateY(-8px);
-            border-color: rgba(240, 180, 41, 0.4);
-            box-shadow: 0 20px 60px rgba(155, 63, 192, 0.4);
+            border-color: rgba(217, 168, 108, 0.55);
+            box-shadow: 0 22px 50px rgba(224, 114, 140, 0.20);
         }
         .card-hover {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .card-hover:hover {
             transform: translateY(-8px);
-            border-color: rgba(240, 180, 41, 0.4);
+            border-color: rgba(217, 168, 108, 0.55);
             box-shadow: var(--shadow-lg);
         }
         .glass-effect {
-            background: rgba(26, 6, 48, 0.9);
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
         }
         .text-gradient {
-            background: linear-gradient(135deg, #ffffff 30%, #ffd166 100%);
+            background: linear-gradient(135deg, #e0728c 0%, #d9a86c 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -330,7 +326,7 @@
             100% { background-position: 200% 0; }
         }
         .gold-shimmer-border {
-            background: linear-gradient(90deg, rgba(240,180,41,0.1) 25%, rgba(255,232,160,0.6) 50%, rgba(240,180,41,0.1) 75%);
+            background: linear-gradient(90deg, rgba(217,168,108,0.15) 25%, rgba(242,226,194,0.7) 50%, rgba(217,168,108,0.15) 75%);
             background-size: 200% 100%;
             animation: shimmerMove 3s linear infinite;
         }
@@ -344,67 +340,14 @@
         }
     }
 
-    /* === Global compatibility overrides: adapt legacy light-theme utilities to the dark luxury theme === */
-    .bg-white {
-        background-color: rgba(255, 255, 255, 0.04) !important;
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(155, 63, 192, 0.22);
-        color: var(--text-dark);
-    }
-    .bg-gray-50, .bg-gray-100, .bg-gray-200, .bg-slate-50, .bg-slate-100 {
-        background-color: rgba(255, 255, 255, 0.04) !important;
-    }
-    .text-gray-400, .text-gray-500, .text-gray-600 {
-        color: rgba(232, 213, 245, 0.75) !important;
-    }
-    .text-gray-700, .text-gray-800, .text-gray-900, .text-black {
-        color: var(--text-dark) !important;
-    }
-    .border-white {
-        border-color: rgba(155, 63, 192, 0.3) !important;
-    }
-    .border-gray-100, .border-gray-200, .border-gray-300 {
-        border-color: rgba(155, 63, 192, 0.22) !important;
-    }
-    /* Form fields on dark theme */
-    input:where(:not([type="checkbox"]):not([type="radio"])), textarea, select {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        color: var(--text-dark) !important;
-        border-color: rgba(155, 63, 192, 0.3) !important;
-    }
-    input::placeholder, textarea::placeholder { color: rgba(232, 213, 245, 0.45) !important; }
-    /* Admin panel form fields keep the light look: black text on white for readability */
+    /* === Light theme: rely on default Tailwind utilities (bg-white, text-gray-*, etc.). === */
+    /* Admin panel form fields: explicit black text on white for maximum readability */
     .admin-field {
         background-color: #ffffff !important;
         color: #1a1a1a !important;
-        border-color: #d1d5db !important;
+        border-color: #e3c7cd !important;
     }
     .admin-field::placeholder { color: #9ca3af !important; }
-    /* Keep hovered rows/buttons dark so light text stays readable (instead of flipping to light gray) */
-    .hover\:bg-gray-50:hover,
-    .hover\:bg-gray-100:hover,
-    .hover\:bg-gray-200:hover {
-        background-color: rgba(255, 255, 255, 0.07) !important;
-    }
-    /* Selected (editing) table row -> dark purple tint instead of light blue */
-    .bg-blue-50 {
-        background-color: rgba(155, 63, 192, 0.14) !important;
-    }
-    /* Warning / highlight boxes -> gold-tinted on dark */
-    .bg-yellow-50 {
-        background-color: rgba(240, 180, 41, 0.08) !important;
-        border-color: rgba(240, 180, 41, 0.35) !important;
-    }
-    .text-yellow-700, .text-yellow-800 {
-        color: var(--gold-light) !important;
-    }
-    .bg-green-100 {
-        background-color: rgba(37, 211, 102, 0.15) !important;
-    }
-    .text-green-700 {
-        color: #4ade80 !important;
-    }
     </style>
 
     <!-- Performance: Service Worker for caching -->
@@ -423,8 +366,8 @@
     <!-- Loading state while React loads -->
     <div id="root">
         <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; flex-direction: column; gap: 20px;">
-            <div style="width: 50px; height: 50px; border: 4px solid #f0b429; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <p style="color: #f0b429; font-family: 'Cairo', sans-serif; font-weight: 600;">جاري التحميل...</p>
+            <div style="width: 50px; height: 50px; border: 4px solid #e0728c; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="color: #e0728c; font-family: 'Cairo', sans-serif; font-weight: 600;">جاري التحميل...</p>
         </div>
     </div>
 

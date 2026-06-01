@@ -4,7 +4,7 @@ function Hero() {
         : "https://images.unsplash.com/photo-1599695663667-73b22415170d?q=80&w=800&auto=format&fit=crop";
 
     return (
-        <section className="relative overflow-hidden py-16 md:py-28 px-4" style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #3d0a72 0%, #1a0630 60%)' }}>
+        <section className="relative overflow-hidden py-16 md:py-28 px-4" style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 0%, #fff1ec 0%, #fff7f4 60%)' }}>
             {/* Background decoration */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-gradient-to-br from-[var(--primary)]/25 to-transparent blur-3xl"></div>
