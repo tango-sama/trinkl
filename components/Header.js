@@ -49,8 +49,8 @@ function Header({ cartCount = 0 }) {
         <>
             <header className={`sticky top-0 z-50 transition-all duration-300 ${
                 scrolled
-                    ? 'bg-[rgba(255,247,244,0.9)] backdrop-blur-xl shadow-[0_8px_30px_rgba(224,114,140,0.15)] border-b border-[var(--border-color)]'
-                    : 'bg-transparent'
+                    ? 'bg-[rgba(253,250,244,0.92)] backdrop-blur-xl shadow-[0_8px_30px_rgba(75,29,122,0.18)] border-b border-[var(--border-color)]'
+                    : 'bg-[rgba(253,250,244,0.6)] backdrop-blur-md'
             }`}>
                 <div className="container mx-auto px-4 py-3 flex justify-between items-center">
                     {/* Logo */}
