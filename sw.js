@@ -1,11 +1,16 @@
 // Service Worker for DesertShop.fit - Performance caching
-const CACHE_NAME = 'desertshop-v1';
+const CACHE_NAME = 'desertshop-v2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/app.js',
-    '/utils/firebase.js',
-    '/utils/data.js'
+    '/products.html',
+    '/categories.html',
+    '/product.html',
+    '/checkout.html',
+    '/css/theme.css',
+    '/js/firebase.js',
+    '/js/site.js',
+    '/js/cart.js'
 ];
 
 // Install: Cache static assets

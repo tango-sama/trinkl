@@ -1,668 +1,318 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-
 <head>
-    <meta charset="UTF-8">
-    <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جمالك الخارجي | متجر الجمال</title>
-    <meta name="description" content="متجر متخصص في منتجات الجمال والعناية بالشعر والبشرة">
-    <meta name="keywords" content="جمال, عناية, شعر, بشرة, تسوق">
+<meta charset="UTF-8">
+<base href="/" />
+<link rel="icon" type="image/webp" href="assets/logo.webp">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>جمالكِ الخارجي | Desert Shop — منتجات الجمال والعناية</title>
+<meta name="description" content="ديزرت شوب — متجر متخصص في منتجات الجمال، العناية بالبشرة والشعر، العطور والمكمّلات النسائية. الدفع عند الاستلام وتوصيل لكل الولايات.">
+<meta name="keywords" content="جمال, عناية, شعر, بشرة, عطور, تنحيف, تسمين, مكملات, تسوق, الجزائر">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+/* ── HERO ── */
+.hero{max-width:1320px;margin:0 auto;padding:8rem 3rem 4rem;display:grid;grid-template-columns:1.05fr 1fr;gap:3rem;align-items:center;min-height:88vh}
+.hero-copy{position:relative;z-index:2}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:.55rem;font-size:.72rem;letter-spacing:2px;
+  color:var(--rose-deep);text-transform:uppercase;font-weight:800;margin-bottom:1.4rem;
+  background:rgba(217,168,108,.16);padding:.5rem 1.1rem;border-radius:100px;border:1px solid rgba(217,168,108,.45)}
+.hero-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--rose);animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{font-size:clamp(2.4rem,5.2vw,4rem);font-weight:900;line-height:1.18;color:var(--ink);margin-bottom:1.2rem}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--rose),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.hero p.lead{font-size:1.05rem;line-height:1.9;color:var(--ink-2);max-width:460px;margin-bottom:2rem}
+.hero-actions{display:flex;gap:1rem;flex-wrap:wrap}
+.hero-trust{display:flex;align-items:center;gap:1rem;margin-top:2.2rem}
+.hero-trust .avs{display:flex}
+.hero-trust .av{width:36px;height:36px;border-radius:50%;border:2px solid var(--bg);margin-right:-10px;
+  display:flex;align-items:center;justify-content:center;font-size:.95rem;
+  background:linear-gradient(135deg,var(--rose-soft),var(--gold-light))}
+.hero-trust .tx{font-size:.8rem;color:var(--ink-2);line-height:1.4}
+.hero-trust .tx b{color:var(--ink);font-weight:800}
+.hero-visual{position:relative;height:80vh;max-height:620px}
+.hero-photo{position:absolute;inset:0;border-radius:32px;overflow:hidden;box-shadow:var(--shadow-lg);
+  background:linear-gradient(155deg,var(--rose-soft),var(--gold-light) 70%,var(--blush))}
+.hero-photo img{width:100%;height:100%;object-fit:cover}
+.hero-photo .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9rem;filter:drop-shadow(0 14px 28px rgba(58,42,48,.18))}
+.hero-float{position:absolute;z-index:3;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:16px;padding:.85rem 1.1rem;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:.65rem}
+.hf-rating{top:1.4rem;right:1.4rem;animation:floatA 6s ease-in-out infinite}
+.hf-rating .stars{color:var(--gold);letter-spacing:1px}
+.hf-rating .tx{font-size:.72rem;color:var(--ink-2)}
+.hf-rating .tx b{color:var(--ink)}
+.hf-ship{bottom:1.4rem;left:1.4rem;animation:floatB 7s ease-in-out infinite}
+.hf-ship .ic{width:40px;height:40px;border-radius:12px;background:var(--rose-tint);display:flex;align-items:center;justify-content:center}
+.hf-ship .ic svg{width:22px;height:22px;color:var(--rose-deep)}
+.hf-ship .nm{font-size:.78rem;font-weight:800;color:var(--ink)}
+.hf-ship .pr{font-size:.7rem;color:var(--ink-3)}
+@keyframes floatA{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes floatB{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 
-    <!-- Performance: Preconnect to critical domains -->
-    <link rel="preconnect" href="https://resource.trickle.so" crossorigin>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://www.gstatic.com">
-    <link rel="dns-prefetch" href="https://resource.trickle.so">
+/* ── FEATURED CAROUSEL ── */
+.featured-band{background:linear-gradient(135deg,#FBEEEA,#FFF7F4);border-block:1px solid var(--line)}
+.fcar{position:relative;max-width:1100px;margin:0 auto}
+.fcar-track{display:flex;overflow:hidden;border-radius:24px}
+.fslide{min-width:100%;display:grid;grid-template-columns:1fr 1.1fr;gap:2rem;align-items:center;padding:2rem;background:var(--bg-2);border:1px solid var(--line-2)}
+.fslide .fimg{border-radius:18px;overflow:hidden;aspect-ratio:1/1;background:var(--bg-3)}
+.fslide .fimg img{width:100%;height:100%;object-fit:cover}
+.fslide .fname{font-size:1.6rem;font-weight:900;color:var(--rose-deep);margin-bottom:1rem}
+.fslide .ftexts{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+.fslide .ftexts p{font-size:.86rem;color:var(--ink-2);line-height:1.7;background:var(--bg-3);padding:.85rem 1rem;border-radius:12px}
+.fcar-dots{display:flex;justify-content:center;gap:.5rem;margin-top:1.25rem}
+.fcar-dots button{width:10px;height:10px;border-radius:50%;border:none;background:var(--line);cursor:pointer;transition:all .25s}
+.fcar-dots button.on{background:var(--rose);width:26px;border-radius:100px}
 
-    <!-- Performance: Preload critical resources -->
-    <link rel="preload" href="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js" as="script" crossorigin>
-    <link rel="preload" href="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" as="script" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@400;500;700;800&family=Poppins:wght@400;600;700;800&display=swap" as="style">
+/* ── CONTACT ── */
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;max-width:1100px;margin:0 auto}
+.cinfo-item{display:flex;gap:1rem;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--line)}
+.cinfo-ic{width:48px;height:48px;border-radius:14px;background:var(--rose-tint);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cinfo-ic svg{width:22px;height:22px;color:var(--rose-deep)}
+.cinfo-l{font-size:.66rem;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;font-weight:800;margin-bottom:.3rem}
+.cinfo-v{font-size:.92rem;color:var(--ink);line-height:1.6}
+.cform{background:var(--bg-2);border:1px solid var(--line-2);border-radius:22px;padding:2rem;box-shadow:var(--shadow)}
+.ffield{margin-bottom:1rem}
+.ffield label{display:block;font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.5rem}
+.finput,.ftext{width:100%;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);
+  font-family:var(--sans);font-size:.92rem;padding:.8rem 1rem;border-radius:12px;outline:none;transition:border .25s}
+.finput:focus,.ftext:focus{border-color:var(--rose)}
+.ftext{resize:vertical;min-height:110px}
 
-    <!-- React 18 - Load first (blocking, but needed for everything else) -->
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@remix-run/router@1.6.3/dist/router.umd.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-router@6.4.5/dist/umd/react-router.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-router-dom@6.4.5/dist/umd/react-router-dom.production.min.js" crossorigin></script>
-
-    <!-- Babel - needed for JSX compilation -->
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
-
-    <!-- TailwindCSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Lucide Icons - Async loading with fallback -->
-    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet" media="print" onload="this.media='all'">
-    <noscript><link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet"></noscript>
-
-    <!-- Firebase SDK (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-    <!-- Google Fonts: Cairo/Tajawal (Arabic) + Poppins (English) -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@400;500;700;800&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
-
-    <!-- Critical CSS Inline - Above the fold styles -->
-    <style>
-        /* Critical CSS for initial render */
-        :root {
-            /* Blush Rose & Gold light palette */
-            --rose: #e0728c;
-            --rose-deep: #c8546f;
-            --rose-soft: #f3b4c2;
-            --gold: #d9a86c;
-            --gold-light: #e8c79a;
-            --gold-shimmer: #f2e2c2;
-            --blush: #fff1ec;
-            --cream: #fff7f4;
-
-            /* Semantic tokens (legacy names kept so all components cascade) */
-            --primary: #e0728c;
-            --primary-dark: #c8546f;
-            --secondary: #d9a86c;
-            --accent: #e8b4a0;
-            --bg-light: #fff7f4;
-            --bg-card: #ffffff;
-            --bg-beige: #fbeeea;
-            --text-dark: #3a2a30;
-            --text-muted: #8a7479;
-            --border-color: rgba(200, 84, 111, 0.16);
-            --white: #ffffff;
-        }
-        body {
-            font-family: 'Cairo', 'Tajawal', sans-serif;
-            background-color: #fff7f4;
-            color: var(--text-dark);
-            font-size: 15px;
-            line-height: 1.7;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            margin: 0;
-            padding: 0;
-        }
-        #root {
-            min-height: 100vh;
-        }
-        /* Loading skeleton */
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: skeleton-loading 1.5s infinite;
-        }
-        @keyframes skeleton-loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-        /* Prevent FOUC */
-        .no-fouc {
-            visibility: hidden;
-        }
-    </style>
-
-    <!-- Non-critical CSS - Lazy loaded -->
-    <style type="text/tailwindcss">
-        @layer theme {
-        :root {
-            --rose: #e0728c;
-            --rose-deep: #c8546f;
-            --rose-soft: #f3b4c2;
-            --gold: #d9a86c;
-            --gold-light: #e8c79a;
-            --gold-shimmer: #f2e2c2;
-            --blush: #fff1ec;
-            --cream: #fff7f4;
-
-            --primary: #e0728c;
-            --primary-dark: #c8546f;
-            --secondary: #d9a86c;
-            --accent: #e8b4a0;
-            --bg-light: #fff7f4;
-            --bg-card: #ffffff;
-            --bg-beige: #fbeeea;
-            --text-dark: #3a2a30;
-            --text-muted: #8a7479;
-            --border-color: rgba(200, 84, 111, 0.16);
-            --white: #ffffff;
-            --shadow: 0 10px 30px rgba(224, 114, 140, 0.12);
-            --shadow-lg: 0 20px 50px rgba(224, 114, 140, 0.18);
-        }
-        html { direction: rtl; }
-        body {
-            font-family: 'Cairo', 'Tajawal', sans-serif;
-            background-color: var(--bg-light);
-            color: var(--text-dark);
-            font-size: 15px;
-            line-height: 1.7;
-            background-image: radial-gradient(ellipse 120% 80% at 50% 0%, #fff1ec 0%, #fff7f4 55%);
-            background-attachment: fixed;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary) var(--bg-beige);
-        }
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-beige);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(var(--primary), var(--primary-dark));
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--secondary);
-        }
-    }
-    
-    @layer components {
-        /* Primary action button — rose gradient pill */
-        .btn-primary {
-            @apply px-8 py-3 font-extrabold transition-all duration-300;
-            border-radius: 50px;
-            background: linear-gradient(135deg, #e0728c, #c8546f);
-            color: #fff;
-            box-shadow: 0 8px 22px rgba(224, 114, 140, 0.35);
-            border: none;
-        }
-        .btn-primary:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 14px 32px rgba(224, 114, 140, 0.5);
-        }
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-        /* Gold gradient secondary button */
-        .btn-gold {
-            @apply px-8 py-3 font-extrabold transition-all duration-300;
-            border-radius: 50px;
-            background: linear-gradient(135deg, var(--gold), var(--gold-light));
-            color: #4a342a;
-            box-shadow: 0 8px 22px rgba(217, 168, 108, 0.35);
-        }
-        .btn-gold:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 14px 32px rgba(217, 168, 108, 0.5);
-        }
-        /* WhatsApp CTA — green gradient pill with pulse */
-        .btn-whatsapp {
-            @apply px-8 py-3 font-extrabold transition-all duration-300 inline-flex items-center justify-center gap-2;
-            border-radius: 50px;
-            background: linear-gradient(135deg, #1a7a34, #25d366);
-            color: #fff;
-            box-shadow: 0 8px 25px rgba(37, 211, 102, 0.4);
-            animation: pulseCta 2.4s ease-in-out infinite;
-        }
-        .btn-whatsapp:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 14px 35px rgba(37, 211, 102, 0.55);
-        }
-        /* Section label chip — gold/rose pill */
-        .section-label {
-            @apply inline-block text-sm font-bold mb-4;
-            padding: 6px 18px;
-            border-radius: 50px;
-            color: var(--rose-deep);
-            background: rgba(217, 168, 108, 0.14);
-            border: 1px solid rgba(217, 168, 108, 0.5);
-            letter-spacing: 0.3px;
-        }
-        /* Section title — rose→gold gradient text */
-        .section-title {
-            @apply text-3xl md:text-4xl text-center mb-4 inline-block;
-            font-weight: 900;
-            background: linear-gradient(135deg, #c8546f 0%, #d9a86c 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            color: transparent;
-        }
-        /* Gold underline divider beneath section titles */
-        .gold-underline {
-            width: 80px;
-            height: 3px;
-            margin: 0 auto 8px;
-            border-radius: 50px;
-            background: linear-gradient(90deg, var(--gold), var(--rose));
-        }
-        /* Light luxury card */
-        .luxury-card {
-            background: #ffffff;
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            box-shadow: 0 12px 36px rgba(224, 114, 140, 0.10);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .luxury-card:hover {
-            transform: translateY(-8px);
-            border-color: rgba(217, 168, 108, 0.55);
-            box-shadow: 0 22px 50px rgba(224, 114, 140, 0.20);
-        }
-        .card-hover {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .card-hover:hover {
-            transform: translateY(-8px);
-            border-color: rgba(217, 168, 108, 0.55);
-            box-shadow: var(--shadow-lg);
-        }
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        }
-        .text-gradient {
-            background: linear-gradient(135deg, #e0728c 0%, #d9a86c 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-    }
-    
-    @layer utilities {
-        .animate-fade-in {
-            animation: fadeIn 0.6s ease-out forwards;
-        }
-        .animate-slide-up {
-            animation: slideUp 0.6s ease-out forwards;
-        }
-        .animate-scale-in {
-            animation: scaleIn 0.4s ease-out forwards;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        /* Scroll reveal */
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.7s ease, transform 0.7s ease;
-        }
-        .reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        /* Float effect for product images */
-        @keyframes floatEl {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
-        .animate-float {
-            animation: floatEl 4s ease-in-out infinite;
-        }
-        /* Gold shimmer on borders */
-        @keyframes shimmerMove {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-        .gold-shimmer-border {
-            background: linear-gradient(90deg, rgba(217,168,108,0.15) 25%, rgba(242,226,194,0.7) 50%, rgba(217,168,108,0.15) 75%);
-            background-size: 200% 100%;
-            animation: shimmerMove 3s linear infinite;
-        }
-        /* Pulse for main CTA buttons */
-        @keyframes pulseCta {
-            0%, 100% { box-shadow: 0 8px 25px rgba(37, 211, 102, 0.4); }
-            50% { box-shadow: 0 8px 35px rgba(37, 211, 102, 0.7); }
-        }
-        .animate-pulse-cta {
-            animation: pulseCta 2.4s ease-in-out infinite;
-        }
-    }
-
-    /* === Light theme: rely on default Tailwind utilities (bg-white, text-gray-*, etc.). === */
-    /* Admin panel form fields: explicit black text on white for maximum readability */
-    .admin-field {
-        background-color: #ffffff !important;
-        color: #1a1a1a !important;
-        border-color: #e3c7cd !important;
-    }
-    .admin-field::placeholder { color: #9ca3af !important; }
-    </style>
-
-    <!-- Performance: Service Worker for caching -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').catch(function() {
-                    console.log('Service Worker registration failed');
-                });
-            });
-        }
-    </script>
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;padding:7rem 1.2rem 3rem;gap:2.5rem;text-align:center;min-height:auto}
+  .hero-eyebrow{margin-inline:auto}.hero p.lead{margin-inline:auto}.hero-actions{justify-content:center}.hero-trust{justify-content:center}
+  .hero-visual{height:auto;aspect-ratio:4/5;max-height:none}
+  .fslide{grid-template-columns:1fr;text-align:center}
+  .contact-grid{grid-template-columns:1fr;gap:2rem}
+}
+</style>
 </head>
-
 <body>
-    <!-- Loading state while React loads -->
-    <div id="root">
-        <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; flex-direction: column; gap: 20px;">
-            <div style="width: 50px; height: 50px; border: 4px solid #e0728c; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <p style="color: #e0728c; font-family: 'Cairo', sans-serif; font-weight: 600;">جاري التحميل...</p>
-        </div>
+<div class="bg-glow"></div>
+<div class="wrap">
+
+<!-- NAV -->
+<nav class="site-nav">
+  <a class="brand" href="index.html">
+    <img src="assets/logo.webp" alt="Desert Shop" onerror="this.style.display='none'">
+    <span class="brand-tx"><span class="brand-name">جمالكِ الخارجي</span><span class="brand-sub">Desert Shop</span></span>
+  </a>
+  <ul class="nav-menu">
+    <li><a href="index.html">الرئيسية</a></li>
+    <li><a href="products.html">المنتجات</a></li>
+    <li><a href="categories.html">التصنيفات</a></li>
+    <li><a href="#contact">تواصلي معنا</a></li>
+  </ul>
+  <div class="nav-actions">
+    <button class="nav-cart" data-cart-open aria-label="السلة">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+      <span class="badge">0</span>
+    </button>
+    <button class="burger" aria-label="القائمة"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-copy">
+    <div class="hero-eyebrow"><span class="dot"></span> أناقتكِ تبدأ من هنا</div>
+    <h1>كل ما تحتاجينه <em>لجمالكِ</em> وعنايتكِ في مكان واحد</h1>
+    <p class="lead">منتجات أصلية مختارة بعناية للعناية بالبشرة والشعر، العطور الفرمونية، والمكمّلات النسائية — بجودة مضمونة، أسعار مناسبة، وتوصيل لكل ولايات الوطن.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="products.html">تسوّقي الآن</a>
+      <a class="btn-ghost" href="categories.html">تصفّحي التصنيفات</a>
     </div>
+    <div class="hero-trust">
+      <div class="avs"><div class="av">👩</div><div class="av">🧕</div><div class="av">💁‍♀️</div><div class="av">💃</div></div>
+      <div class="tx"><b>+5000 زبونة سعيدة</b><br>يثقن في ديزرت شوب</div>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="hero-photo" id="heroPhoto"><div class="ph">💄</div></div>
+    <div class="hero-float hf-rating"><span class="stars">★★★★★</span><span class="tx"><b>4.9</b> · تقييم الزبائن</span></div>
+    <div class="hero-float hf-ship">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18h14"/><path d="M12 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></div>
+      <div><div class="nm">توصيل سريع</div><div class="pr">لكل 58 ولاية</div></div>
+    </div>
+  </div>
+</header>
 
-    <!-- Sticky mobile WhatsApp CTA bar (appears after 500px scroll, mobile only) -->
-    <style>
-        /* Section scroll-reveal (attribute-based = React-safe) */
-        main section[data-reveal] {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.7s ease, transform 0.7s ease;
-        }
-        main section[data-reveal][data-visible] {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .reveal[data-visible] { opacity: 1 !important; transform: translateY(0) !important; }
+<!-- FEATURES -->
+<section class="features reveal">
+  <div class="feature"><div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg></div><div><div class="ft">الدفع عند الاستلام</div><div class="fs">توصيل لـ 58 ولاية</div></div></div>
+  <div class="feature"><div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></div><div><div class="ft">منتجات أصلية</div><div class="fs">ضمان الجودة 100%</div></div></div>
+  <div class="feature"><div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18h14"/><path d="M12 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></div><div><div class="ft">توصيل سريع</div><div class="fs">إلى باب المنزل</div></div></div>
+  <div class="feature"><div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/></svg></div><div><div class="ft">خدمة زبائن</div><div class="fs">7/7 أيام</div></div></div>
+</section>
 
-        /* Sticky bottom WhatsApp CTA bar */
-        #sticky-wa-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 60;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-            font-family: 'Cairo', 'Tajawal', sans-serif;
-            font-weight: 800;
-            font-size: 15px;
-            color: #fff;
-            text-decoration: none;
-            background: linear-gradient(135deg, #1a7a34, #25d366);
-            box-shadow: 0 -8px 30px rgba(37, 211, 102, 0.35);
-            transform: translateY(110%);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        #sticky-wa-bar.show { transform: translateY(0); }
-        @media (min-width: 768px) { #sticky-wa-bar { display: none !important; } }
-    </style>
-    <a id="sticky-wa-bar" href="https://wa.me/213662705830" target="_blank" rel="noreferrer">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-        <span>اطلبي الآن عبر واتساب</span>
-    </a>
+<!-- CATEGORIES -->
+<section class="sec reveal" id="categories">
+  <div class="sec-head">
+    <span class="sec-label">تسوّقي حسب الفئة</span>
+    <h2 class="sec-title">تصنيفاتنا</h2>
+    <div class="sec-underline"></div>
+    <p class="sec-sub">اختاري ما يناسب احتياجكِ من مجموعتنا المتنوّعة للعناية والجمال.</p>
+  </div>
+  <div class="cat-grid" id="catGrid"></div>
+</section>
 
-    <script>
-        (function () {
-            // --- Sticky WhatsApp bar: show after 500px scroll, hide on admin route ---
-            var bar = document.getElementById('sticky-wa-bar');
-            var isAdmin = function () { return (location.hash || '').indexOf('/amelhadj') !== -1; };
-            var onScroll = function () {
-                if (!bar) return;
-                if (window.scrollY > 500 && !isAdmin()) bar.classList.add('show');
-                else bar.classList.remove('show');
-            };
-            window.addEventListener('scroll', onScroll, { passive: true });
-            window.addEventListener('hashchange', onScroll);
+<!-- FEATURED CAROUSEL -->
+<section class="featured-band reveal" id="featuredBand" style="display:none">
+  <div class="sec">
+    <div class="sec-head">
+      <span class="sec-label">مختارات مميزة</span>
+      <h2 class="sec-title">منتجات تستحق التجربة</h2>
+      <div class="sec-underline"></div>
+    </div>
+    <div class="fcar"><div class="fcar-track" id="fcarTrack"></div><div class="fcar-dots" id="fcarDots"></div></div>
+  </div>
+</section>
 
-            // --- Scroll reveal for all sections ---
-            var io = new IntersectionObserver(function (entries) {
-                entries.forEach(function (e) {
-                    if (e.isIntersecting) {
-                        e.target.setAttribute('data-visible', '');
-                        e.target.classList.add('visible');
-                    }
-                });
-            }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+<!-- PRODUCTS -->
+<section class="sec reveal" id="collection">
+  <div class="sec-head">
+    <span class="sec-label">الأكثر طلباً</span>
+    <h2 class="sec-title">أبرز المنتجات</h2>
+    <div class="sec-underline"></div>
+  </div>
+  <div class="pgrid" id="pgrid"></div>
+  <div style="text-align:center;margin-top:2.5rem"><a class="btn-gold" href="products.html">عرض كل المنتجات</a></div>
+</section>
 
-            var scan = function () {
-                document.querySelectorAll('main section, .reveal').forEach(function (el) {
-                    if (el.__revObserved) return;
-                    el.__revObserved = true;
-                    if (!el.classList.contains('reveal')) el.setAttribute('data-reveal', '');
-                    io.observe(el);
-                });
-            };
+<!-- CONTACT -->
+<section class="sec reveal" id="contact">
+  <div class="sec-head">
+    <span class="sec-label">تواصلي معنا</span>
+    <h2 class="sec-title">نحن هنا لمساعدتكِ</h2>
+    <div class="sec-underline"></div>
+  </div>
+  <div class="contact-grid">
+    <div>
+      <div class="cinfo-item"><div class="cinfo-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div><div class="cinfo-l">واتساب / هاتف</div><div class="cinfo-v"><span class="ltr">+213 662 705 830</span></div></div></div>
+      <div class="cinfo-item"><div class="cinfo-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div><div><div class="cinfo-l">التوصيل</div><div class="cinfo-v">إلى كل ولايات الجزائر — 58 ولاية</div></div></div>
+      <div class="cinfo-item" style="border-bottom:none"><div class="cinfo-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div><div class="cinfo-l">ساعات العمل</div><div class="cinfo-v">كل أيام الأسبوع · 9:00 ص — 9:00 م</div></div></div>
+      <a class="btn-whatsapp" data-wa="مرحباً، أريد الاستفسار عن منتجاتكم" target="_blank" style="margin-top:.5rem">تواصلي عبر واتساب</a>
+    </div>
+    <div class="cform">
+      <form id="contactForm">
+        <div class="ffield"><label>الاسم الكامل</label><input class="finput" id="cName" required placeholder="اسمكِ الكريم"></div>
+        <div class="ffield"><label>رقم الهاتف</label><input class="finput" id="cPhone" type="tel" placeholder="0X XX XX XX XX" style="direction:ltr;text-align:right"></div>
+        <div class="ffield"><label>رسالتكِ</label><textarea class="ftext" id="cMsg" required placeholder="كيف يمكننا مساعدتكِ؟"></textarea></div>
+        <button type="submit" class="btn-primary btn-block">إرسال الرسالة</button>
+      </form>
+    </div>
+  </div>
+</section>
 
-            var scheduled = false;
-            var schedule = function () {
-                if (scheduled) return;
-                scheduled = true;
-                requestAnimationFrame(function () { scheduled = false; scan(); });
-            };
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="foot-inner">
+    <div class="foot-top">
+      <div>
+        <div class="foot-brand"><img src="assets/logo.webp" alt="Desert Shop" onerror="this.style.display='none'"><span class="brand-name" style="font-size:1.2rem">جمالكِ الخارجي</span></div>
+        <p class="foot-desc">وجهتكِ الأولى لمنتجات الجمال والعناية النسائية في الجزائر. جودة أصلية، خصوصية تامة، وتوصيل لكل الولايات.</p>
+        <div class="foot-social">
+          <a data-wa="مرحباً" target="_blank" aria-label="WhatsApp"><img src="assets/whatsapp.png" alt="WhatsApp" onerror="this.parentElement.style.display='none'"></a>
+          <a href="https://instagram.com" target="_blank" aria-label="Instagram"><img src="assets/instagram.png" alt="Instagram" onerror="this.parentElement.style.display='none'"></a>
+          <a href="https://facebook.com" target="_blank" aria-label="Facebook"><img src="assets/facebook.png" alt="Facebook" onerror="this.parentElement.style.display='none'"></a>
+          <a href="https://tiktok.com" target="_blank" aria-label="TikTok"><img src="assets/tiktok.png" alt="TikTok" onerror="this.parentElement.style.display='none'"></a>
+        </div>
+      </div>
+      <div class="foot-col"><h4>تسوّقي</h4><ul><li><a href="products.html">كل المنتجات</a></li><li><a href="categories.html">التصنيفات</a></li><li><a href="index.html#collection">الأكثر طلباً</a></li></ul></div>
+      <div class="foot-col"><h4>المتجر</h4><ul><li><a href="index.html#contact">تواصلي معنا</a></li><li><a data-wa="مرحباً" target="_blank">اطلبي عبر واتساب</a></li><li><a href="checkout.html">سلة المشتريات</a></li></ul></div>
+      <div class="foot-col"><h4>الدفع والتوصيل</h4><ul><li>الدفع عند الاستلام</li><li>توصيل لكل الولايات</li><li>منتجات أصلية مضمونة</li></ul></div>
+    </div>
+    <div class="foot-bottom">
+      <div class="foot-copy">© <span id="yr"></span> جمالكِ الخارجي — Desert Shop · جميع الحقوق محفوظة</div>
+      <div class="foot-made">صُنع بحبّ في الجزائر 🇩🇿</div>
+    </div>
+  </div>
+</footer>
+</div>
 
-            var root = document.getElementById('root');
-            if (root) new MutationObserver(schedule).observe(root, { childList: true, subtree: true });
-            window.addEventListener('hashchange', schedule);
-            schedule();
-        })();
-    </script>
+<a class="wa-float" data-wa="مرحباً، لدي استفسار" target="_blank" aria-label="WhatsApp">
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+</a>
 
-    <!-- App Entry -->
-    <script src="utils/firebase.js"></script>
-    <script src="utils/data.js"></script>
-    <script type="text/babel">
-        // --- Icons Configuration ---
-        const IconBase = ({ children, className = "", ...props }) => (
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={className}
-                {...props}
-            >
-                {children}
-            </svg>
-        );
+<script src="js/firebase.js"></script>
+<script src="js/site.js"></script>
+<script src="js/cart.js"></script>
+<script>
+(function () {
+  document.getElementById('yr').textContent = new Date().getFullYear();
+  var catMap = {};
 
-        const IconShoppingCart = (props) => (
-            <IconBase {...props}>
-                <circle cx="8" cy="21" r="1" />
-                <circle cx="19" cy="21" r="1" />
-                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
-            </IconBase>
-        );
+  // settings (hero image + WA number + social)
+  DS.getSettings().then(function (s) {
+    SiteUI.applySettings(s);
+    if (s && s.heroImage) document.getElementById('heroPhoto').innerHTML = '<img src="' + s.heroImage + '" alt="جمالكِ الخارجي">';
+  });
 
-        const IconSparkles = (props) => (
-            <IconBase {...props}>
-                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
-            </IconBase>
-        );
+  // categories
+  DS.getCategories().then(function (cats) {
+    cats.forEach(function (c) { catMap[c.id] = c.name; });
+    var visible = cats.filter(function (c) { return c.visible !== false; }).slice(0, 8);
+    var html = visible.map(function (c) {
+      var img = c.image ? '<img src="' + SiteUI.esc(c.image) + '" alt="' + SiteUI.esc(c.name) + '" loading="lazy">' : '<div class="placeholder">🌸</div>';
+      return '<a class="cat-tile" href="products.html?cat=' + encodeURIComponent(c.id) + '">' + img +
+        '<div class="cat-meta"><div class="cat-name">' + SiteUI.esc(c.name) + '</div><div class="cat-go">تسوّقي الآن ←</div></div></a>';
+    }).join('');
+    document.getElementById('catGrid').innerHTML = html || '<p style="grid-column:1/-1;text-align:center;color:var(--ink-3)">لا توجد تصنيفات بعد.</p>';
+    SiteUI.observeReveals(document.getElementById('catGrid'));
+  });
 
-        const IconHeadset = (props) => (
-            <IconBase {...props}>
-                <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />
-                <path d="M21 16v2a4 4 0 0 1-4 4h-5" />
-            </IconBase>
-        );
+  // products (live)
+  DS.getProducts().then(function (prods) {
+    window._DS_PRODUCTS = prods;
+    var grid = document.getElementById('pgrid');
+    if (!prods.length) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--ink-3);padding:2rem">لا توجد منتجات بعد.</p>'; return; }
+    // newest first (lastModified or numeric id), show up to 8
+    var sorted = prods.slice().sort(function (a, b) { return (Number(b.lastModified || b.id) || 0) - (Number(a.lastModified || a.id) || 0); });
+    grid.innerHTML = sorted.slice(0, 8).map(function (p) { return SiteUI.productCardHTML(p, catMap[p.category] || ''); }).join('');
+    SiteUI.observeReveals(grid);
+  });
 
-        const IconTruck = (props) => (
-            <IconBase {...props}>
-                <path d="M5 18h14" /><path d="M12 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" />
-            </IconBase>
-        );
+  // featured carousel
+  DS.getFeatured().then(function (list) {
+    if (!list.length) return;
+    document.getElementById('featuredBand').style.display = '';
+    var track = document.getElementById('fcarTrack'), dots = document.getElementById('fcarDots');
+    track.innerHTML = list.map(function (f) {
+      var link = f.productLink || 'products.html';
+      return '<div class="fslide">' +
+        '<div class="fimg"><img src="' + SiteUI.esc(f.image) + '" alt="' + SiteUI.esc(f.productName) + '"></div>' +
+        '<div><div class="fname">' + SiteUI.esc(f.productName) + '</div>' +
+          '<div class="ftexts">' + (f.rightText ? '<p>' + SiteUI.esc(f.rightText) + '</p>' : '') + (f.leftText ? '<p>' + SiteUI.esc(f.leftText) + '</p>' : '') + '</div>' +
+          '<a class="btn-primary" href="' + SiteUI.esc(link) + '">' + SiteUI.esc(f.ctaText || 'تفاصيل أكثر') + '</a>' +
+        '</div></div>';
+    }).join('');
+    var idx = 0;
+    dots.innerHTML = list.map(function (_, i) { return '<button class="' + (i === 0 ? 'on' : '') + '" data-i="' + i + '"></button>'; }).join('');
+    function go(i) { idx = i; track.style.transform = 'translateX(' + (i * 100) + '%)'; track.querySelectorAll('.fslide').forEach(function () {}); dots.querySelectorAll('button').forEach(function (b, j) { b.classList.toggle('on', j === i); }); }
+    track.style.transition = 'transform .5s var(--ease, ease)';
+    dots.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) go(+b.dataset.i); });
+    if (list.length > 1) setInterval(function () { go((idx + 1) % list.length); }, 5000);
+  });
 
-        const IconShieldCheck = (props) => (
-            <IconBase {...props}>
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-                <path d="m9 12 2 2 4-4" />
-            </IconBase>
-        );
-
-        const IconBanknote = (props) => (
-            <IconBase {...props}>
-                <rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" />
-            </IconBase>
-        );
-
-        const IconMenu = (props) => (
-            <IconBase {...props}>
-                <line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" />
-            </IconBase>
-        );
-
-        const IconX = (props) => (
-            <IconBase {...props}>
-                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-            </IconBase>
-        );
-
-        const IconPlus = (props) => (
-            <IconBase {...props}>
-                <path d="M5 12h14" /><path d="M12 5v14" />
-            </IconBase>
-        );
-
-        const IconMinus = (props) => (
-            <IconBase {...props}>
-                <path d="M5 12h14" />
-            </IconBase>
-        );
-
-        const IconTrash2 = (props) => (
-            <IconBase {...props}>
-                <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" />
-            </IconBase>
-        );
-
-        const IconArrowLeft = (props) => (
-            <IconBase {...props}>
-                <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
-            </IconBase>
-        );
-
-        const IconMessageCircle = (props) => (
-            <IconBase {...props}>
-                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-            </IconBase>
-        );
-
-        const IconInstagram = (props) => (
-            <IconBase {...props}>
-                <rect width="20" height="20" x="2" y="2" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-            </IconBase>
-        );
-
-        const IconFacebook = (props) => (
-            <IconBase {...props}>
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-            </IconBase>
-        );
-
-        const IconTwitter = (props) => (
-            <IconBase {...props}>
-                <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-12.7 12.5S.2 5.3 4.1 5.3h.1s-.9-2.1-3.3-2.1H2s1.4-1.2 3.6 0 5 2.1 6 3.4l.7.3h2.8l2 2h0c.4 0 1.2-.4 1.2-1.3C18.3 7 19.3 5 22 4z" />
-            </IconBase>
-        );
-
-        const IconTikTok = (props) => (
-            <IconBase {...props}>
-                <path d="M9 0h1.98c.144.715.54 1.617 1.023 2.065.385.356 1.164.722 1.957.722L14 2.8V5.3l-.22.01c-.134.008-.34.02-.45.02-1.282.01-2.45-.632-3.328-1.528v8.384c0 3.766-3.06 6.81-6.832 6.81C1.04 18.995 0 16.59 0 13.918c0-2.617 1.65-4.99 4.148-5.74V11c-1.316.59-2.22 1.83-2.22 3.16 0 1.92 1.554 3.48 3.472 3.48 1.918 0 3.472-1.56 3.472-3.48V0z" />
-            </IconBase>
-        );
-
-        const IconWhatsApp = (props) => (
-            <IconBase {...props}>
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
-            </IconBase>
-        );
-
-        const IconMap = {
-            'shopping-cart': IconShoppingCart,
-            'sparkles': IconSparkles,
-            'headset': IconHeadset,
-            'truck': IconTruck,
-            'shield': IconShieldCheck,
-            'shield-check': IconShieldCheck,
-            'banknote': IconBanknote,
-            'menu': IconMenu,
-            'x': IconX,
-            'plus': IconPlus,
-            'minus': IconMinus,
-            'trash-2': IconTrash2,
-            'arrow-left': IconArrowLeft,
-            'message-circle': IconMessageCircle,
-            'instagram': IconInstagram,
-            'facebook': IconFacebook,
-            'twitter': IconTwitter,
-            'tiktok': IconTikTok,
-            'whatsapp': IconWhatsApp
-        };
-
-        window.Icons = {
-            ...IconMap,
-            IconShoppingCart,
-            IconSparkles,
-            IconHeadset,
-            IconTruck,
-            IconShieldCheck,
-            IconShield: IconShieldCheck,
-            IconBanknote,
-            IconMenu,
-            IconX,
-            IconPlus,
-            IconMinus,
-            IconTrash2,
-            IconArrowLeft,
-            IconMessageCircle,
-            IconInstagram,
-            IconFacebook,
-            IconTwitter,
-            IconTikTok,
-            IconWhatsApp,
-            IconMap
-        };
-    </script>
-    <script type="text/babel" src="components/WhatsAppFloat.js"></script>
-    <script type="text/babel" src="components/Header.js"></script>
-    <script type="text/babel" src="components/Hero.js"></script>
-    <script type="text/babel" src="components/Features.js"></script>
-    <script type="text/babel" src="components/ProductCard.js"></script>
-    <script type="text/babel" src="components/ProductGrid.js"></script>
-    <script type="text/babel" src="components/CategoriesPage.js"></script>
-    <script type="text/babel" src="components/CategoryPage.js"></script>
-    <script type="text/babel" src="components/ProductPage.js"></script>
-    <script type="text/babel" src="components/CheckoutPage.js"></script>
-    <script type="text/babel" src="components/CartSidebar.js"></script>
-    <script type="text/babel" src="components/AdminPage.js"></script>
-    <script type="text/babel" src="components/AllProductsPage.js"></script>
-    <script type="text/babel" src="components/ProductLandingPage.js"></script>
-    <script type="text/babel" src="components/CategorySlider.js"></script>
-    <script type="text/babel" src="components/ProductCarousel.js"></script>
-    <script type="text/babel" src="components/ContactPage.js"></script>
-    <script type="text/babel" src="components/Footer.js"></script>
-    <script type="text/babel" src="components/FeaturedCategories.js"></script>
-    <script type="text/babel" src="components/AnimatedCategoryCard.js"></script>
-    <script type="text/babel" src="app.js"></script>
+  // contact form → saveMessage + WhatsApp
+  document.getElementById('contactForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = document.getElementById('cName').value.trim();
+    var phone = document.getElementById('cPhone').value.trim();
+    var msg = document.getElementById('cMsg').value.trim();
+    if (!name || !msg) return;
+    DS.saveMessage({ name: name, phone: phone, message: msg }).catch(function () {});
+    var wa = SiteUI.waLink('مرحباً، اسمي ' + name + (phone ? '\nهاتف: ' + phone : '') + '\n\n' + msg);
+    Cart.toast('تم إرسال رسالتكِ ✓');
+    this.reset();
+    window.open(wa, '_blank');
+  });
+})();
+</script>
 </body>
-
 </html>

@@ -6,16 +6,15 @@
   "hosting": {
     "site": "desert-shop-24af9",
     "public": ".",
+    "cleanUrls": true,
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
+      "**/node_modules/**",
+      "components/**",
+      "utils/**",
+      "trickle/**",
+      "app.js"
     ]
   },
   "storage": {
