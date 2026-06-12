@@ -498,9 +498,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
       return '<div class="order-card">' +
         '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span> <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
-          '<div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div></div>' +
+          '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
+            (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
+          '</div></div>' +
         '<div class="order-items">' + (items || '—') + '</div>' +
-        '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب' : 'منزل') + '</span></div>' +
+        '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span></div>' +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
           '<button class="btn ' + (o.fulfilled ? 'btn-gray' : 'btn-blue') + ' btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +

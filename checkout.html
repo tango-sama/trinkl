@@ -38,6 +38,8 @@
 .del-opt.on .radio::after{content:'';width:11px;height:11px;border-radius:50%;background:var(--rose)}
 .del-opt .dt{font-weight:800;font-size:.9rem;color:var(--ink)}
 .del-opt .dd{font-size:.74rem;color:var(--ink-3)}
+.del-opt .dprice{font-weight:900;font-size:.9rem;color:var(--rose-deep);white-space:nowrap}
+.del-opt .dprice small{display:block;font-size:.6rem;color:var(--ink-3);font-weight:700;text-align:center}
 .summary{position:sticky;top:90px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:20px;padding:1.5rem;box-shadow:var(--shadow)}
 .summary h3{font-weight:800;font-size:1.15rem;color:var(--ink);margin-bottom:1.1rem;padding-bottom:.9rem;border-bottom:1px solid var(--line)}
 .sum-item{display:flex;gap:.85rem;margin-bottom:.9rem}
@@ -95,13 +97,13 @@
           <div class="ffield full"><label>الاسم الكامل <span class="req">*</span></label><input class="finput" id="fname" placeholder="الاسم واللقب"></div>
           <div class="ffield full"><label>رقم الهاتف <span class="req">*</span></label><input class="finput" id="fphone" type="tel" placeholder="0X XX XX XX XX" style="direction:ltr;text-align:right"></div>
           <div class="ffield"><label>الولاية <span class="req">*</span></label><select class="fselect" id="fwilaya"><option value="">اختاري الولاية</option></select></div>
-          <div class="ffield"><label>البلدية <span class="req">*</span></label><input class="finput" id="fbaladiya" placeholder="اسم البلدية"></div>
+          <div class="ffield"><label>البلدية <span class="req">*</span></label><select class="fselect" id="fbaladiya" disabled><option value="">اختاري الولاية أولاً</option></select></div>
         </div>
         <div class="ffield full">
           <label>نوع التوصيل</label>
           <div class="delivery-opts" id="deliveryOpts">
-            <div class="del-opt on" data-type="home"><div class="radio"></div><div><div class="dt">🏠 توصيل للمنزل</div><div class="dd">إلى باب منزلكِ</div></div></div>
-            <div class="del-opt" data-type="office"><div class="radio"></div><div><div class="dt">🏢 مكتب التوصيل</div><div class="dd">Stop Desk</div></div></div>
+            <div class="del-opt on" data-type="home"><div class="radio"></div><div style="flex:1"><div class="dt">🏠 توصيل للمنزل</div><div class="dd">إلى باب منزلكِ</div></div><div class="dprice" data-fee-home>—<small>التوصيل</small></div></div>
+            <div class="del-opt" data-type="office"><div class="radio"></div><div style="flex:1"><div class="dt">🏢 مكتب التوصيل</div><div class="dd">Stop Desk</div></div><div class="dprice" data-fee-office>—<small>التوصيل</small></div></div>
           </div>
         </div>
         <button type="submit" class="btn-whatsapp btn-block" id="confirmBtn" style="margin-top:.5rem">تأكيد الطلب عبر واتساب</button>
@@ -113,7 +115,7 @@
       <div id="sumItems"></div>
       <div class="sum-lines">
         <div class="sum-line"><span>المجموع الفرعي</span><span><span class="num" id="sumSub">0</span> د.ج</span></div>
-        <div class="sum-line"><span>التوصيل</span><span>يُحدَّد عند التأكيد</span></div>
+        <div class="sum-line"><span>التوصيل</span><span id="sumDelivery">يُحدَّد حسب الولاية</span></div>
         <div class="sum-line total"><span>الإجمالي</span><span><span class="num" id="sumTotal">0</span> د.ج</span></div>
       </div>
     </div>
@@ -140,21 +142,45 @@
 <script src="js/firebase.js"></script>
 <script src="js/site.js"></script>
 <script src="js/cart.js"></script>
+<script src="js/yalidine.js"></script>
 <script>
 (function () {
   document.getElementById('yr').textContent = new Date().getFullYear();
-  var WILAYAS = ["أدرار","الشلف","الأغواط","أم البواقي","باتنة","بجاية","بسكرة","بشار","البليدة","البويرة","تمنراست","تبسة","تلمسان","تيارت","تيزي وزو","الجزائر","الجلفة","جيجل","سطيف","سعيدة","سكيكدة","سيدي بلعباس","عنابة","قالمة","قسنطينة","المدية","مستغانم","المسيلة","معسكر","ورقلة","وهران","البيض","إليزي","برج بوعريريج","بومرداس","الطارف","تندوف","تيسمسيلت","الوادي","خنشلة","سوق أهراس","تيبازة","ميلة","عين الدفلى","النعامة","عين تموشنت","غرداية","غليزان","تيميمون","برج باجي مختار","أولاد جلال","بني عباس","عين صالح","عين قزام","تقرت","جانت","المغير","المنيعة"];
-  var delivery = 'home', lastOrder = null;
+  var delivery = 'home', lastOrder = null, deliveryFee = 0;
 
   DS.getSettings().then(SiteUI.applySettings);
 
   var ws = document.getElementById('fwilaya');
-  ws.innerHTML = '<option value="">اختاري الولاية</option>' + WILAYAS.map(function (w, i) { return '<option value="' + w + '">' + (i + 1) + ' - ' + w + '</option>'; }).join('');
+  var cs = document.getElementById('fbaladiya');
+  ws.innerHTML = '<option value="">اختاري الولاية</option>' +
+    YALIDINE.wilayas.map(function (w) { return '<option value="' + w.id + '">' + w.id + ' - ' + SiteUI.esc(w.ar) + '</option>'; }).join('');
+
+  function selectedWilaya() { return ws.value ? YALIDINE.wilaya(ws.value) : null; }
+
+  function populateCommunes() {
+    var w = selectedWilaya();
+    if (!w) { cs.innerHTML = '<option value="">اختاري الولاية أولاً</option>'; cs.disabled = true; return; }
+    var list = YALIDINE.communes(w.id);
+    cs.disabled = false;
+    cs.innerHTML = '<option value="">اختاري البلدية</option>' +
+      list.map(function (c) { return '<option value="' + SiteUI.esc(c.ar) + '">' + SiteUI.esc(c.ar) + '</option>'; }).join('');
+  }
+
+  function money(n) { return n.toLocaleString('en-US') + ' د.ج'; }
+
+  function updateFees() {
+    var w = selectedWilaya();
+    document.querySelector('[data-fee-home]').innerHTML = (w ? money(w.home) : '—') + '<small>التوصيل</small>';
+    document.querySelector('[data-fee-office]').innerHTML = (w ? money(w.desk) : '—') + '<small>التوصيل</small>';
+    deliveryFee = w ? YALIDINE.fee(w.id, delivery) : 0;
+    renderSummary();
+  }
+
+  ws.addEventListener('change', function () { populateCommunes(); updateFees(); });
 
   function renderSummary() {
     var items = Cart.get();
     document.getElementById('itemCount').textContent = items.length;
-    var grid = document.getElementById('cgrid');
     if (!items.length) {
       document.getElementById('checkout').innerHTML = '<div class="empty-cart"><div class="ic">🛍️</div><h1>سلتكِ فارغة</h1><p class="sub">لم تُضيفي أي منتجات بعد.</p><div style="text-align:center"><a class="btn-primary" href="products.html">تصفّحي المنتجات</a></div></div>';
       return;
@@ -171,7 +197,10 @@
     }).join('');
     var sub = Cart.total();
     document.getElementById('sumSub').textContent = sub.toLocaleString('en-US');
-    document.getElementById('sumTotal').textContent = sub.toLocaleString('en-US');
+    var feeEl = document.getElementById('sumDelivery');
+    if (selectedWilaya()) feeEl.innerHTML = '<span class="num">' + deliveryFee.toLocaleString('en-US') + '</span> د.ج';
+    else feeEl.textContent = 'يُحدَّد حسب الولاية';
+    document.getElementById('sumTotal').textContent = (sub + deliveryFee).toLocaleString('en-US');
   }
   renderSummary();
 
@@ -191,16 +220,19 @@
   document.getElementById('deliveryOpts').addEventListener('click', function (e) {
     var o = e.target.closest('.del-opt'); if (!o) return;
     document.querySelectorAll('.del-opt').forEach(function (x) { x.classList.remove('on'); });
-    o.classList.add('on'); delivery = o.dataset.type;
+    o.classList.add('on'); delivery = o.dataset.type; updateFees();
   });
 
   function buildMessage(o) {
     return '*طلب جديد من Desert Shop* 🌸\n---------------------------\n🛒 *المنتجات:*\n' +
       o.items.map(function (i) { return '- ' + i.title + ' (عدد: ' + i.qty + ')'; }).join('\n') +
-      '\n\n💰 *المجموع:* ' + o.subtotal.toLocaleString('en-US') + ' د.ج\n---------------------------\n' +
+      '\n---------------------------\n' +
+      '💰 *المجموع الفرعي:* ' + o.subtotal.toLocaleString('en-US') + ' د.ج' +
+      '\n🚚 *التوصيل:* ' + o.deliveryFee.toLocaleString('en-US') + ' د.ج' +
+      '\n🧾 *الإجمالي:* ' + o.total.toLocaleString('en-US') + ' د.ج\n---------------------------\n' +
       '🔖 رقم الطلب: ' + o.num + '\n👤 الاسم: ' + o.customer + '\n📱 الهاتف: ' + o.phone +
       '\n📍 العنوان: ' + o.wilaya + ' - ' + o.baladiya +
-      '\n🚚 التوصيل: ' + (o.deliveryType === 'home' ? 'للمنزل' : 'للمكتب (Stop Desk)') +
+      '\n📦 نوع التوصيل: ' + (o.deliveryType === 'home' ? 'للمنزل (à domicile)' : 'للمكتب (Stop Desk)') +
       '\n---------------------------\nيرجى تأكيد الطلب.';
   }
 
@@ -213,12 +245,15 @@
     if (phone.value && !/^0[567][0-9]{8}$/.test(phone.value.replace(/\s/g, ''))) { phone.classList.add('err'); ok = false; }
     if (!ok) { alert('يرجى ملء جميع الحقول المطلوبة بشكل صحيح (اسم، هاتف صحيح يبدأ بـ 05/06/07، ولاية، بلدية).'); return; }
 
+    var w = selectedWilaya();
     var items = Cart.get().map(function (i) { return { id: i.id, title: i.title, price: i.price, qty: i.quantity || 1, image: i.image || '' }; });
+    var sub = Cart.total();
     var order = {
       num: 'DS-' + Math.floor(1000 + Math.random() * 9000),
       customer: name.value.trim(), phone: phone.value.trim(),
-      wilaya: wil.value, baladiya: bal.value.trim(), deliveryType: delivery,
-      items: items, subtotal: Cart.total(), total: Cart.total()
+      wilaya: w ? w.ar : '', wilayaId: w ? w.id : null, wilayaFr: w ? w.fr : '',
+      baladiya: bal.value, deliveryType: delivery, deliveryFee: deliveryFee,
+      items: items, subtotal: sub, total: sub + deliveryFee
     };
     lastOrder = order;
     DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
