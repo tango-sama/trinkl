@@ -54,19 +54,26 @@
 @keyframes floatA{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 @keyframes floatB{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 
-/* ── FEATURED CAROUSEL ── */
+/* ── FEATURED ROW ── */
 .featured-band{background:linear-gradient(135deg,#FBEEEA,#FFF7F4);border-block:1px solid var(--line)}
-.fcar{position:relative;max-width:1100px;margin:0 auto}
-.fcar-track{display:flex;overflow:hidden;border-radius:24px}
-.fslide{min-width:100%;display:grid;grid-template-columns:1fr 1.1fr;gap:2rem;align-items:center;padding:2rem;background:var(--bg-2);border:1px solid var(--line-2)}
-.fslide .fimg{border-radius:18px;overflow:hidden;aspect-ratio:1/1;background:var(--bg-3)}
-.fslide .fimg img{width:100%;height:100%;object-fit:cover}
-.fslide .fname{font-size:1.6rem;font-weight:900;color:var(--rose-deep);margin-bottom:1rem}
-.fslide .ftexts{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
-.fslide .ftexts p{font-size:.86rem;color:var(--ink-2);line-height:1.7;background:var(--bg-3);padding:.85rem 1rem;border-radius:12px}
-.fcar-dots{display:flex;justify-content:center;gap:.5rem;margin-top:1.25rem}
-.fcar-dots button{width:10px;height:10px;border-radius:50%;border:none;background:var(--line);cursor:pointer;transition:all .25s}
-.fcar-dots button.on{background:var(--rose);width:26px;border-radius:100px}
+.frow-wrap{position:relative;max-width:1200px;margin:0 auto}
+.frow{display:flex;gap:1.25rem;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:.5rem .25rem 1.25rem;-webkit-overflow-scrolling:touch}
+.frow::-webkit-scrollbar{height:8px}
+.frow::-webkit-scrollbar-thumb{background:var(--rose);border-radius:100px}
+.frow::-webkit-scrollbar-track{background:var(--line);border-radius:100px}
+.fcard{flex:0 0 250px;scroll-snap-align:start;display:flex;flex-direction:column;background:var(--bg-2);border:1px solid var(--line-2);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);transition:transform .25s,box-shadow .25s}
+.fcard:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.fcard .fimg{aspect-ratio:1/1;background:var(--bg-3);overflow:hidden}
+.fcard .fimg img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.fcard:hover .fimg img{transform:scale(1.05)}
+.fcard .fbody{padding:1rem 1.1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem;flex:1}
+.fcard .fname{font-size:1rem;font-weight:800;color:var(--rose-deep);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fcard .fdesc{font-size:.8rem;color:var(--ink-2);line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;flex:1}
+.fcard .btn-primary{margin-top:auto;text-align:center;padding:.6rem;font-size:.84rem}
+.frow-nav{position:absolute;top:42%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:var(--bg-2);box-shadow:var(--shadow);color:var(--rose-deep);font-size:1.5rem;font-weight:700;cursor:pointer;z-index:5;display:none;align-items:center;justify-content:center;transition:background .2s}
+.frow-nav:hover{background:var(--rose-tint)}
+.frow-nav.prev{right:-10px}.frow-nav.next{left:-10px}
+@media(min-width:760px){.frow-nav{display:flex}}
 
 /* ── CONTACT ── */
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;max-width:1100px;margin:0 auto}
@@ -87,7 +94,7 @@
   .hero{grid-template-columns:1fr;padding:7rem 1.2rem 3rem;gap:2.5rem;text-align:center;min-height:auto}
   .hero-eyebrow{margin-inline:auto}.hero p.lead{margin-inline:auto}.hero-actions{justify-content:center}.hero-trust{justify-content:center}
   .hero-visual{height:auto;aspect-ratio:4/5;max-height:none}
-  .fslide{grid-template-columns:1fr;text-align:center}
+  .fcard{flex-basis:78%}
   .contact-grid{grid-template-columns:1fr;gap:2rem}
 }
 </style>
@@ -169,7 +176,11 @@
       <h2 class="sec-title">منتجات تستحق التجربة</h2>
       <div class="sec-underline"></div>
     </div>
-    <div class="fcar"><div class="fcar-track" id="fcarTrack"></div><div class="fcar-dots" id="fcarDots"></div></div>
+    <div class="frow-wrap">
+      <button class="frow-nav prev" id="fcarPrev" aria-label="السابق">›</button>
+      <div class="frow" id="fcarTrack"></div>
+      <button class="frow-nav next" id="fcarNext" aria-label="التالي">‹</button>
+    </div>
   </div>
 </section>
 
@@ -277,26 +288,28 @@
     SiteUI.observeReveals(grid);
   });
 
-  // featured carousel
+  // featured row (horizontal scroll of compact cards)
   DS.getFeatured().then(function (list) {
     if (!list.length) return;
     document.getElementById('featuredBand').style.display = '';
-    var track = document.getElementById('fcarTrack'), dots = document.getElementById('fcarDots');
-    track.innerHTML = list.map(function (f) {
+    var row = document.getElementById('fcarTrack');
+    row.innerHTML = list.map(function (f) {
       var link = f.productLink || 'products.html';
-      return '<div class="fslide">' +
-        '<div class="fimg"><img src="' + SiteUI.esc(f.image) + '" alt="' + SiteUI.esc(f.productName) + '"></div>' +
-        '<div><div class="fname">' + SiteUI.esc(f.productName) + '</div>' +
-          '<div class="ftexts">' + (f.rightText ? '<p>' + SiteUI.esc(f.rightText) + '</p>' : '') + (f.leftText ? '<p>' + SiteUI.esc(f.leftText) + '</p>' : '') + '</div>' +
+      var desc = f.rightText || f.leftText || '';
+      return '<div class="fcard">' +
+        '<div class="fimg"><img src="' + SiteUI.esc(f.image) + '" alt="' + SiteUI.esc(f.productName) + '" loading="lazy"></div>' +
+        '<div class="fbody"><div class="fname">' + SiteUI.esc(f.productName) + '</div>' +
+          (desc ? '<div class="fdesc">' + SiteUI.esc(desc) + '</div>' : '') +
           '<a class="btn-primary" href="' + SiteUI.esc(link) + '">' + SiteUI.esc(f.ctaText || 'تفاصيل أكثر') + '</a>' +
         '</div></div>';
     }).join('');
-    var idx = 0;
-    dots.innerHTML = list.map(function (_, i) { return '<button class="' + (i === 0 ? 'on' : '') + '" data-i="' + i + '"></button>'; }).join('');
-    function go(i) { idx = i; track.style.transform = 'translateX(' + (i * 100) + '%)'; track.querySelectorAll('.fslide').forEach(function () {}); dots.querySelectorAll('button').forEach(function (b, j) { b.classList.toggle('on', j === i); }); }
-    track.style.transition = 'transform .5s var(--ease, ease)';
-    dots.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) go(+b.dataset.i); });
-    if (list.length > 1) setInterval(function () { go((idx + 1) % list.length); }, 5000);
+    var prev = document.getElementById('fcarPrev'), next = document.getElementById('fcarNext');
+    var step = function () { var c = row.querySelector('.fcard'); return c ? c.offsetWidth + 20 : 270; };
+    // RTL: forward (next) scrolls toward the end = negative scrollLeft
+    if (next) next.addEventListener('click', function () { row.scrollBy({ left: -step(), behavior: 'smooth' }); });
+    if (prev) prev.addEventListener('click', function () { row.scrollBy({ left: step(), behavior: 'smooth' }); });
+    // hide arrows when everything already fits
+    if (list.length <= 3 && prev && next) { prev.style.display = 'none'; next.style.display = 'none'; }
   });
 
   // contact form → saveMessage + WhatsApp
