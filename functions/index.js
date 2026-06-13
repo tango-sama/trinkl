@@ -57,16 +57,21 @@ exports.createYalidineParcel = onCall(
       'Content-Type': 'application/json',
     };
 
-    // Stopdesk needs a center id; look one up in the destination wilaya.
+    // Stopdesk: pick a Yalidine center in the destination wilaya. The center's
+    // commune (not the customer's) must be used as to_commune_name, otherwise
+    // Yalidine rejects with "stopdesk_id does not belong to to_commune_name".
     const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
-    let stopdeskId = null;
+    let stopdeskCenter = null;
     if (isStopdesk && o.wilayaId) {
       try {
         const cRes = await fetch(`${API_BASE}/centers/?wilaya_id=${encodeURIComponent(o.wilayaId)}`, { headers });
         if (cRes.ok) {
           const cj = await cRes.json();
           const centers = (cj && cj.data) || [];
-          if (centers.length) stopdeskId = centers[0].center_id;
+          if (centers.length) {
+            const wanted = String(o.communeFr || o.baladiya || '').toLowerCase().trim();
+            stopdeskCenter = centers.find(function (c) { return String(c.commune_name || '').toLowerCase().trim() === wanted; }) || centers[0];
+          }
         }
       } catch (e) { /* fall back to home delivery below */ }
     }
@@ -79,7 +84,7 @@ exports.createYalidineParcel = onCall(
 
     const productList = ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
     const codPrice = Number(o.total != null ? o.total : o.subtotal) || 0;
-    const useStopdesk = isStopdesk && !!stopdeskId;
+    const useStopdesk = isStopdesk && !!stopdeskCenter;
 
     const parcel = {
       order_id: String(o.num || orderId),
@@ -88,8 +93,8 @@ exports.createYalidineParcel = onCall(
       familyname,
       contact_phone: String(o.phone || '').replace(/\s/g, ''),
       address: `${o.baladiya || ''} - ${o.wilaya || ''}`.trim(),
-      to_commune_name: o.communeFr || o.baladiya || '',
-      to_wilaya_name: o.wilayaFr || o.wilaya || '',
+      to_commune_name: useStopdesk ? stopdeskCenter.commune_name : (o.communeFr || o.baladiya || ''),
+      to_wilaya_name: useStopdesk ? (stopdeskCenter.wilaya_name || o.wilayaFr || o.wilaya) : (o.wilayaFr || o.wilaya || ''),
       product_list: productList,
       price: codPrice,
       do_insurance: false,
@@ -97,7 +102,7 @@ exports.createYalidineParcel = onCall(
       length: 0, width: 0, height: 0, weight: 1,
       freeshipping: false,
       is_stopdesk: useStopdesk,
-      stopdesk_id: useStopdesk ? stopdeskId : null,
+      stopdesk_id: useStopdesk ? stopdeskCenter.center_id : null,
       has_exchange: false,
       product_to_collect: null,
     };
