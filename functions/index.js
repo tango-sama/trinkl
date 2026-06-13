@@ -133,3 +133,110 @@ exports.createYalidineParcel = onCall(
     return { ok: true, tracking, label: labelUrl };
   }
 );
+
+/* ───────────────────────────────────────────────────────────────
+   createNoestParcel: same flow for Noest (app.noest-dz.com).
+   Credentials live in private/noest ({ apiToken, userGuid }). Noest's
+   account already knows the origin, so no origin wilaya is needed.
+   The order is created and then validated so it reaches logistics.
+   ─────────────────────────────────────────────────────────────── */
+const NOEST_BASE = 'https://app.noest-dz.com';
+
+exports.createNoestParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    if (o.noest && o.noest.tracking) {
+      return { alreadyCreated: true, tracking: o.noest.tracking };
+    }
+    if (!o.wilayaId) {
+      throw new HttpsError('failed-precondition', 'الطلب لا يحتوي على رقم ولاية صالح.');
+    }
+
+    const credSnap = await db.collection('private').doc('noest').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const token = String(cred.apiToken || '').trim();
+    const guid = String(cred.userGuid || '').trim();
+    if (!token || !guid) {
+      throw new HttpsError('failed-precondition', 'أدخلي API Token و user_guid الخاصين بـ Noest في إعدادات لوحة التحكم أولاً.');
+    }
+
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+    // Stopdesk needs a station code in the destination wilaya.
+    const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
+    let stationCode = null;
+    if (isStopdesk) {
+      try {
+        const dRes = await fetch(NOEST_BASE + '/api/public/desks', { headers });
+        if (dRes.ok) {
+          const desks = await dRes.json();
+          for (const k in desks) {
+            const code = String((desks[k] && desks[k].code) || '');
+            const m = code.match(/^(\d+)/);
+            if (m && parseInt(m[1], 10) === Number(o.wilayaId)) { stationCode = code; break; }
+          }
+        }
+      } catch (e) { /* fall back to home delivery */ }
+    }
+    const useStopdesk = isStopdesk && !!stationCode;
+
+    const productList = ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+    const montant = Number(o.total != null ? o.total : o.subtotal) || 0;
+
+    const payload = {
+      user_guid: guid,
+      reference: String(o.num || ('DS-' + orderId)),
+      client: (String(o.customer || '').trim() || '—').slice(0, 255),
+      phone: String(o.phone || '').replace(/\s/g, ''),
+      adresse: (`${o.baladiya || ''} - ${o.wilaya || ''}`).trim().slice(0, 255) || String(o.wilaya || '—'),
+      wilaya_id: Number(o.wilayaId),
+      commune: o.communeFr || o.baladiya || '',
+      montant: montant,
+      produit: productList,
+      type_id: 1,
+      poids: 1,
+      stop_desk: useStopdesk ? 1 : 0,
+    };
+    if (useStopdesk) payload.station_code = stationCode;
+
+    let res, text;
+    try {
+      res = await fetch(NOEST_BASE + '/api/public/create/order', { method: 'POST', headers, body: JSON.stringify(payload) });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+    }
+    let body; try { body = JSON.parse(text); } catch (e) { body = text; }
+    if (!res.ok || !body || body.success !== true || !body.tracking) {
+      throw new HttpsError('internal', 'فشل إنشاء طلب Noest: ' + (typeof body === 'string' ? body : JSON.stringify(body)));
+    }
+    const tracking = body.tracking;
+
+    // Validate so the order reaches logistics (best effort).
+    let validated = false;
+    try {
+      const vRes = await fetch(NOEST_BASE + '/api/public/valid/order', {
+        method: 'POST', headers, body: JSON.stringify({ user_guid: guid, tracking }),
+      });
+      const vBody = await vRes.json().catch(() => ({}));
+      validated = !!(vRes.ok && vBody && vBody.success === true);
+    } catch (e) { /* keep unvalidated; owner can validate in Noest */ }
+
+    await ref.update({
+      noest: { tracking, validated, stopdesk: useStopdesk, createdAt: Date.now() },
+      status: 'Confirmed',
+      fulfilled: true,
+    });
+
+    return { ok: true, tracking, validated };
+  }
+);

@@ -506,37 +506,42 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-items">' + (items || '—') + '</div>' +
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span></div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(34,197,94,.1);color:#7CE5A0;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#9DBBF5;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
+        (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem">🔵 طرد Noest: <b class="num">' + esc(o.noest.tracking) + '</b> · ' + (o.noest.validated ? 'مُثبَّت' : 'بانتظار التثبيت') + '</div>' : '') +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
-          (o.yalidine && o.yalidine.tracking ? '' : '<button class="btn btn-rose btn-sm" data-oyal="' + esc(o.id) + '">📦 تأكيد وإنشاء طرد Yalidine</button>') +
-          '<button class="btn ' + (o.fulfilled ? 'btn-gray' : 'btn-blue') + ' btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
+          (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking)) ? '' :
+            '<button class="btn btn-rose btn-sm" data-oyal="' + esc(o.id) + '">📦 طرد Yalidine</button>' +
+            '<button class="btn btn-blue btn-sm" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
+          '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div>';
     }).join('') : '<div class="empty"><div class="ic">📦</div>لا توجد طلبات بعد</div>';
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
-    document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createYalidineParcel(b.dataset.oyal, b); }; });
+    document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createParcel('createYalidineParcel', 'yalidine', b.dataset.oyal, b, 'Yalidine'); }; });
+    document.querySelectorAll('[data-onoest]').forEach(function (b) { b.onclick = function () { createParcel('createNoestParcel', 'noest', b.dataset.onoest, b, 'Noest'); }; });
   };
 
-  function createYalidineParcel(id, btn) {
+  function createParcel(fnName, field, id, btn, label) {
     var o = state.orders.find(function (x) { return String(x.id) === String(id); });
     if (!o) return;
-    if (!confirm('تأكيد الطلب وإنشاء طرد Yalidine لـ ' + (o.customer || o.num) + '؟')) return;
+    if (!confirm('تأكيد الطلب وإنشاء طرد ' + label + ' لـ ' + (o.customer || o.num) + '؟')) return;
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('خدمة الإنشاء غير متوفرة'); return; }
+    var original = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الإنشاء...'; }
-    firebase.functions().httpsCallable('createYalidineParcel')({ orderId: o.id })
+    firebase.functions().httpsCallable(fnName)({ orderId: o.id })
       .then(function (res) {
         var d = res.data || {};
-        o.yalidine = { tracking: d.tracking, label: d.label || null };
+        o[field] = { tracking: d.tracking, label: d.label || null, validated: d.validated };
         o.fulfilled = true;
-        toast(d.alreadyCreated ? 'الطرد موجود مسبقاً ✓' : 'تم إنشاء الطرد ✓ ' + (d.tracking || ''));
+        toast(d.alreadyCreated ? 'الطرد موجود مسبقاً ✓' : 'تم إنشاء طرد ' + label + ' ✓ ' + (d.tracking || ''));
         updateBadges(); views.orders();
       })
       .catch(function (err) {
-        console.error('createYalidineParcel', err);
-        if (btn) { btn.disabled = false; btn.textContent = '📦 تأكيد وإنشاء طرد Yalidine'; }
-        alert('تعذّر إنشاء الطرد:\n' + (err && err.message ? err.message : 'خطأ غير معروف'));
+        console.error(fnName, err);
+        if (btn) { btn.disabled = false; btn.textContent = original; }
+        alert('تعذّر إنشاء طرد ' + label + ':\n' + (err && err.message ? err.message : 'خطأ غير معروف'));
       });
   }
 
@@ -578,6 +583,15 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على API ID و Token من حسابكِ في Yalidine (قسم API / المطوّرين). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSaveYal">💾 حفظ ربط Yalidine</button></div>' +
+      '</div>' +
+      '<div class="card" style="max-width:680px;border-color:var(--blue)"><h3 style="color:#9DBBF5">🔵 ربط Noest API</h3>' +
+        '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.noestReady ? 'background:rgba(91,141,239,.15);color:#9DBBF5">✓ مربوط بحساب Noest' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>API Token</label><input class="inp" id="sNoToken" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.noestReady ? '•••••• (محفوظ)' : 'أدخلي API Token') + '"></div>' +
+          '<div class="field"><label>user_guid</label><input class="inp" id="sNoGuid" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.noestReady ? '•••••• (محفوظ)' : 'أدخلي user_guid') + '"></div>' +
+        '</div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
+        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button></div>' +
       '</div>';
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
@@ -605,6 +619,19 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       function finish() { persistSettings({ originWilaya: origin, yalidineReady: hasCreds || alreadyReady }, 'تم حفظ ربط Yalidine ✓', function () { views.settings(); }); }
       if (hasCreds) {
         DS.setDoc('private', 'yalidine', { apiId: apiId, apiToken: token, updatedAt: Date.now() })
+          .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
+      } else { finish(); }
+    };
+    if ($('#sSaveNoest')) $('#sSaveNoest').onclick = function () {
+      var token = $('#sNoToken') ? $('#sNoToken').value.trim() : '';
+      var guid = $('#sNoGuid') ? $('#sNoGuid').value.trim() : '';
+      var hasCreds = !!(token && guid);
+      var alreadyReady = !!state.settings.noestReady;
+      if ((token && !guid) || (guid && !token)) { toast('أدخلي API Token و user_guid معاً'); return; }
+      if (!hasCreds && !alreadyReady) { toast('أدخلي API Token و user_guid'); return; }
+      function finish() { persistSettings({ noestReady: hasCreds || alreadyReady }, 'تم حفظ ربط Noest ✓', function () { views.settings(); }); }
+      if (hasCreds) {
+        DS.setDoc('private', 'noest', { apiToken: token, userGuid: guid, updatedAt: Date.now() })
           .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
       } else { finish(); }
     };
