@@ -359,6 +359,9 @@
         '<p style="color:var(--ink-2);line-height:1.7;margin-bottom:1.25rem">رقم طلبكِ <b style="color:var(--rose-deep)">' + order.num + '</b><br>سنتواصل معكِ قريباً على هاتفكِ لتأكيده.</p>' +
         '<button class="btn-primary btn-block" id="qDone">تم</button></div>';
       document.getElementById('qDone').addEventListener('click', closeQ);
+      // Replace the page button with the order number (persistent confirmation)
+      var sb = document.getElementById('sellerBtn');
+      if (sb) sb.outerHTML = '<div class="btn-seller" style="cursor:default;background:#E6F8EC;color:#1A7A34;box-shadow:none">✅ تم استلام طلبكِ — رقم الطلب: <b style="margin-inline-start:.35rem">' + esc(order.num) + '</b></div>';
     }).catch(function (err) { console.error('saveOrder', err); btn.disabled = false; btn.textContent = 'تأكيد الطلب'; alert('تعذّر إرسال الطلب، حاولي مجدداً.'); });
   });
 

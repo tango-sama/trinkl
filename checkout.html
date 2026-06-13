@@ -120,8 +120,9 @@
             <div class="del-opt" data-type="office"><div class="radio"></div><div style="flex:1"><div class="dt">🏢 مكتب التوصيل</div><div class="dd">Stop Desk</div></div><div class="dprice" data-fee-office>—<small>التوصيل</small></div></div>
           </div>
         </div>
-        <button type="submit" class="btn-whatsapp btn-block" id="confirmBtn" style="margin-top:.5rem">تأكيد الطلب عبر واتساب</button>
-        <p style="text-align:center;font-size:.78rem;color:var(--ink-3);margin-top:1rem;line-height:1.6">عند التأكيد سيُحفظ طلبكِ ويُفتح واتساب بتفاصيله جاهزة للإرسال.</p>
+        <button type="submit" class="btn-primary btn-block" id="confirmBtn" style="margin-top:.5rem">✅ تأكيد الطلب</button>
+        <button type="button" class="btn-whatsapp btn-block" id="waConfirmBtn" style="margin-top:.7rem">تأكيد الطلب عبر واتساب</button>
+        <p style="text-align:center;font-size:.78rem;color:var(--ink-3);margin-top:1rem;line-height:1.6">«تأكيد الطلب» يحفظ طلبكِ ونتصل بكِ لتأكيده. أو أرسلي التفاصيل عبر واتساب. الدفع عند الاستلام.</p>
       </form>
     </div>
     <div class="summary">
@@ -274,8 +275,7 @@
       '\n---------------------------\nيرجى تأكيد الطلب.';
   }
 
-  document.getElementById('orderForm').addEventListener('submit', function (e) {
-    e.preventDefault();
+  function placeOrder(openWa) {
     var name = document.getElementById('fname'), phone = document.getElementById('fphone'),
         wil = document.getElementById('fwilaya'), bal = document.getElementById('fbaladiya');
     var ok = true;
@@ -298,12 +298,14 @@
     lastOrder = order;
     DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
 
-    var wa = SiteUI.waLink(buildMessage(order));
     document.getElementById('successOid').textContent = order.num;
     document.getElementById('successOv').classList.add('open');
     Cart.clear();
-    window.open(wa, '_blank');
-  });
+    if (openWa) window.open(SiteUI.waLink(buildMessage(order)), '_blank');
+  }
+
+  document.getElementById('orderForm').addEventListener('submit', function (e) { e.preventDefault(); placeOrder(false); });
+  document.getElementById('waConfirmBtn').addEventListener('click', function () { placeOrder(true); });
 
   document.getElementById('resendWa').addEventListener('click', function () { if (lastOrder) window.open(SiteUI.waLink(buildMessage(lastOrder)), '_blank'); });
 })();
