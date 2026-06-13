@@ -164,7 +164,9 @@
   var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
 
   DS.getSettings().then(function (s) { SiteUI.applySettings(s); applyCarriers(s || {}); });
-  DS.getDeliveryFees('noest').then(function (m) { if (m) { YALIDINE.applyFees('noest', m); updateFees(); } });
+  // Load each carrier's own wilaya/commune/fee lists; refresh when ready.
+  DS.getDeliveryData('yalidine').then(function (d) { if (d) { YALIDINE.setCarrierData('yalidine', d); refreshLists(); } });
+  DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); refreshLists(); } });
 
   function applyCarriers(s) {
     var enabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
@@ -179,41 +181,49 @@
     opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === company); });
     var field = document.getElementById('companyOpts').closest('.ffield');
     if (field) field.style.display = visible <= 1 ? 'none' : '';
-    updateFees();
+    refreshLists();
   }
 
   var ws = document.getElementById('fwilaya');
   var cs = document.getElementById('fbaladiya');
-  ws.innerHTML = '<option value="">اختاري الولاية</option>' +
-    YALIDINE.wilayas.map(function (w) { return '<option value="' + w.id + '">' + w.id + ' - ' + SiteUI.esc(w.ar) + '</option>'; }).join('');
 
-  function selectedWilaya() { return ws.value ? YALIDINE.wilaya(ws.value) : null; }
+  function populateWilayas() {
+    var prev = ws.value;
+    ws.innerHTML = '<option value="">اختاري الولاية</option>' +
+      YALIDINE.wilayasFor(company).map(function (w) { return '<option value="' + w.id + '">' + w.id + ' - ' + SiteUI.esc(w.ar) + '</option>'; }).join('');
+    ws.value = (prev && YALIDINE.wilayaForCarrier(company, prev)) ? prev : '';
+    populateCommunes();
+  }
+  function refreshLists() { populateWilayas(); updateFees(); }
+
+  function selectedWilaya() { return ws.value ? YALIDINE.wilayaForCarrier(company, ws.value) : null; }
 
   function populateCommunes() {
     var w = selectedWilaya();
     if (!w) { cs.innerHTML = '<option value="">اختاري الولاية أولاً</option>'; cs.disabled = true; return; }
-    var list = YALIDINE.communes(w.id);
     cs.disabled = false;
     cs.innerHTML = '<option value="">اختاري البلدية</option>' +
-      list.map(function (c) { return '<option value="' + SiteUI.esc(c.ar) + '" data-fr="' + SiteUI.esc(c.fr) + '">' + SiteUI.esc(c.ar) + '</option>'; }).join('');
+      YALIDINE.communesForCarrier(company, w.id).map(function (name) { return '<option value="' + SiteUI.esc(name) + '" data-fr="' + SiteUI.esc(name) + '">' + SiteUI.esc(name) + '</option>'; }).join('');
   }
 
   function money(n) { return n.toLocaleString('en-US') + ' د.ج'; }
 
   function updateFees() {
     var w = selectedWilaya();
-    document.querySelector('[data-fee-home]').innerHTML = (w ? money(YALIDINE.fee(w.id, 'home', company)) : '—') + '<small>التوصيل</small>';
-    document.querySelector('[data-fee-office]').innerHTML = (w ? money(YALIDINE.fee(w.id, 'office', company)) : '—') + '<small>التوصيل</small>';
-    deliveryFee = w ? YALIDINE.fee(w.id, delivery, company) : 0;
+    document.querySelector('[data-fee-home]').innerHTML = (w ? money(YALIDINE.feeForCarrier(company, w.id, 'home')) : '—') + '<small>التوصيل</small>';
+    document.querySelector('[data-fee-office]').innerHTML = (w ? money(YALIDINE.feeForCarrier(company, w.id, 'office')) : '—') + '<small>التوصيل</small>';
+    deliveryFee = w ? YALIDINE.feeForCarrier(company, w.id, delivery) : 0;
     renderSummary();
   }
 
+  populateWilayas();
   ws.addEventListener('change', function () { populateCommunes(); updateFees(); });
 
   document.getElementById('companyOpts').addEventListener('click', function (e) {
     var o = e.target.closest('.co-opt'); if (!o) return;
     this.querySelectorAll('.co-opt').forEach(function (x) { x.classList.remove('on'); });
-    o.classList.add('on'); company = o.dataset.co; updateFees();
+    o.classList.add('on'); company = o.dataset.co;
+    populateWilayas(); updateFees();
   });
 
   function renderSummary() {

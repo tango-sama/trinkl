@@ -23,7 +23,14 @@
       if(comp==='noest'){ if(f.home!=null) w.noestHome=f.home; if(f.desk!=null) w.noestDesk=f.desk; }
       else { if(f.home!=null) w.home=f.home; if(f.desk!=null) w.desk=f.desk; } }
   }
-  var API = { companies: COMPANIES, wilayas: WILAYAS, communesByWilaya: COMMUNES, wilaya: wilaya, communes: communes, fee: fee, applyFees: applyFees };
+  var CARRIER = {};
+  function setCarrierData(c, d){ if(d && d.wilayas && d.wilayas.length) CARRIER[c]=d; }
+  function wilayasFor(company){ var d=CARRIER[company]; return (d && d.wilayas && d.wilayas.length) ? d.wilayas : WILAYAS; }
+  function wilayaForCarrier(company, id){ var l=wilayasFor(company); for(var i=0;i<l.length;i++){ if(String(l[i].id)===String(id)) return l[i]; } return null; }
+  function communesForCarrier(company, id){ var d=CARRIER[company]; if(d && d.communes && d.communes[String(id)]) return d.communes[String(id)]; return (COMMUNES[String(id)]||[]).map(function(c){return c.fr||c.ar;}); }
+  function feeForCarrier(company, id, type){ var d=CARRIER[company]; var stop=(type==='office'||type==='desk'); if(d && d.fees && d.fees[String(id)]){ var f=d.fees[String(id)]; return stop?f.desk:f.home; } return fee(id, type, company); }
+  var API = { companies: COMPANIES, wilayas: WILAYAS, communesByWilaya: COMMUNES, wilaya: wilaya, communes: communes, fee: fee, applyFees: applyFees,
+    setCarrierData: setCarrierData, wilayasFor: wilayasFor, wilayaForCarrier: wilayaForCarrier, communesForCarrier: communesForCarrier, feeForCarrier: feeForCarrier };
   window.DELIVERY = API;
   window.YALIDINE = API; // backward-compatible alias
 })();

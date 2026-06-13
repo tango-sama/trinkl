@@ -93,6 +93,12 @@
       .then(function (d) { return d.exists ? (d.data().fees || null) : null; })
       .catch(function (e) { console.error('[DS] getDeliveryFees', e); return null; });
   }
+  // Per-carrier wilaya/commune/fee lists → { wilayas, communes, fees } or null
+  function getDeliveryData(carrier) {
+    return db.collection('delivery_data').doc(carrier).get()
+      .then(function (d) { return d.exists ? d.data() : null; })
+      .catch(function (e) { console.error('[DS] getDeliveryData', e); return null; });
+  }
 
   // ───────── writes (storefront) ─────────
   function saveOrder(order) {
@@ -155,7 +161,7 @@
     // reads
     getProducts: getProducts, getProduct: getProduct, getCategories: getCategories,
     getFeatured: getFeatured, getSettings: getSettings, getOrders: getOrders, getMessages: getMessages,
-    getDeliveryFees: getDeliveryFees,
+    getDeliveryFees: getDeliveryFees, getDeliveryData: getDeliveryData,
     // storefront writes
     saveOrder: saveOrder, saveMessage: saveMessage,
     // admin writes

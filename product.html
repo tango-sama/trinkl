@@ -206,7 +206,8 @@
   var qty = 1, product = null, catMap = {};
 
   DS.getSettings().then(function (s) { SiteUI.applySettings(s); applyCarriers(s || {}); });
-  DS.getDeliveryFees('noest').then(function (m) { if (m) YALIDINE.applyFees('noest', m); });
+  DS.getDeliveryData('yalidine').then(function (d) { if (d) { YALIDINE.setCarrierData('yalidine', d); populateQWilayas(); } });
+  DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); populateQWilayas(); } });
 
   function applyCarriers(s) {
     var enabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
@@ -221,6 +222,7 @@
     opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === qCompany); });
     var field = document.getElementById('qCompany').closest('.qfield');
     if (field) field.style.display = visible <= 1 ? 'none' : '';
+    populateQWilayas();
   }
 
   if (!id) { document.getElementById('pName').textContent = 'المنتج غير موجود'; return; }
@@ -284,26 +286,29 @@
   var qDelivery = 'home', qCompany = 'yalidine', qFee = 0, qOrderQty = 1;
   var qov = document.getElementById('qov');
   var qw = document.getElementById('qWilaya'), qc = document.getElementById('qCommune');
-  qw.innerHTML = '<option value="">اختاري</option>' +
-    YALIDINE.wilayas.map(function (w) { return '<option value="' + w.id + '">' + w.id + ' - ' + esc(w.ar) + '</option>'; }).join('');
 
-  function qSelW() { return qw.value ? YALIDINE.wilaya(qw.value) : null; }
+  function qSelW() { return qw.value ? YALIDINE.wilayaForCarrier(qCompany, qw.value) : null; }
+  function populateQWilayas() {
+    var prev = qw.value;
+    qw.innerHTML = '<option value="">اختاري</option>' +
+      YALIDINE.wilayasFor(qCompany).map(function (w) { return '<option value="' + w.id + '">' + w.id + ' - ' + esc(w.ar) + '</option>'; }).join('');
+    qw.value = (prev && YALIDINE.wilayaForCarrier(qCompany, prev)) ? prev : '';
+    populateQCommunes();
+  }
+  function populateQCommunes() {
+    var w = qSelW();
+    if (!w) { qc.innerHTML = '<option value="">اختاري الولاية أولاً</option>'; qc.disabled = true; return; }
+    qc.disabled = false;
+    qc.innerHTML = '<option value="">اختاري البلدية</option>' +
+      YALIDINE.communesForCarrier(qCompany, w.id).map(function (name) { return '<option value="' + esc(name) + '" data-fr="' + esc(name) + '">' + esc(name) + '</option>'; }).join('');
+  }
   function openQ() { if (!product) return; qOrderQty = qty; updateQFee(); qov.classList.add('open'); document.body.style.overflow = 'hidden'; }
   function closeQ() { qov.classList.remove('open'); document.body.style.overflow = ''; }
   document.getElementById('sellerBtn').addEventListener('click', openQ);
   document.getElementById('qClose').addEventListener('click', closeQ);
   qov.addEventListener('click', function (e) { if (e.target === qov) closeQ(); });
 
-  qw.addEventListener('change', function () {
-    var w = qSelW();
-    if (!w) { qc.innerHTML = '<option value="">اختاري الولاية أولاً</option>'; qc.disabled = true; }
-    else {
-      qc.disabled = false;
-      qc.innerHTML = '<option value="">اختاري البلدية</option>' +
-        YALIDINE.communes(w.id).map(function (c) { return '<option value="' + esc(c.ar) + '" data-fr="' + esc(c.fr) + '">' + esc(c.ar) + '</option>'; }).join('');
-    }
-    updateQFee();
-  });
+  qw.addEventListener('change', function () { populateQCommunes(); updateQFee(); });
   document.getElementById('qDeliv').addEventListener('click', function (e) {
     var o = e.target.closest('.qdo'); if (!o) return;
     this.querySelectorAll('.qdo').forEach(function (x) { x.classList.remove('on'); });
@@ -312,15 +317,16 @@
   document.getElementById('qCompany').addEventListener('click', function (e) {
     var o = e.target.closest('.qdo'); if (!o) return;
     this.querySelectorAll('.qdo').forEach(function (x) { x.classList.remove('on'); });
-    o.classList.add('on'); qCompany = o.dataset.co; updateQFee();
+    o.classList.add('on'); qCompany = o.dataset.co; populateQWilayas(); updateQFee();
   });
   function updateQFee() {
     var w = qSelW();
-    document.querySelector('[data-h]').textContent = w ? YALIDINE.fee(w.id, 'home', qCompany).toLocaleString('en-US') + ' دج' : '—';
-    document.querySelector('[data-o]').textContent = w ? YALIDINE.fee(w.id, 'office', qCompany).toLocaleString('en-US') + ' دج' : '—';
-    qFee = w ? YALIDINE.fee(w.id, qDelivery, qCompany) : 0;
+    document.querySelector('[data-h]').textContent = w ? YALIDINE.feeForCarrier(qCompany, w.id, 'home').toLocaleString('en-US') + ' دج' : '—';
+    document.querySelector('[data-o]').textContent = w ? YALIDINE.feeForCarrier(qCompany, w.id, 'office').toLocaleString('en-US') + ' دج' : '—';
+    qFee = w ? YALIDINE.feeForCarrier(qCompany, w.id, qDelivery) : 0;
     renderQSum();
   }
+  populateQWilayas();
   function renderQSum() {
     if (!product) return;
     var sub = DS.priceNum(product.price) * qOrderQty;

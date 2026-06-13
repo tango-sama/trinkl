@@ -13,6 +13,8 @@ service cloud.firestore {
     // Synced carrier fee grids — readable by the storefront, written only by
     // the Cloud Function (Admin SDK bypasses these rules).
     match /delivery_fees/{document=**}     { allow read: if true; allow write: if false; }
+    // Synced per-carrier wilaya/commune/fee lists (function-written, public read).
+    match /delivery_data/{document=**}      { allow read: if true; allow write: if false; }
 
     // Public storefront + admin collections (open, as before).
     match /products/{document=**}         { allow read, write: if true; }

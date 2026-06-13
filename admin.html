@@ -617,7 +617,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>user_guid</label><input class="inp" id="sNoGuid" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.noestReady ? '•••••• (محفوظ)' : 'أدخلي user_guid') + '"></div>' +
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
-        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 مزامنة أسعار التوصيل</button>' + toggleBtn('sToggleNoest', noEnabled) + '</div>' +
+        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 تحديث قوائم التوصيل (ولايات/بلديات/أسعار)</button>' + toggleBtn('sToggleNoest', noEnabled) + '</div>' +
       '</div>';
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
@@ -673,10 +673,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     };
     if ($('#sSyncNoest')) $('#sSyncNoest').onclick = function () {
       if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
-      var btn = this, orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ جاري المزامنة...';
-      firebase.functions().httpsCallable('syncNoestFees')({})
-        .then(function (res) { var d = res.data || {}; btn.disabled = false; btn.textContent = orig; toast('تمت مزامنة أسعار ' + (d.count || 0) + ' ولاية ✓'); })
-        .catch(function (err) { console.error('syncNoestFees', err); btn.disabled = false; btn.textContent = orig; alert('تعذّر مزامنة الأسعار:\n' + (err && err.message ? err.message : 'خطأ')); });
+      var btn = this, orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ جاري التحديث... (قد يستغرق دقيقة)';
+      firebase.functions().httpsCallable('syncCarriers')({})
+        .then(function (res) { var r = (res.data || {}).result || {}; btn.disabled = false; btn.textContent = orig; toast('تم التحديث ✓ — Yalidine ' + ((r.yalidine || {}).wilayas || 0) + ' ولاية، Noest ' + ((r.noest || {}).wilayas || 0) + ' ولاية'); })
+        .catch(function (err) { console.error('syncCarriers', err); btn.disabled = false; btn.textContent = orig; alert('تعذّر التحديث:\n' + (err && err.message ? err.message : 'خطأ')); });
     };
   };
 
