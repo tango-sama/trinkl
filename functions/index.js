@@ -226,23 +226,16 @@ exports.createNoestParcel = onCall(
     }
     const tracking = body.tracking;
 
-    // Validate so the order reaches logistics (best effort).
-    let validated = false;
-    try {
-      const vRes = await fetch(NOEST_BASE + '/api/public/valid/order', {
-        method: 'POST', headers, body: JSON.stringify({ user_guid: guid, tracking }),
-      });
-      const vBody = await vRes.json().catch(() => ({}));
-      validated = !!(vRes.ok && vBody && vBody.success === true);
-    } catch (e) { /* keep unvalidated; owner can validate in Noest */ }
-
+    // Do NOT auto-validate. Validating locks the order and moves it into Noest's
+    // "en traitement". Leaving it unvalidated keeps it in "prêt à expédier" so the
+    // seller can review and validate/ship it from Noest when ready.
     await ref.update({
-      noest: { tracking, validated, stopdesk: useStopdesk, createdAt: Date.now() },
+      noest: { tracking, validated: false, stopdesk: useStopdesk, createdAt: Date.now() },
       status: 'Confirmed',
       fulfilled: true,
     });
 
-    return { ok: true, tracking, validated };
+    return { ok: true, tracking, validated: false };
   }
 );
 
