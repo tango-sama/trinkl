@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -156,6 +157,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 <div class="toast" id="toast"></div>
 
 <script src="js/firebase.js"></script>
+<script src="js/yalidine.js"></script>
 <script>
 (function () {
   var PASSWORD = 'tango88';
@@ -503,8 +505,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '</div></div>' +
         '<div class="order-items">' + (items || '—') + '</div>' +
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span></div>' +
+        (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(34,197,94,.1);color:#7CE5A0;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#9DBBF5;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
+          (o.yalidine && o.yalidine.tracking ? '' : '<button class="btn btn-rose btn-sm" data-oyal="' + esc(o.id) + '">📦 تأكيد وإنشاء طرد Yalidine</button>') +
           '<button class="btn ' + (o.fulfilled ? 'btn-gray' : 'btn-blue') + ' btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div>';
@@ -512,7 +516,29 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
+    document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createYalidineParcel(b.dataset.oyal, b); }; });
   };
+
+  function createYalidineParcel(id, btn) {
+    var o = state.orders.find(function (x) { return String(x.id) === String(id); });
+    if (!o) return;
+    if (!confirm('تأكيد الطلب وإنشاء طرد Yalidine لـ ' + (o.customer || o.num) + '؟')) return;
+    if (typeof firebase === 'undefined' || !firebase.functions) { toast('خدمة الإنشاء غير متوفرة'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الإنشاء...'; }
+    firebase.functions().httpsCallable('createYalidineParcel')({ orderId: o.id })
+      .then(function (res) {
+        var d = res.data || {};
+        o.yalidine = { tracking: d.tracking, label: d.label || null };
+        o.fulfilled = true;
+        toast(d.alreadyCreated ? 'الطرد موجود مسبقاً ✓' : 'تم إنشاء الطرد ✓ ' + (d.tracking || ''));
+        updateBadges(); views.orders();
+      })
+      .catch(function (err) {
+        console.error('createYalidineParcel', err);
+        if (btn) { btn.disabled = false; btn.textContent = '📦 تأكيد وإنشاء طرد Yalidine'; }
+        alert('تعذّر إنشاء الطرد:\n' + (err && err.message ? err.message : 'خطأ غير معروف'));
+      });
+  }
 
   // ═══════════ MESSAGES ═══════════
   views.messages = function () {
@@ -539,16 +565,27 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>تيك توك</label><input class="inp" id="sTt" value="' + esc(s.tiktok || '') + '" dir="ltr" placeholder="https://tiktok.com/@..."></div>' +
         '</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSave">💾 حفظ الإعدادات</button></div>' +
+      '</div>' +
+      '<div class="card" style="max-width:680px"><h3>🚚 إعدادات Yalidine</h3>' +
+        '<div class="field"><label>ولاية الإرسال (المتجر)</label>' +
+          '<select class="sel" id="sOrigin"><option value="">اختاري ولاية الإرسال</option>' +
+          (window.YALIDINE ? YALIDINE.wilayas.map(function (w) { return '<option value="' + esc(w.fr) + '"' + (s.originWilaya === w.fr ? ' selected' : '') + '>' + w.id + ' - ' + esc(w.ar) + ' (' + esc(w.fr) + ')</option>'; }).join('') : '') +
+          '</select>' +
+          '<div style="font-size:.75rem;color:var(--ink-3);margin-top:.5rem">تُستخدم كولاية انطلاق الطرود عند إنشائها في Yalidine.</div></div>' +
+        '<div class="row-actions"><button class="btn btn-green" id="sSaveYal">💾 حفظ</button></div>' +
       '</div>';
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
-    $('#sSave').onclick = function () {
+    function saveSettings() {
       var data = { heroImage: $('#sHero').value.trim(), storeName: $('#sName').value.trim(), waNumber: $('#sWa').value.trim(),
-        instagram: $('#sIg').value.trim(), facebook: $('#sFb').value.trim(), tiktok: $('#sTt').value.trim() };
+        instagram: $('#sIg').value.trim(), facebook: $('#sFb').value.trim(), tiktok: $('#sTt').value.trim(),
+        originWilaya: $('#sOrigin') ? $('#sOrigin').value : (state.settings.originWilaya || '') };
       var docId = state.settings && state.settings.id ? state.settings.id : 'general';
       data.id = docId;
       DS.setDoc('site_settings', docId, data).then(function () { state.settings = data; toast('تم حفظ الإعدادات ✓'); }).catch(function (e) { console.error(e); toast('فشل الحفظ'); });
-    };
+    }
+    $('#sSave').onclick = saveSettings;
+    if ($('#sSaveYal')) $('#sSaveYal').onclick = saveSettings;
   };
 
   // ───────── helpers ─────────
