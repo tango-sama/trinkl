@@ -207,6 +207,23 @@ footer.site-footer{background:var(--bg-2);border-top:1px solid var(--line);paddi
   animation:waPing 2.2s var(--ease) infinite;z-index:-1}
 @keyframes waPing{0%{transform:scale(1);opacity:.4}75%{transform:scale(1.7);opacity:0}100%{opacity:0}}
 
+/* ═══════════ TIKTOK LIVE FLOAT ═══════════ */
+.tiktok-live{position:fixed;bottom:5.4rem;left:1.6rem;z-index:150;display:none;align-items:center;gap:.45rem;
+  background:#111;color:#fff;padding:.55rem .85rem;border-radius:100px;text-decoration:none;line-height:1;
+  font-family:var(--sans);font-weight:800;font-size:.8rem;border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 6px 22px rgba(0,0,0,.4);transition:transform .3s var(--ease)}
+.tiktok-live.on{display:inline-flex}
+.tiktok-live:hover{transform:translateY(-2px)}
+.tiktok-live .tk-ic{width:22px;height:22px;flex-shrink:0}
+.tiktok-live .lv{display:inline-flex;align-items:center;gap:.28rem;background:#FE2C55;color:#fff;font-size:.6rem;
+  font-weight:900;padding:2px 6px;border-radius:100px;letter-spacing:.4px}
+.tiktok-live .lv .dot{width:5px;height:5px;border-radius:50%;background:#fff;animation:tkpulse 1s infinite}
+@keyframes tkpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.6)}}
+.tiktok-live::after{content:'';position:absolute;inset:0;border-radius:100px;z-index:-1;
+  box-shadow:0 0 0 0 rgba(254,44,85,.55);animation:tkPing 1.8s var(--ease) infinite}
+@keyframes tkPing{0%{box-shadow:0 0 0 0 rgba(254,44,85,.5)}70%{box-shadow:0 0 0 16px rgba(254,44,85,0)}100%{box-shadow:0 0 0 0 rgba(254,44,85,0)}}
+@media(max-width:560px){.tiktok-live{font-size:.74rem;padding:.5rem .7rem;bottom:5rem}}
+
 /* ═══════════ CART DRAWER ═══════════ */
 .cart-overlay{position:fixed;inset:0;z-index:300;background:rgba(58,42,48,.45);backdrop-filter:blur(3px);
   opacity:0;visibility:hidden;transition:all .3s var(--ease)}

@@ -94,6 +94,14 @@
         if (url) { a.href = url; a.style.display = ''; } else { a.style.display = 'none'; }
       });
     });
+    // TikTok live floating button — shown only when the admin marks "live now"
+    var liveUrl = '';
+    if (s.tiktokLiveUrl) liveUrl = normalizeUrl(s.tiktokLiveUrl);
+    else if (SITE.tiktok) liveUrl = normalizeUrl(SITE.tiktok).replace(/\/+$/, '') + '/live';
+    document.querySelectorAll('.tiktok-live').forEach(function (a) {
+      if (s.tiktokLive && liveUrl) { a.href = liveUrl; a.classList.add('on'); }
+      else { a.classList.remove('on'); }
+    });
   }
 
   // accept full URLs or bare handles/links; ensure an absolute https:// URL

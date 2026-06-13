@@ -584,6 +584,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var s = state.settings || {};
     var yalEnabled = s.yalidineEnabled !== false;
     var noEnabled = s.noestEnabled !== false;
+    var liveOn = !!s.tiktokLive;
     function toggleBtn(id, on) { return '<button class="btn btn-sm" style="background:' + (on ? 'var(--green)' : 'var(--card-2)') + ';color:' + (on ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="' + id + '">' + (on ? '👁️ ظاهرة للزبائن — إخفاء' : '🚫 مخفية عن الزبائن — إظهار') + '</button>'; }
     $('#view').innerHTML =
       '<div class="card" style="max-width:680px"><h3>إعدادات عامة</h3>' +
@@ -596,6 +597,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>تيك توك</label><input class="inp" id="sTt" value="' + esc(s.tiktok || '') + '" dir="ltr" placeholder="https://tiktok.com/@..."></div>' +
         '</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSave">💾 حفظ الإعدادات</button></div>' +
+      '</div>' +
+      '<div class="card" style="max-width:680px"><h3>🔴 البث المباشر (تيك توك)</h3>' +
+        '<div style="font-size:.82rem;color:var(--ink-2);line-height:1.7;margin-bottom:1rem">عند بدء بثكِ المباشر على تيك توك، فعّلي الزر فيظهر زرّ عائم متحرّك في الموقع يدعو الزوار للانضمام مباشرةً. أطفئيه عند انتهاء البث. يستخدم رابط حساب تيك توك المحفوظ في الإعدادات.</div>' +
+        '<div class="row-actions"><button class="btn" style="background:' + (liveOn ? '#FE2C55' : 'var(--card-2)') + ';color:' + (liveOn ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border);font-weight:800" id="sToggleLive">' + (liveOn ? '🔴 البث مباشر الآن — إيقاف الزر' : '⚫ غير مباشر — تشغيل الزر') + '</button></div>' +
       '</div>' +
       '<div class="card" style="max-width:680px"><h3>🚚 ربط Yalidine API</h3>' +
         '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.yalidineReady ? 'background:rgba(34,197,94,.12);color:#7CE5A0">✓ مربوط بحساب Yalidine' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
@@ -633,6 +638,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         .catch(function (e) { console.error(e); toast('فشل الحفظ'); });
     }
     $('#sSave').onclick = function () { persistSettings({}, 'تم حفظ الإعدادات ✓'); };
+    if ($('#sToggleLive')) $('#sToggleLive').onclick = function () {
+      var willLive = !state.settings.tiktokLive;
+      if (willLive && !($('#sTt').value.trim() || state.settings.tiktok)) { toast('أضيفي رابط حساب تيك توك أولاً'); return; }
+      persistSettings({ tiktokLive: willLive }, willLive ? 'تم تفعيل زر البث المباشر ✓' : 'تم إيقاف زر البث', function () { views.settings(); });
+    };
     if ($('#sToggleYal')) $('#sToggleYal').onclick = function () {
       var willOn = !yalEnabled;
       if (!willOn && !noEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
