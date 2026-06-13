@@ -23,6 +23,16 @@
       "utils/**",
       "trickle/**",
       "app.js"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "**/*.@(webp|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
+      }
     ]
   },
   "storage": {
