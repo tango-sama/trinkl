@@ -34,6 +34,8 @@
 .co-opt{border:1.5px solid var(--line);border-radius:14px;padding:.85rem 1rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.5rem;font-weight:800;font-size:.88rem;color:var(--ink)}
 .co-opt:hover{border-color:var(--rose-soft)}
 .co-opt.on{border-color:var(--rose);background:var(--rose-tint)}
+.co-opt[data-co="yalidine"].on{border-color:#E11900;background:rgba(225,25,0,.07)}
+.co-opt[data-co="noest"].on{border-color:#1E73E8;background:rgba(30,115,232,.07)}
 .co-opt .co-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
 .del-opt{border:1.5px solid var(--line);border-radius:14px;padding:1rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.75rem}
 .del-opt:hover{border-color:var(--rose-soft)}
@@ -107,8 +109,8 @@
         <div class="ffield full">
           <label>شركة التوصيل</label>
           <div class="company-opts" id="companyOpts">
-            <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E0728C"></span> Yalidine — ياليدين</div>
-            <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#5B8DEF"></span> Noest — نوست</div>
+            <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
+            <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
           </div>
         </div>
         <div class="ffield full">
@@ -161,6 +163,7 @@
   var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
 
   DS.getSettings().then(SiteUI.applySettings);
+  DS.getDeliveryFees('noest').then(function (m) { if (m) { YALIDINE.applyFees('noest', m); updateFees(); } });
 
   var ws = document.getElementById('fwilaya');
   var cs = document.getElementById('fbaladiya');

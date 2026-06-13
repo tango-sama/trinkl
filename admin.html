@@ -504,14 +504,14 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +
         '<div class="order-items">' + (items || '—') + '</div>' +
-        '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' + (o.deliveryCompany ? '<span style="color:' + (o.deliveryCompany === 'noest' ? '#9DBBF5' : 'var(--rose)') + '">🏷️ اختار: ' + (o.deliveryCompany === 'noest' ? 'Noest' : 'Yalidine') + '</span>' : '') + '</div>' +
-        (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(34,197,94,.1);color:#7CE5A0;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#9DBBF5;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
+        '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' + (o.deliveryCompany ? '<span style="color:' + (o.deliveryCompany === 'noest' ? '#5B9DF2' : '#FF7A6B') + ';font-weight:800">🏷️ اختار: ' + (o.deliveryCompany === 'noest' ? 'Noest' : 'Yalidine') + '</span>' : '') + '</div>' +
+        (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem">🔵 طرد Noest: <b class="num">' + esc(o.noest.tracking) + '</b> · ' + (o.noest.validated ? 'مُثبَّت' : 'بانتظار التثبيت') + '</div>' : '') +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
           (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking)) ? '' :
-            '<button class="btn btn-rose btn-sm" data-oyal="' + esc(o.id) + '">📦 طرد Yalidine</button>' +
-            '<button class="btn btn-blue btn-sm" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
+            '<button class="btn btn-sm" style="background:#E11900;color:#fff" data-oyal="' + esc(o.id) + '">🔴 طرد Yalidine</button>' +
+            '<button class="btn btn-sm" style="background:#1E73E8;color:#fff" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div>';
@@ -591,7 +591,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>user_guid</label><input class="inp" id="sNoGuid" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.noestReady ? '•••••• (محفوظ)' : 'أدخلي user_guid') + '"></div>' +
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
-        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button></div>' +
+        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 مزامنة أسعار التوصيل</button></div>' +
       '</div>';
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
@@ -634,6 +634,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         DS.setDoc('private', 'noest', { apiToken: token, userGuid: guid, updatedAt: Date.now() })
           .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
       } else { finish(); }
+    };
+    if ($('#sSyncNoest')) $('#sSyncNoest').onclick = function () {
+      if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
+      var btn = this, orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ جاري المزامنة...';
+      firebase.functions().httpsCallable('syncNoestFees')({})
+        .then(function (res) { var d = res.data || {}; btn.disabled = false; btn.textContent = orig; toast('تمت مزامنة أسعار ' + (d.count || 0) + ' ولاية ✓'); })
+        .catch(function (err) { console.error('syncNoestFees', err); btn.disabled = false; btn.textContent = orig; alert('تعذّر مزامنة الأسعار:\n' + (err && err.message ? err.message : 'خطأ')); });
     };
   };
 

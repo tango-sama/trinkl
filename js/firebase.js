@@ -87,6 +87,12 @@
       return mapDocs(snap).sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
     }).catch(function (e) { console.error('[DS] getMessages', e); return []; });
   }
+  // Synced carrier fee grid (e.g. Noest) → { "16": {home, desk}, ... } or null
+  function getDeliveryFees(company) {
+    return db.collection('delivery_fees').doc(company || 'noest').get()
+      .then(function (d) { return d.exists ? (d.data().fees || null) : null; })
+      .catch(function (e) { console.error('[DS] getDeliveryFees', e); return null; });
+  }
 
   // ───────── writes (storefront) ─────────
   function saveOrder(order) {
@@ -149,6 +155,7 @@
     // reads
     getProducts: getProducts, getProduct: getProduct, getCategories: getCategories,
     getFeatured: getFeatured, getSettings: getSettings, getOrders: getOrders, getMessages: getMessages,
+    getDeliveryFees: getDeliveryFees,
     // storefront writes
     saveOrder: saveOrder, saveMessage: saveMessage,
     // admin writes

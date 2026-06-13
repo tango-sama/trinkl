@@ -177,7 +177,7 @@
         </div>
         <div class="qfield"><label>شركة التوصيل</label>
           <div class="qdeliv" id="qCompany">
-            <div class="qdo on" data-co="yalidine">🟣 Yalidine</div>
+            <div class="qdo on" data-co="yalidine">🔴 Yalidine</div>
             <div class="qdo" data-co="noest">🔵 Noest</div>
           </div>
         </div>
@@ -206,6 +206,7 @@
   var qty = 1, product = null, catMap = {};
 
   DS.getSettings().then(SiteUI.applySettings);
+  DS.getDeliveryFees('noest').then(function (m) { if (m) YALIDINE.applyFees('noest', m); });
 
   if (!id) { document.getElementById('pName').textContent = 'المنتج غير موجود'; return; }
 

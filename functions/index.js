@@ -240,3 +240,46 @@ exports.createNoestParcel = onCall(
     return { ok: true, tracking, validated };
   }
 );
+
+/* ───────────────────────────────────────────────────────────────
+   syncNoestFees: fetches the partner's real per-wilaya pricing grid
+   from Noest (/api/public/fees) and caches it to the public doc
+   delivery_fees/noest, which the storefront reads to price Noest
+   deliveries accurately.
+   ─────────────────────────────────────────────────────────────── */
+exports.syncNoestFees = onCall(
+  { region: 'us-central1' },
+  async () => {
+    const db = admin.firestore();
+    const credSnap = await db.collection('private').doc('noest').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const token = String(cred.apiToken || '').trim();
+    if (!token) {
+      throw new HttpsError('failed-precondition', 'أدخلي بيانات Noest أولاً.');
+    }
+
+    let res, body;
+    try {
+      res = await fetch(NOEST_BASE + '/api/public/fees', { headers: { Authorization: 'Bearer ' + token } });
+      body = await res.json();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر جلب أسعار Noest: ' + e.message);
+    }
+    if (!res.ok) {
+      throw new HttpsError('internal', 'Noest fees error: ' + JSON.stringify(body));
+    }
+
+    const delivery = (body && body.tarifs && body.tarifs.delivery) || {};
+    const fees = {};
+    let count = 0;
+    for (const k in delivery) {
+      const d = delivery[k] || {};
+      const wid = String(d.wilaya_id || k);
+      const home = parseInt(d.tarif, 10);
+      const desk = parseInt(d.tarif_stopdesk, 10);
+      if (!isNaN(home) && !isNaN(desk)) { fees[wid] = { home, desk }; count++; }
+    }
+    await db.collection('delivery_fees').doc('noest').set({ fees, updatedAt: Date.now() });
+    return { ok: true, count };
+  }
+);
