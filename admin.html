@@ -510,8 +510,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
           (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking)) ? '' :
-            '<button class="btn btn-sm" style="background:#E11900;color:#fff" data-oyal="' + esc(o.id) + '">🔴 طرد Yalidine</button>' +
-            '<button class="btn btn-sm" style="background:#1E73E8;color:#fff" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
+            '<button class="btn btn-sm" title="' + (o.deliveryCompany === 'noest' ? 'الزبون اختار Noest' : 'اختيار الزبون') + '" style="background:#E11900;color:#fff;' + (o.deliveryCompany === 'noest' ? 'opacity:.38;filter:grayscale(.5)' : '') + '" data-oyal="' + esc(o.id) + '">🔴 طرد Yalidine</button>' +
+            '<button class="btn btn-sm" title="' + (o.deliveryCompany === 'noest' ? 'اختيار الزبون' : 'الزبون اختار Yalidine') + '" style="background:#1E73E8;color:#fff;' + (o.deliveryCompany === 'noest' ? '' : 'opacity:.38;filter:grayscale(.5)') + '" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div>';
