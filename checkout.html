@@ -162,8 +162,24 @@
   document.getElementById('yr').textContent = new Date().getFullYear();
   var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
 
-  DS.getSettings().then(SiteUI.applySettings);
+  DS.getSettings().then(function (s) { SiteUI.applySettings(s); applyCarriers(s || {}); });
   DS.getDeliveryFees('noest').then(function (m) { if (m) { YALIDINE.applyFees('noest', m); updateFees(); } });
+
+  function applyCarriers(s) {
+    var enabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
+    if (!enabled.yalidine && !enabled.noest) { enabled.yalidine = true; enabled.noest = true; }
+    var opts = document.querySelectorAll('#companyOpts .co-opt');
+    var visible = 0, first = null;
+    opts.forEach(function (o) {
+      if (enabled[o.dataset.co]) { o.style.display = ''; visible++; if (!first) first = o.dataset.co; }
+      else { o.style.display = 'none'; }
+    });
+    if (!enabled[company]) company = first;
+    opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === company); });
+    var field = document.getElementById('companyOpts').closest('.ffield');
+    if (field) field.style.display = visible <= 1 ? 'none' : '';
+    updateFees();
+  }
 
   var ws = document.getElementById('fwilaya');
   var cs = document.getElementById('fbaladiya');

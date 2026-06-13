@@ -559,6 +559,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   // ═══════════ SETTINGS ═══════════
   views.settings = function () {
     var s = state.settings || {};
+    var yalEnabled = s.yalidineEnabled !== false;
+    var noEnabled = s.noestEnabled !== false;
+    function toggleBtn(id, on) { return '<button class="btn btn-sm" style="background:' + (on ? 'var(--green)' : 'var(--card-2)') + ';color:' + (on ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="' + id + '">' + (on ? '👁️ ظاهرة للزبائن — إخفاء' : '🚫 مخفية عن الزبائن — إظهار') + '</button>'; }
     $('#view').innerHTML =
       '<div class="card" style="max-width:680px"><h3>إعدادات عامة</h3>' +
         '<div class="field"><label>صورة الواجهة (Hero)</label><div style="display:flex;gap:.75rem;align-items:center"><img class="thumb-prev" id="sHeroPrev" src="' + (s.heroImage || transparent()) + '"><input class="inp" id="sHero" value="' + esc(s.heroImage || '') + '" style="flex:1" placeholder="رابط الصورة"><label class="upload-lbl" id="sHeroUp">⬆ رفع</label></div></div>' +
@@ -582,7 +585,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>API Token</label><input class="inp" id="sYalToken" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.yalidineReady ? '•••••• (محفوظ)' : 'أدخلي API Token') + '"></div>' +
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على API ID و Token من حسابكِ في Yalidine (قسم API / المطوّرين). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
-        '<div class="row-actions"><button class="btn btn-green" id="sSaveYal">💾 حفظ ربط Yalidine</button></div>' +
+        '<div class="row-actions"><button class="btn btn-green" id="sSaveYal">💾 حفظ ربط Yalidine</button>' + toggleBtn('sToggleYal', yalEnabled) + '</div>' +
       '</div>' +
       '<div class="card" style="max-width:680px;border-color:var(--blue)"><h3 style="color:#9DBBF5">🔵 ربط Noest API</h3>' +
         '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.noestReady ? 'background:rgba(91,141,239,.15);color:#9DBBF5">✓ مربوط بحساب Noest' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
@@ -591,7 +594,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>user_guid</label><input class="inp" id="sNoGuid" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.noestReady ? '•••••• (محفوظ)' : 'أدخلي user_guid') + '"></div>' +
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
-        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 مزامنة أسعار التوصيل</button></div>' +
+        '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 مزامنة أسعار التوصيل</button>' + toggleBtn('sToggleNoest', noEnabled) + '</div>' +
       '</div>';
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
@@ -607,6 +610,16 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         .catch(function (e) { console.error(e); toast('فشل الحفظ'); });
     }
     $('#sSave').onclick = function () { persistSettings({}, 'تم حفظ الإعدادات ✓'); };
+    if ($('#sToggleYal')) $('#sToggleYal').onclick = function () {
+      var willOn = !yalEnabled;
+      if (!willOn && !noEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      persistSettings({ yalidineEnabled: willOn }, willOn ? 'Yalidine ظاهرة للزبائن ✓' : 'تم إخفاء Yalidine عن الزبائن', function () { views.settings(); });
+    };
+    if ($('#sToggleNoest')) $('#sToggleNoest').onclick = function () {
+      var willOn = !noEnabled;
+      if (!willOn && !yalEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      persistSettings({ noestEnabled: willOn }, willOn ? 'Noest ظاهرة للزبائن ✓' : 'تم إخفاء Noest عن الزبائن', function () { views.settings(); });
+    };
     if ($('#sSaveYal')) $('#sSaveYal').onclick = function () {
       var origin = $('#sOrigin') ? $('#sOrigin').value : '';
       var apiId = $('#sYalId') ? $('#sYalId').value.trim() : '';

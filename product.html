@@ -205,8 +205,23 @@
   var id = new URLSearchParams(location.search).get('id');
   var qty = 1, product = null, catMap = {};
 
-  DS.getSettings().then(SiteUI.applySettings);
+  DS.getSettings().then(function (s) { SiteUI.applySettings(s); applyCarriers(s || {}); });
   DS.getDeliveryFees('noest').then(function (m) { if (m) YALIDINE.applyFees('noest', m); });
+
+  function applyCarriers(s) {
+    var enabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
+    if (!enabled.yalidine && !enabled.noest) { enabled.yalidine = true; enabled.noest = true; }
+    var opts = document.querySelectorAll('#qCompany .qdo');
+    var visible = 0, first = null;
+    opts.forEach(function (o) {
+      if (enabled[o.dataset.co]) { o.style.display = ''; visible++; if (!first) first = o.dataset.co; }
+      else { o.style.display = 'none'; }
+    });
+    if (!enabled[qCompany]) qCompany = first;
+    opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === qCompany); });
+    var field = document.getElementById('qCompany').closest('.qfield');
+    if (field) field.style.display = visible <= 1 ? 'none' : '';
+  }
 
   if (!id) { document.getElementById('pName').textContent = 'المنتج غير موجود'; return; }
 
