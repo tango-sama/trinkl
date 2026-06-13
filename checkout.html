@@ -30,6 +30,11 @@
 .finput:focus,.fselect:focus{border-color:var(--rose)}
 .finput.err,.fselect.err{border-color:var(--rose);background:#FFF0F3}
 .delivery-opts{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+.company-opts{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+.co-opt{border:1.5px solid var(--line);border-radius:14px;padding:.85rem 1rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.5rem;font-weight:800;font-size:.88rem;color:var(--ink)}
+.co-opt:hover{border-color:var(--rose-soft)}
+.co-opt.on{border-color:var(--rose);background:var(--rose-tint)}
+.co-opt .co-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
 .del-opt{border:1.5px solid var(--line);border-radius:14px;padding:1rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.75rem}
 .del-opt:hover{border-color:var(--rose-soft)}
 .del-opt.on{border-color:var(--rose);background:var(--rose-tint)}
@@ -65,7 +70,7 @@
 .success p{color:var(--ink-2);line-height:1.7;margin-bottom:1.25rem}
 .success .oid{background:var(--bg);border:1px dashed var(--rose);border-radius:12px;padding:.7rem;margin-bottom:1.25rem;font-weight:700}
 .success .oid b{color:var(--rose-deep)}
-@media(max-width:900px){.checkout{padding:6rem 1.2rem 3rem}.cgrid{grid-template-columns:1fr}.summary{position:static;order:-1}.frow{grid-template-columns:1fr}.delivery-opts{grid-template-columns:1fr}}
+@media(max-width:900px){.checkout{padding:6rem 1.2rem 3rem}.cgrid{grid-template-columns:1fr}.summary{position:static;order:-1}.frow{grid-template-columns:1fr}.delivery-opts{grid-template-columns:1fr}.company-opts{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -98,6 +103,13 @@
           <div class="ffield full"><label>رقم الهاتف <span class="req">*</span></label><input class="finput" id="fphone" type="tel" placeholder="0X XX XX XX XX" style="direction:ltr;text-align:right"></div>
           <div class="ffield"><label>الولاية <span class="req">*</span></label><select class="fselect" id="fwilaya"><option value="">اختاري الولاية</option></select></div>
           <div class="ffield"><label>البلدية <span class="req">*</span></label><select class="fselect" id="fbaladiya" disabled><option value="">اختاري الولاية أولاً</option></select></div>
+        </div>
+        <div class="ffield full">
+          <label>شركة التوصيل</label>
+          <div class="company-opts" id="companyOpts">
+            <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E0728C"></span> Yalidine — ياليدين</div>
+            <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#5B8DEF"></span> Noest — نوست</div>
+          </div>
         </div>
         <div class="ffield full">
           <label>نوع التوصيل</label>
@@ -146,7 +158,7 @@
 <script>
 (function () {
   document.getElementById('yr').textContent = new Date().getFullYear();
-  var delivery = 'home', lastOrder = null, deliveryFee = 0;
+  var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
 
   DS.getSettings().then(SiteUI.applySettings);
 
@@ -163,20 +175,26 @@
     var list = YALIDINE.communes(w.id);
     cs.disabled = false;
     cs.innerHTML = '<option value="">اختاري البلدية</option>' +
-      list.map(function (c) { return '<option value="' + SiteUI.esc(c.ar) + '">' + SiteUI.esc(c.ar) + '</option>'; }).join('');
+      list.map(function (c) { return '<option value="' + SiteUI.esc(c.ar) + '" data-fr="' + SiteUI.esc(c.fr) + '">' + SiteUI.esc(c.ar) + '</option>'; }).join('');
   }
 
   function money(n) { return n.toLocaleString('en-US') + ' د.ج'; }
 
   function updateFees() {
     var w = selectedWilaya();
-    document.querySelector('[data-fee-home]').innerHTML = (w ? money(w.home) : '—') + '<small>التوصيل</small>';
-    document.querySelector('[data-fee-office]').innerHTML = (w ? money(w.desk) : '—') + '<small>التوصيل</small>';
-    deliveryFee = w ? YALIDINE.fee(w.id, delivery) : 0;
+    document.querySelector('[data-fee-home]').innerHTML = (w ? money(YALIDINE.fee(w.id, 'home', company)) : '—') + '<small>التوصيل</small>';
+    document.querySelector('[data-fee-office]').innerHTML = (w ? money(YALIDINE.fee(w.id, 'office', company)) : '—') + '<small>التوصيل</small>';
+    deliveryFee = w ? YALIDINE.fee(w.id, delivery, company) : 0;
     renderSummary();
   }
 
   ws.addEventListener('change', function () { populateCommunes(); updateFees(); });
+
+  document.getElementById('companyOpts').addEventListener('click', function (e) {
+    var o = e.target.closest('.co-opt'); if (!o) return;
+    this.querySelectorAll('.co-opt').forEach(function (x) { x.classList.remove('on'); });
+    o.classList.add('on'); company = o.dataset.co; updateFees();
+  });
 
   function renderSummary() {
     var items = Cart.get();
@@ -232,6 +250,7 @@
       '\n🧾 *الإجمالي:* ' + o.total.toLocaleString('en-US') + ' د.ج\n---------------------------\n' +
       '🔖 رقم الطلب: ' + o.num + '\n👤 الاسم: ' + o.customer + '\n📱 الهاتف: ' + o.phone +
       '\n📍 العنوان: ' + o.wilaya + ' - ' + o.baladiya +
+      '\n🏷️ شركة التوصيل: ' + (o.deliveryCompany === 'noest' ? 'Noest' : 'Yalidine') +
       '\n📦 نوع التوصيل: ' + (o.deliveryType === 'home' ? 'للمنزل (à domicile)' : 'للمكتب (Stop Desk)') +
       '\n---------------------------\nيرجى تأكيد الطلب.';
   }
@@ -248,11 +267,13 @@
     var w = selectedWilaya();
     var items = Cart.get().map(function (i) { return { id: i.id, title: i.title, price: i.price, qty: i.quantity || 1, image: i.image || '' }; });
     var sub = Cart.total();
+    var copt = bal.options[bal.selectedIndex];
     var order = {
       num: 'DS-' + Math.floor(1000 + Math.random() * 9000),
       customer: name.value.trim(), phone: phone.value.trim(),
       wilaya: w ? w.ar : '', wilayaId: w ? w.id : null, wilayaFr: w ? w.fr : '',
-      baladiya: bal.value, deliveryType: delivery, deliveryFee: deliveryFee,
+      baladiya: bal.value, communeFr: copt ? (copt.getAttribute('data-fr') || '') : '',
+      deliveryCompany: company, deliveryType: delivery, deliveryFee: deliveryFee,
       items: items, subtotal: sub, total: sub + deliveryFee
     };
     lastOrder = order;
