@@ -566,26 +566,48 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSave">💾 حفظ الإعدادات</button></div>' +
       '</div>' +
-      '<div class="card" style="max-width:680px"><h3>🚚 إعدادات Yalidine</h3>' +
+      '<div class="card" style="max-width:680px"><h3>🚚 ربط Yalidine API</h3>' +
+        '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.yalidineReady ? 'background:rgba(34,197,94,.12);color:#7CE5A0">✓ مربوط بحساب Yalidine' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
         '<div class="field"><label>ولاية الإرسال (المتجر)</label>' +
           '<select class="sel" id="sOrigin"><option value="">اختاري ولاية الإرسال</option>' +
           (window.YALIDINE ? YALIDINE.wilayas.map(function (w) { return '<option value="' + esc(w.fr) + '"' + (s.originWilaya === w.fr ? ' selected' : '') + '>' + w.id + ' - ' + esc(w.ar) + ' (' + esc(w.fr) + ')</option>'; }).join('') : '') +
-          '</select>' +
-          '<div style="font-size:.75rem;color:var(--ink-3);margin-top:.5rem">تُستخدم كولاية انطلاق الطرود عند إنشائها في Yalidine.</div></div>' +
-        '<div class="row-actions"><button class="btn btn-green" id="sSaveYal">💾 حفظ</button></div>' +
+          '</select></div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>API ID</label><input class="inp" id="sYalId" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.yalidineReady ? '•••••• (محفوظ)' : 'أدخلي API ID') + '"></div>' +
+          '<div class="field"><label>API Token</label><input class="inp" id="sYalToken" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.yalidineReady ? '•••••• (محفوظ)' : 'أدخلي API Token') + '"></div>' +
+        '</div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على API ID و Token من حسابكِ في Yalidine (قسم API / المطوّرين). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
+        '<div class="row-actions"><button class="btn btn-green" id="sSaveYal">💾 حفظ ربط Yalidine</button></div>' +
       '</div>';
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
-    function saveSettings() {
-      var data = { heroImage: $('#sHero').value.trim(), storeName: $('#sName').value.trim(), waNumber: $('#sWa').value.trim(),
-        instagram: $('#sIg').value.trim(), facebook: $('#sFb').value.trim(), tiktok: $('#sTt').value.trim(),
-        originWilaya: $('#sOrigin') ? $('#sOrigin').value : (state.settings.originWilaya || '') };
+    function persistSettings(extra, okMsg, after) {
+      var data = Object.assign({}, state.settings, {
+        heroImage: $('#sHero').value.trim(), storeName: $('#sName').value.trim(), waNumber: $('#sWa').value.trim(),
+        instagram: $('#sIg').value.trim(), facebook: $('#sFb').value.trim(), tiktok: $('#sTt').value.trim()
+      }, extra || {});
       var docId = state.settings && state.settings.id ? state.settings.id : 'general';
       data.id = docId;
-      DS.setDoc('site_settings', docId, data).then(function () { state.settings = data; toast('تم حفظ الإعدادات ✓'); }).catch(function (e) { console.error(e); toast('فشل الحفظ'); });
+      return DS.setDoc('site_settings', docId, data)
+        .then(function () { state.settings = data; toast(okMsg || 'تم الحفظ ✓'); if (after) after(); })
+        .catch(function (e) { console.error(e); toast('فشل الحفظ'); });
     }
-    $('#sSave').onclick = saveSettings;
-    if ($('#sSaveYal')) $('#sSaveYal').onclick = saveSettings;
+    $('#sSave').onclick = function () { persistSettings({}, 'تم حفظ الإعدادات ✓'); };
+    if ($('#sSaveYal')) $('#sSaveYal').onclick = function () {
+      var origin = $('#sOrigin') ? $('#sOrigin').value : '';
+      var apiId = $('#sYalId') ? $('#sYalId').value.trim() : '';
+      var token = $('#sYalToken') ? $('#sYalToken').value.trim() : '';
+      var hasCreds = !!(apiId && token);
+      var alreadyReady = !!state.settings.yalidineReady;
+      if (!origin) { toast('اختاري ولاية الإرسال'); return; }
+      if ((apiId && !token) || (token && !apiId)) { toast('أدخلي API ID و Token معاً'); return; }
+      if (!hasCreds && !alreadyReady) { toast('أدخلي API ID و Token'); return; }
+      function finish() { persistSettings({ originWilaya: origin, yalidineReady: hasCreds || alreadyReady }, 'تم حفظ ربط Yalidine ✓', function () { views.settings(); }); }
+      if (hasCreds) {
+        DS.setDoc('private', 'yalidine', { apiId: apiId, apiToken: token, updatedAt: Date.now() })
+          .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
+      } else { finish(); }
+    };
   };
 
   // ───────── helpers ─────────

@@ -4,24 +4,21 @@
    confirmed. Reads the order from Firestore, calls the Yalidine API to
    create a parcel (bordereau), and writes the tracking number back.
 
-   Secrets (set with `firebase functions:secrets:set <NAME>`):
-     YALIDINE_API_ID
-     YALIDINE_API_TOKEN
-   Origin wilaya is read from the `originWilaya` field of the single
-   site_settings document (set it in the admin Settings page).
+   Credentials are entered in the admin Settings page and stored in the
+   server-only Firestore doc `private/yalidine` ({ apiId, apiToken }), which
+   clients cannot read (see firestore.rules). The Admin SDK below bypasses
+   those rules. Origin wilaya is read from the `originWilaya` field of the
+   single site_settings document (also set in the admin Settings page).
    ─────────────────────────────────────────────────────────────── */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-const YALIDINE_API_ID = defineSecret('YALIDINE_API_ID');
-const YALIDINE_API_TOKEN = defineSecret('YALIDINE_API_TOKEN');
 const API_BASE = 'https://api.yalidine.app/v1';
 
 exports.createYalidineParcel = onCall(
-  { secrets: [YALIDINE_API_ID, YALIDINE_API_TOKEN], region: 'us-central1' },
+  { region: 'us-central1' },
   async (req) => {
     const orderId = req.data && req.data.orderId;
     if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
@@ -45,9 +42,18 @@ exports.createYalidineParcel = onCall(
       throw new HttpsError('failed-precondition', 'حدّدي ولاية الإرسال (originWilaya) في إعدادات لوحة التحكم أولاً.');
     }
 
+    // Yalidine API credentials from the server-only private doc.
+    const credSnap = await db.collection('private').doc('yalidine').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const apiId = String(cred.apiId || '').trim();
+    const apiToken = String(cred.apiToken || '').trim();
+    if (!apiId || !apiToken) {
+      throw new HttpsError('failed-precondition', 'أدخلي API ID و API Token الخاصين بـ Yalidine في إعدادات لوحة التحكم أولاً.');
+    }
+
     const headers = {
-      'X-API-ID': YALIDINE_API_ID.value(),
-      'X-API-TOKEN': YALIDINE_API_TOKEN.value(),
+      'X-API-ID': apiId,
+      'X-API-TOKEN': apiToken,
       'Content-Type': 'application/json',
     };
 
