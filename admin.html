@@ -178,6 +178,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   });
   $('#logoutBtn').addEventListener('click', function () { sessionStorage.removeItem('ds_admin'); location.reload(); });
   $('#menuBtn').addEventListener('click', function () { $('#sidebar').classList.toggle('open'); });
+  // Click outside the open sidebar closes it
+  document.addEventListener('click', function (e) {
+    var sb = $('#sidebar'), mb = $('#menuBtn');
+    if (!sb.classList.contains('open')) return;
+    if (sb.contains(e.target) || (mb && mb.contains(e.target))) return;
+    sb.classList.remove('open');
+  });
 
   // ───────── data ─────────
   function loadAll() {
