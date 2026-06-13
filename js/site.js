@@ -86,6 +86,22 @@
       var txt = a.getAttribute('data-wa') || '';
       a.href = 'https://wa.me/' + SITE.WA + (txt ? '?text=' + encodeURIComponent(txt) : '');
     });
+    // wire social links from settings — show only the ones that are configured
+    var social = { instagram: SITE.instagram, facebook: SITE.facebook, tiktok: SITE.tiktok };
+    Object.keys(social).forEach(function (k) {
+      var url = normalizeUrl(social[k]);
+      document.querySelectorAll('[data-social="' + k + '"]').forEach(function (a) {
+        if (url) { a.href = url; a.style.display = ''; } else { a.style.display = 'none'; }
+      });
+    });
+  }
+
+  // accept full URLs or bare handles/links; ensure an absolute https:// URL
+  function normalizeUrl(v) {
+    v = String(v == null ? '' : v).trim();
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v)) return v;
+    return 'https://' + v.replace(/^\/+/, '');
   }
 
   function init() { wireNav(); wireAddButtons(); observeReveals(); }
