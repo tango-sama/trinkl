@@ -507,6 +507,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem">🔵 طرد Noest: <b class="num">' + esc(o.noest.tracking) + '</b> · ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</div>' : '') +
+        (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking))
+          ? (o.deliveryLabel ? '<div style="margin-top:.7rem;font-size:.8rem;color:var(--ink-2)">📝 اسم المنتج على الوصل: <b style="color:var(--ink)">' + esc(o.deliveryLabel) + '</b></div>' : '')
+          : '<div style="margin-top:.8rem"><label style="display:block;font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.35rem">📝 اسم المنتج على وصل التوصيل <span style="color:var(--danger)">*</span></label>' +
+            '<input class="inp note-inp" data-notefor="' + esc(o.id) + '" value="' + esc(o.deliveryLabel || '') + '" placeholder="مثال: منتج تجميل — لن يظهر الاسم الحقيقي" style="padding:.55rem .85rem;font-size:.85rem"></div>') +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
           (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking)) ? '' :
@@ -521,16 +525,28 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
     document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createParcel('createYalidineParcel', 'yalidine', b.dataset.oyal, b, 'Yalidine'); }; });
     document.querySelectorAll('[data-onoest]').forEach(function (b) { b.onclick = function () { createParcel('createNoestParcel', 'noest', b.dataset.onoest, b, 'Noest'); }; });
+    document.querySelectorAll('.note-inp').forEach(function (i) {
+      i.onchange = function () {
+        var o = state.orders.find(function (x) { return String(x.id) === String(i.dataset.notefor); });
+        if (!o) return; var v = i.value.trim(); o.deliveryLabel = v;
+        DS.updateDoc('orders', o.id, { deliveryLabel: v }).catch(function (e) { console.error(e); });
+      };
+    });
   };
 
   function createParcel(fnName, field, id, btn, label) {
     var o = state.orders.find(function (x) { return String(x.id) === String(id); });
     if (!o) return;
-    if (!confirm('تأكيد الطلب وإنشاء طرد ' + label + ' لـ ' + (o.customer || o.num) + '؟')) return;
+    var inp = document.querySelector('.note-inp[data-notefor="' + id + '"]');
+    var note = inp ? inp.value.trim() : (o.deliveryLabel || '');
+    if (!note) { toast('أدخلي اسم المنتج الذي سيظهر على وصل التوصيل أولاً'); if (inp) { inp.style.borderColor = 'var(--danger)'; inp.focus(); } return; }
+    if (!confirm('إنشاء طرد ' + label + ' لـ ' + (o.customer || o.num) + '؟\nاسم المنتج على الوصل: «' + note + '»')) return;
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('خدمة الإنشاء غير متوفرة'); return; }
     var original = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الإنشاء...'; }
-    firebase.functions().httpsCallable(fnName)({ orderId: o.id })
+    o.deliveryLabel = note;
+    DS.updateDoc('orders', o.id, { deliveryLabel: note })
+      .then(function () { return firebase.functions().httpsCallable(fnName)({ orderId: o.id }); })
       .then(function (res) {
         var d = res.data || {};
         o[field] = { tracking: d.tracking, label: d.label || null, validated: d.validated };

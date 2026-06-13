@@ -82,7 +82,9 @@ exports.createYalidineParcel = onCall(
     const firstname = parts.shift() || fullName || '—';
     const familyname = parts.join(' ') || firstname;
 
-    const productList = ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+    const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
+      ? String(o.deliveryLabel).trim().slice(0, 250)
+      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
     const codPrice = Number(o.total != null ? o.total : o.subtotal) || 0;
     const useStopdesk = isStopdesk && !!stopdeskCenter;
 
@@ -194,7 +196,9 @@ exports.createNoestParcel = onCall(
     }
     const useStopdesk = isStopdesk && !!stationCode;
 
-    const productList = ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+    const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
+      ? String(o.deliveryLabel).trim().slice(0, 250)
+      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
     const montant = Number(o.total != null ? o.total : o.subtotal) || 0;
 
     const payload = {
