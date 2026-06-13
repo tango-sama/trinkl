@@ -94,13 +94,20 @@
         if (url) { a.href = url; a.style.display = ''; } else { a.style.display = 'none'; }
       });
     });
-    // TikTok live floating button — shown only when the admin marks "live now"
+    // TikTok live floating button — shown when "live now" is on AND not expired
     var liveUrl = '';
     if (s.tiktokLiveUrl) liveUrl = normalizeUrl(s.tiktokLiveUrl);
     else if (SITE.tiktok) liveUrl = normalizeUrl(SITE.tiktok).replace(/\/+$/, '') + '/live';
+    var liveHours = Number(s.tiktokLiveHours) || 2;
+    var endsAt = (Number(s.tiktokLiveAt) || 0) + liveHours * 3600000;
+    var remaining = s.tiktokLiveAt ? (endsAt - Date.now()) : (s.tiktokLive ? 86400000 : 0);
+    var liveActive = !!s.tiktokLive && remaining > 0;
     document.querySelectorAll('.tiktok-live').forEach(function (a) {
-      if (s.tiktokLive && liveUrl) { a.href = liveUrl; a.classList.add('on'); }
-      else { a.classList.remove('on'); }
+      if (liveActive && liveUrl) {
+        a.href = liveUrl; a.classList.add('on');
+        // auto-hide for visitors still on the page when the live window ends
+        if (remaining > 0 && remaining < 86400000) setTimeout(function () { a.classList.remove('on'); }, remaining);
+      } else { a.classList.remove('on'); }
     });
   }
 
