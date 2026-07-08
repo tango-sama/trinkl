@@ -6,6 +6,7 @@
 <link rel="icon" type="image/webp" href="assets/logo.webp">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
+<script>try{if(localStorage.getItem('ds_theme')==='light')document.documentElement.classList.add('light')}catch(e){}</script>
 <title>لوحة التحكم | Desert Shop</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -22,6 +23,22 @@
   --green:#22c55e;--danger:#E5484D;--blue:#5B8DEF;
   --sans:'Cairo','Tajawal',sans-serif;
 }
+html.light{
+  --bg:#F6EFF2;--card:#FFFFFF;--card-2:#F3E7EC;--border:#E7D6DE;
+  --ink:#3A2A31;--ink-2:#75606B;--ink-3:#9C8791;
+}
+html.light .login-wrap{background:radial-gradient(ellipse 80% 60% at 50% 0%,#FBEFF3,#F6EFF2)}
+html.light .login-card{box-shadow:0 30px 70px rgba(58,42,49,.14)}
+html.light .toast{background:#E9F9EF;color:#15803D;border-color:#B5E6C8}
+html.light .tag.new{color:#3465C4}
+html.light .tag.done{color:#15803D}
+/* inline pastel accents from JS templates are tuned for dark bg — darken them in light mode */
+html.light [style*="#9DBBF5"]{color:#2E5FC7!important}
+html.light [style*="#7CE5A0"]{color:#15803D!important}
+html.light [style*="#F2A1A4"]{color:#C43E44!important}
+html.light [style*="#FF9A8C"]{color:#C2402F!important}
+html.light [style*="#F3B4C2"]{color:#C8546F!important}
+html.light [style*="#FFC9C0"]{color:#B33A2B!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6}
 a{color:inherit;text-decoration:none}
 .num{direction:ltr;unicode-bidi:isolate}
@@ -604,7 +621,12 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var liveHours = s.tiktokLiveHours || 2;
     var liveActive = !!s.tiktokLive && (Date.now() - (s.tiktokLiveAt || 0) < liveHours * 3600000);
     function toggleBtn(id, on) { return '<button class="btn btn-sm" style="background:' + (on ? 'var(--green)' : 'var(--card-2)') + ';color:' + (on ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="' + id + '">' + (on ? '👁️ ظاهرة للزبائن — إخفاء' : '🚫 مخفية عن الزبائن — إظهار') + '</button>'; }
+    var isLight = document.documentElement.classList.contains('light');
     $('#view').innerHTML =
+      '<div class="card" style="max-width:680px"><h3>🎨 مظهر لوحة التحكم</h3>' +
+        '<div style="font-size:.82rem;color:var(--ink-2);margin-bottom:1rem">التبديل بين الوضع الداكن والفاتح. يُحفظ الاختيار على هذا الجهاز فقط.</div>' +
+        '<div class="row-actions"><button class="btn btn-sm" id="sTheme" style="background:var(--card-2);color:var(--ink);border:1px solid var(--border)">' + (isLight ? '🌙 التبديل إلى الوضع الداكن' : '☀️ التبديل إلى الوضع الفاتح') + '</button></div>' +
+      '</div>' +
       '<div class="card" style="max-width:680px"><h3>إعدادات عامة</h3>' +
         '<div class="field"><label>صورة الواجهة (Hero)</label><div style="display:flex;gap:.75rem;align-items:center"><img class="thumb-prev" id="sHeroPrev" src="' + (s.heroImage || transparent()) + '"><input class="inp" id="sHero" value="' + esc(s.heroImage || '') + '" style="flex:1" placeholder="رابط الصورة"><label class="upload-lbl" id="sHeroUp">⬆ رفع</label></div></div>' +
         '<div class="grid2">' +
@@ -644,6 +666,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
         '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 تحديث قوائم التوصيل (ولايات/بلديات/أسعار)</button>' + toggleBtn('sToggleNoest', noEnabled) + '</div>' +
       '</div>';
+    $('#sTheme').onclick = function () {
+      var light = document.documentElement.classList.toggle('light');
+      try { localStorage.setItem('ds_theme', light ? 'light' : 'dark'); } catch (e) {}
+      views.settings();
+    };
     $('#sHero').oninput = function (e) { $('#sHeroPrev').src = e.target.value || transparent(); };
     $('#sHeroUp').onclick = function () { pickImage('site_assets', function (url) { $('#sHero').value = url; $('#sHeroPrev').src = url; }); };
     function persistSettings(extra, okMsg, after) {
