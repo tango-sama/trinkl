@@ -350,3 +350,126 @@ exports.syncCarriers = onCall(
     return { ok: true, result: out };
   }
 );
+
+/* ───────────────────────────────────────────────────────────────
+   Notifications — email + web push on new orders / messages.
+
+   Email: sent with nodemailer through Gmail SMTP. The Gmail address and
+   an App Password are entered in the admin Settings page and stored in
+   the server-only doc `private/notify` ({ gmail, appPass }).
+
+   Web push: VAPID keys are auto-generated on first use and kept in
+   `private/webpush`. Devices subscribe from the admin panel (getPushKey
+   callable → PushManager.subscribe) and store their subscription in the
+   `push_subs` collection; dead subscriptions are pruned on send.
+   ─────────────────────────────────────────────────────────────── */
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const webpush = require('web-push');
+const nodemailer = require('nodemailer');
+
+const ADMIN_URL = 'https://www.desertshop.fit/amelhadj';
+
+async function getVapidKeys(db) {
+  const ref = db.collection('private').doc('webpush');
+  const snap = await ref.get();
+  if (snap.exists && snap.data().publicKey) return snap.data();
+  const keys = webpush.generateVAPIDKeys();
+  await ref.set(keys);
+  return keys;
+}
+
+exports.getPushKey = onCall({ region: 'us-central1' }, async () => {
+  const keys = await getVapidKeys(admin.firestore());
+  return { publicKey: keys.publicKey };
+});
+
+async function sendPush(db, payload) {
+  const keysSnap = await db.collection('private').doc('webpush').get();
+  if (!keysSnap.exists) return; // no device ever subscribed
+  const keys = keysSnap.data();
+  webpush.setVapidDetails('mailto:tango0es@gmail.com', keys.publicKey, keys.privateKey);
+  const subs = await db.collection('push_subs').get();
+  const body = JSON.stringify(payload);
+  await Promise.all(subs.docs.map(async (d) => {
+    try {
+      await webpush.sendNotification(JSON.parse(d.data().sub), body);
+    } catch (e) {
+      // 404/410 = subscription expired or unsubscribed — remove it.
+      if (e.statusCode === 404 || e.statusCode === 410) await d.ref.delete().catch(() => {});
+      else console.error('push failed', e.statusCode || e.message);
+    }
+  }));
+}
+
+async function sendEmail(db, subject, html) {
+  const credSnap = await db.collection('private').doc('notify').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const gmail = String(cred.gmail || '').trim();
+  const appPass = String(cred.appPass || '').replace(/\s/g, '');
+  if (!gmail || !appPass) return; // email notifications not configured
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmail, pass: appPass },
+  });
+  await transporter.sendMail({
+    from: `"Desert Shop" <${gmail}>`,
+    to: gmail,
+    subject,
+    html: html + `<p style="margin-top:16px"><a href="${ADMIN_URL}">فتح لوحة التحكم</a></p>`,
+  });
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function fmtDA(v) {
+  const n = parseInt(String(v == null ? '' : v).replace(/[^0-9]/g, '') || '0', 10) || 0;
+  return n.toLocaleString('en-US') + ' د.ج';
+}
+
+async function notifyAll(db, { title, text, html }) {
+  const results = await Promise.allSettled([
+    sendPush(db, { title, body: text, url: ADMIN_URL }),
+    sendEmail(db, title, html),
+  ]);
+  results.forEach((r) => { if (r.status === 'rejected') console.error('notify failed', r.reason); });
+}
+
+exports.onNewOrder = onDocumentCreated(
+  { document: 'orders/{id}', region: 'us-central1' },
+  async (event) => {
+    const o = event.data ? event.data.data() : null;
+    if (!o) return;
+    const db = admin.firestore();
+    const items = (o.items || []).map((it) => `${it.title} ×${it.qty || it.quantity || 1}`);
+    const title = `🛒 طلب جديد ${o.num || event.params.id} — ${fmtDA(o.total != null ? o.total : o.subtotal)}`;
+    const text = `${o.customer || ''} · ${o.wilaya || ''} - ${o.baladiya || ''} · ${items.join('، ')}`;
+    const html =
+      `<div dir="rtl" style="font-family:sans-serif;line-height:1.8">` +
+      `<h2 style="margin:0 0 8px">🛒 طلب جديد ${esc(o.num || event.params.id)}</h2>` +
+      `<p style="margin:0"><b>الزبون:</b> ${esc(o.customer)} · <b dir="ltr">${esc(o.phone)}</b><br>` +
+      `<b>العنوان:</b> ${esc(o.wilaya)} - ${esc(o.baladiya)} (${o.deliveryType === 'office' ? 'مكتب Stop Desk' : 'توصيل للمنزل'})<br>` +
+      `<b>المنتجات:</b> ${items.map(esc).join('، ') || '—'}<br>` +
+      `<b>المجموع:</b> ${fmtDA(o.total != null ? o.total : o.subtotal)}` +
+      (o.deliveryFee != null ? ` (منتجات ${fmtDA(o.subtotal)} + توصيل ${fmtDA(o.deliveryFee)})` : '') +
+      `</p></div>`;
+    await notifyAll(db, { title, text, html });
+  }
+);
+
+exports.onNewMessage = onDocumentCreated(
+  { document: 'messages/{id}', region: 'us-central1' },
+  async (event) => {
+    const m = event.data ? event.data.data() : null;
+    if (!m) return;
+    const db = admin.firestore();
+    const title = `💬 رسالة جديدة من ${m.name || 'زائر'}`;
+    const text = String(m.message || '').slice(0, 180);
+    const html =
+      `<div dir="rtl" style="font-family:sans-serif;line-height:1.8">` +
+      `<h2 style="margin:0 0 8px">💬 رسالة جديدة</h2>` +
+      `<p style="margin:0"><b>الاسم:</b> ${esc(m.name)} · <b dir="ltr">${esc(m.phone || '—')}</b><br>` +
+      `<b>الرسالة:</b> ${esc(m.message)}</p></div>`;
+    await notifyAll(db, { title, text, html });
+  }
+);

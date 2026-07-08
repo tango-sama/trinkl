@@ -16,6 +16,10 @@ service cloud.firestore {
     // Synced per-carrier wilaya/commune/fee lists (function-written, public read).
     match /delivery_data/{document=**}      { allow read: if true; allow write: if false; }
 
+    // Admin web-push subscriptions. Devices register themselves from the
+    // admin panel; only the Cloud Function reads them (Admin SDK).
+    match /push_subs/{document=**} { allow read: if false; allow write: if true; }
+
     // Public storefront + admin collections (open, as before).
     match /products/{document=**}         { allow read, write: if true; }
     match /categories/{document=**}        { allow read, write: if true; }
