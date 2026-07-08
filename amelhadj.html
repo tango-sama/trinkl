@@ -103,7 +103,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .order-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:.75rem}
 .order-items{background:var(--card-2);border-radius:11px;padding:.75rem 1rem;font-size:.84rem;color:var(--ink-2);margin:.5rem 0}
 .order-pics{display:flex;gap:.6rem;overflow-x:auto;background:var(--card-2);border-radius:11px;padding:.6rem;margin:.5rem 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
-.order-pics img{width:96px;height:96px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#fff;border:1px solid var(--border)}
+.order-pics .op{position:relative;flex-shrink:0}
+.order-pics img{width:96px;height:96px;border-radius:10px;object-fit:cover;display:block;background:#fff;border:1px solid var(--border)}
+.order-pics .op b{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 5px;border-radius:100px;background:#22C55E;color:#fff;font-size:.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);}
 .order-dots{display:flex;justify-content:center;gap:6px;margin:.45rem 0 .5rem}
 .order-dots i{width:8px;height:8px;border-radius:50%;background:#22C55E;display:block}
 .order-meta{display:flex;gap:1.25rem;flex-wrap:wrap;font-size:.82rem;color:var(--ink-2)}
@@ -512,10 +514,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       var picList = (o.items || []).map(function (it) {
         var img = it.image;
         if (!img) { var p = state.products.find(function (x) { return String(x.id) === String(it.id); }); img = p ? DS.productImages(p)[0] : ''; }
-        return img;
+        return img ? { img: img, qty: it.qty || it.quantity || 1 } : null;
       }).filter(Boolean);
       var pics = picList.length
-        ? '<div class="order-pics">' + picList.map(function (src) { return '<img src="' + esc(src) + '" loading="lazy" onerror="this.remove()">'; }).join('') + '</div>' +
+        ? '<div class="order-pics">' + picList.map(function (pi) { return '<div class="op"><img src="' + esc(pi.img) + '" loading="lazy" onerror="this.parentNode.remove()">' + (pi.qty > 1 ? '<b>×' + pi.qty + '</b>' : '') + '</div>'; }).join('') + '</div>' +
           '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
