@@ -102,6 +102,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .order-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.25rem;margin-bottom:1rem}
 .order-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:.75rem}
 .order-items{background:var(--card-2);border-radius:11px;padding:.75rem 1rem;font-size:.84rem;color:var(--ink-2);margin:.5rem 0}
+.order-pics{display:flex;gap:.6rem;overflow-x:auto;background:var(--card-2);border-radius:11px;padding:.6rem;margin:.5rem 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.order-pics img{width:96px;height:96px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#fff;border:1px solid var(--border)}
+.order-dots{display:flex;justify-content:center;gap:6px;margin:.45rem 0 .5rem}
+.order-dots i{width:8px;height:8px;border-radius:50%;background:#22C55E;display:block}
 .order-meta{display:flex;gap:1.25rem;flex-wrap:wrap;font-size:.82rem;color:var(--ink-2)}
 .toast{position:fixed;bottom:1.5rem;left:1.5rem;z-index:200;background:#13201A;color:#7CE5A0;border:1px solid #1f5137;padding:.8rem 1.3rem;border-radius:12px;font-weight:700;transform:translateY(120%);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
@@ -505,12 +509,22 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       var phone = String(o.phone || '').replace(/\s/g, '');
       var intl = phone.replace(/^0/, '213');
       var items = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1); }).join('<br>');
+      var picList = (o.items || []).map(function (it) {
+        var img = it.image;
+        if (!img) { var p = state.products.find(function (x) { return String(x.id) === String(it.id); }); img = p ? DS.productImages(p)[0] : ''; }
+        return img;
+      }).filter(Boolean);
+      var pics = picList.length
+        ? '<div class="order-pics">' + picList.map(function (src) { return '<img src="' + esc(src) + '" loading="lazy" onerror="this.remove()">'; }).join('') + '</div>' +
+          '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
+        : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
       return '<div class="order-card">' +
         '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + ' <span class="tag" style="background:' + (o.deliveryCompany === 'noest' ? 'rgba(30,115,232,.18)' : 'rgba(225,25,0,.18)') + ';color:' + (o.deliveryCompany === 'noest' ? '#9DBBF5' : '#FF9A8C') + ';border-color:transparent;font-weight:800">' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +
+        pics +
         '<div class="order-items">' + (items || '—') + '</div>' +
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span><span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
