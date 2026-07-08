@@ -39,6 +39,7 @@ html.light [style*="#F2A1A4"]{color:#C43E44!important}
 html.light [style*="#FF9A8C"]{color:#C2402F!important}
 html.light [style*="#F3B4C2"]{color:#C8546F!important}
 html.light [style*="#FFC9C0"]{color:#B33A2B!important}
+html.light [style*="#C4B5FD"]{color:#6D4FC1!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6}
 a{color:inherit;text-decoration:none}
 .num{direction:ltr;unicode-bidi:isolate}
@@ -117,6 +118,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .imgs-row .ig img{width:56px;height:56px;border-radius:9px;object-fit:cover;border:1px solid var(--border)}
 .imgs-row .ig button{position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;cursor:pointer;font-size:.7rem;line-height:1}
 .order-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.25rem;margin-bottom:1rem}
+.order-card.byadmin{border-color:#7C5CBF;box-shadow:inset 4px 0 0 #7C5CBF}
 .order-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:.75rem}
 .order-items{background:var(--card-2);border-radius:11px;padding:.75rem 1rem;font-size:.84rem;color:var(--ink-2);margin:.5rem 0}
 .order-pics{display:flex;gap:.6rem;overflow-x:auto;background:var(--card-2);border-radius:11px;padding:.6rem;margin:.5rem 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
@@ -197,10 +199,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   if (sessionStorage.getItem('ds_admin') === '1') showShell();
   $('#loginForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    if ($('#pw').value === PASSWORD) { sessionStorage.setItem('ds_admin', '1'); showShell(); }
+    if ($('#pw').value === PASSWORD) { sessionStorage.setItem('ds_admin', '1'); try { localStorage.setItem('ds_staff', '1'); } catch (er) {} showShell(); }
     else { toast('كلمة المرور غير صحيحة'); $('#pw').value = ''; }
   });
-  $('#logoutBtn').addEventListener('click', function () { sessionStorage.removeItem('ds_admin'); location.reload(); });
+  $('#logoutBtn').addEventListener('click', function () { sessionStorage.removeItem('ds_admin'); try { localStorage.removeItem('ds_staff'); } catch (er) {} location.reload(); });
   $('#menuBtn').addEventListener('click', function () { $('#sidebar').classList.toggle('open'); });
   // Click outside the open sidebar closes it
   document.addEventListener('click', function (e) {
@@ -538,8 +540,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
-      return '<div class="order-card">' +
-        '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + ' <span class="tag" style="background:' + (o.deliveryCompany === 'noest' ? 'rgba(30,115,232,.18)' : 'rgba(225,25,0,.18)') + ';color:' + (o.deliveryCompany === 'noest' ? '#9DBBF5' : '#FF9A8C') + ';border-color:transparent;font-weight:800">' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
+      return '<div class="order-card' + (o.source === 'admin_phone' ? ' byadmin' : '') + '">' +
+        '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 طلب هاتفي — أدخلتِه بنفسكِ</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + ' <span class="tag" style="background:' + (o.deliveryCompany === 'noest' ? 'rgba(30,115,232,.18)' : 'rgba(225,25,0,.18)') + ';color:' + (o.deliveryCompany === 'noest' ? '#9DBBF5' : '#FF9A8C') + ';border-color:transparent;font-weight:800">' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +

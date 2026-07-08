@@ -440,6 +440,8 @@ exports.onNewOrder = onDocumentCreated(
   async (event) => {
     const o = event.data ? event.data.data() : null;
     if (!o) return;
+    // Phone orders entered by the store owner herself — no self-notification.
+    if (o.source === 'admin_phone') return;
     const db = admin.firestore();
     const items = (o.items || []).map((it) => `${it.title} ×${it.qty || it.quantity || 1}`);
     const title = `🛒 طلب جديد ${o.num || event.params.id} — ${fmtDA(o.total != null ? o.total : o.subtotal)}`;

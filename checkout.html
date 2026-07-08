@@ -100,6 +100,10 @@
   <p class="sub">أكملي بياناتكِ وسنتواصل معكِ لتأكيد الطلب — الدفع عند الاستلام</p>
   <div class="cgrid" id="cgrid">
     <div class="form-side">
+      <div id="sellerBanner" style="display:none;background:linear-gradient(135deg,#7C5CBF,#A78BFA);color:#fff;font-weight:800;font-size:.86rem;padding:.8rem 1rem;border-radius:16px;margin-bottom:.8rem;align-items:center;gap:.5rem;justify-content:space-between">
+        <span>📞 وضع البائعة — سيُسجَّل كطلب هاتفي بدون إشعارات</span>
+        <button type="button" id="sellerLogout" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-family:inherit;font-weight:800;font-size:.78rem;padding:.3rem .8rem;border-radius:100px;cursor:pointer">خروج</button>
+      </div>
       <div class="cod-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg> الدفع عند الاستلام — Cash on Delivery</div>
       <form class="form-card" id="orderForm">
         <div class="frow">
@@ -125,6 +129,7 @@
         <button type="submit" class="btn-primary btn-block" id="confirmBtn" style="margin-top:.5rem">✅ تأكيد الطلب</button>
         <button type="button" class="btn-whatsapp btn-block" id="waConfirmBtn" style="margin-top:.7rem">تأكيد الطلب عبر واتساب</button>
         <p style="text-align:center;font-size:.78rem;color:var(--ink-3);margin-top:1rem;line-height:1.6">«تأكيد الطلب» يحفظ طلبكِ ونتصل بكِ لتأكيده. أو أرسلي التفاصيل عبر واتساب. الدفع عند الاستلام.</p>
+        <p style="text-align:center;margin-top:.4rem"><a href="#" id="sellerLogin" style="font-size:.72rem;color:var(--ink-3);text-decoration:underline;display:none">دخول صاحبة المتجر</a></p>
       </form>
     </div>
     <div class="summary">
@@ -309,6 +314,7 @@
       deliveryCompany: company, deliveryType: delivery, deliveryFee: deliveryFee,
       items: items, subtotal: sub, total: sub + deliveryFee
     };
+    if (isSeller()) order.source = 'admin_phone';
     lastOrder = order;
     DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
 
@@ -317,6 +323,29 @@
     Cart.clear();
     if (openWa) window.open(SiteUI.waLink(buildMessage(order)), '_blank');
   }
+
+  // ───────── seller (store owner) mode ─────────
+  // Signed in with the admin-panel password; orders placed while active are
+  // recorded as phone orders (source: admin_phone) and skip notifications.
+  var SELLER_KEY = 'ds_staff';
+  function isSeller() { try { return localStorage.getItem(SELLER_KEY) === '1'; } catch (e) { return false; } }
+  function renderSeller() {
+    var on = isSeller();
+    document.getElementById('sellerBanner').style.display = on ? 'flex' : 'none';
+    document.getElementById('sellerLogin').style.display = on ? 'none' : 'inline';
+  }
+  document.getElementById('sellerLogin').addEventListener('click', function (e) {
+    e.preventDefault();
+    var pw = prompt('كلمة مرور لوحة التحكم:');
+    if (pw === null) return;
+    if (pw === 'tango88') { try { localStorage.setItem(SELLER_KEY, '1'); } catch (er) {} renderSeller(); }
+    else alert('كلمة المرور غير صحيحة');
+  });
+  document.getElementById('sellerLogout').addEventListener('click', function () {
+    try { localStorage.removeItem(SELLER_KEY); } catch (e) {}
+    renderSeller();
+  });
+  renderSeller();
 
   document.getElementById('orderForm').addEventListener('submit', function (e) { e.preventDefault(); placeOrder(false); });
   document.getElementById('waConfirmBtn').addEventListener('click', function () { placeOrder(true); });
