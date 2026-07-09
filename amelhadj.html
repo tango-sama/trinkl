@@ -637,6 +637,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">يصلكِ بريد إلكتروني عند كل طلب شراء أو رسالة جديدة. أنشئي App Password من إعدادات حساب Google (الأمان ← التحقق بخطوتين ← App passwords) والصقيه هنا — ليس كلمة سر حسابكِ العادية. يُخزَّن بشكل آمن ولا يظهر في الموقع.</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sNtSave">💾 حفظ إعدادات البريد</button>' +
+        '<button class="btn btn-gray" id="sNtTest">✉️ إرسال بريد تجريبي</button>' +
         '<button class="btn btn-blue" id="sNtPush">🔔 تفعيل إشعارات هذا الجهاز</button></div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:.8rem">زر «تفعيل إشعارات هذا الجهاز» يجعل الإشعارات المنبثقة تصل للهاتف حتى والموقع مغلق. على آيفون: أضيفي لوحة التحكم إلى الشاشة الرئيسية أولاً ثم فعّلي الزر من داخلها.</div>' +
       '</div>' +
@@ -694,6 +695,14 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       else { toast('أدخلي App Password أولاً'); return; }
       p.then(function () { persistSettings({ notifyEmail: email, notifyReady: true }, 'تم حفظ إعدادات البريد ✓', function () { views.settings(); }); })
         .catch(function (e) { console.error(e); toast('فشل الحفظ'); });
+    };
+    $('#sNtTest').onclick = function () {
+      var btn = this;
+      btn.disabled = true; btn.textContent = '⏳ جارٍ الإرسال...';
+      firebase.functions().httpsCallable('sendTestEmail')({})
+        .then(function () { toast('أُرسل البريد التجريبي ✓ تفقّدي صندوق الوارد'); })
+        .catch(function (e) { console.error(e); toast(e.message || 'فشل الإرسال'); })
+        .then(function () { btn.disabled = false; btn.textContent = '✉️ إرسال بريد تجريبي'; });
     };
     $('#sNtPush').onclick = function () {
       var btn = this;

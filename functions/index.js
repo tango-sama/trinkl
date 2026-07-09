@@ -475,3 +475,24 @@ exports.onNewMessage = onDocumentCreated(
     await notifyAll(db, { title, text, html });
   }
 );
+
+// Manual check for the email settings — called from the admin Settings page.
+exports.sendTestEmail = onCall({ region: 'us-central1' }, async () => {
+  const db = admin.firestore();
+  const credSnap = await db.collection('private').doc('notify').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  if (!String(cred.gmail || '').trim() || !String(cred.appPass || '').trim()) {
+    throw new HttpsError('failed-precondition', 'أدخلي بريد Gmail و App Password واحفظيهما أولاً');
+  }
+  try {
+    await sendEmail(db, '✅ تجربة إشعارات Desert Shop',
+      '<div dir="rtl" style="font-family:sans-serif">إعدادات البريد تعمل بنجاح 🎉 — ستصلكِ رسالة كهذه عند كل طلب أو رسالة جديدة.</div>');
+  } catch (e) {
+    if (e && (e.code === 'EAUTH' || e.responseCode === 535)) {
+      throw new HttpsError('failed-precondition',
+        'رفض Gmail تسجيل الدخول: تأكدي أن كلمة المرور هي App Password (وليست كلمة سر الحساب) وأن التحقق بخطوتين مفعّل');
+    }
+    throw new HttpsError('internal', 'فشل الإرسال: ' + (e && e.message ? e.message : e));
+  }
+  return { ok: true };
+});
