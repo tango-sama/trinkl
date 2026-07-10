@@ -180,7 +180,7 @@
           <div class="qfield"><label>الولاية <span class="req">*</span></label><select class="qselect" id="qWilaya"><option value="">اختاري</option></select></div>
           <div class="qfield"><label>البلدية <span class="req">*</span></label><select class="qselect" id="qCommune" disabled><option value="">اختاري الولاية أولاً</option></select></div>
         </div>
-        <div class="qfield"><label>شركة التوصيل</label>
+        <div class="qfield" style="display:none"><label>شركة التوصيل</label>
           <div class="qdeliv" id="qCompany">
             <div class="qdo on" data-co="yalidine">🔴 Yalidine</div>
             <div class="qdo" data-co="noest">🔵 Noest</div>
@@ -218,18 +218,26 @@
   DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); populateQWilayas(); } });
 
   function applyCarriers(s) {
-    var enabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
-    if (!enabled.yalidine && !enabled.noest) { enabled.yalidine = true; enabled.noest = true; }
+    var customerEnabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
+    if (!customerEnabled.yalidine && !customerEnabled.noest) { customerEnabled.yalidine = true; customerEnabled.noest = true; }
+    // Only staff (seller mode) get a carrier choice; customers never see the
+    // picker and their order uses the default (first customer-enabled) carrier.
+    var staff = false; try { staff = localStorage.getItem('ds_staff') === '1'; } catch (e) {}
+    var enabled = staff ? { yalidine: true, noest: true } : customerEnabled;
     var opts = document.querySelectorAll('#qCompany .qdo');
-    var visible = 0, first = null;
+    var first = null;
     opts.forEach(function (o) {
-      if (enabled[o.dataset.co]) { o.style.display = ''; visible++; if (!first) first = o.dataset.co; }
-      else { o.style.display = 'none'; }
+      var note = o.querySelector('.co-note');
+      if (note) note.remove();
+      if (enabled[o.dataset.co]) {
+        o.style.display = ''; if (!first) first = o.dataset.co;
+        if (staff && !customerEnabled[o.dataset.co]) o.insertAdjacentHTML('beforeend', '<small class="co-note" style="color:var(--ink-3)">(مخفية عن الزبائن)</small>');
+      } else { o.style.display = 'none'; }
     });
-    if (!enabled[qCompany]) qCompany = first;
+    if (!staff || !enabled[qCompany]) qCompany = first;
     opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === qCompany); });
     var field = document.getElementById('qCompany').closest('.qfield');
-    if (field) field.style.display = visible <= 1 ? 'none' : '';
+    if (field) field.style.display = staff ? '' : 'none';
     populateQWilayas();
   }
 
@@ -297,6 +305,7 @@
 
   function qSelW() { return qw.value ? YALIDINE.wilayaForCarrier(qCompany, qw.value) : null; }
   function populateQWilayas() {
+    if (!qw || !qc) return; // quick-order UI not initialized (missing product id)
     var prev = qw.value;
     qw.innerHTML = '<option value="">اختاري</option>' +
       YALIDINE.wilayasFor(qCompany).map(function (w) { return '<option value="' + w.id + '">' + w.id + ' - ' + esc(w.ar) + '</option>'; }).join('');
@@ -338,7 +347,7 @@
     qFee = w ? YALIDINE.feeForCarrier(qCompany, w.id, qDelivery) : 0;
     renderQSum();
   }
-  populateQWilayas();
+  applyCarriers({}); // hide the carrier picker for customers before settings load
   function renderQSum() {
     if (!product) return;
     var sub = DS.priceNum(product.price) * qOrderQty;

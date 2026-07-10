@@ -114,7 +114,7 @@
           <div class="ffield"><label>الولاية <span class="req">*</span></label><select class="fselect" id="fwilaya"><option value="">اختاري الولاية</option></select></div>
           <div class="ffield"><label>البلدية <span class="req">*</span></label><select class="fselect" id="fbaladiya" disabled><option value="">اختاري الولاية أولاً</option></select></div>
         </div>
-        <div class="ffield full">
+        <div class="ffield full" style="display:none">
           <label>شركة التوصيل</label>
           <div class="company-opts" id="companyOpts">
             <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
@@ -177,25 +177,37 @@
 (function () {
   document.getElementById('yr').textContent = new Date().getFullYear();
   var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
+  var siteSettings = {};
 
-  DS.getSettings().then(function (s) { SiteUI.applySettings(s); applyCarriers(s || {}); });
+  DS.getSettings().then(function (s) { SiteUI.applySettings(s); siteSettings = s || {}; applyCarriers(siteSettings); });
   // Load each carrier's own wilaya/commune/fee lists; refresh when ready.
   DS.getDeliveryData('yalidine').then(function (d) { if (d) { YALIDINE.setCarrierData('yalidine', d); refreshLists(); } });
   DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); refreshLists(); } });
 
   function applyCarriers(s) {
-    var enabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
-    if (!enabled.yalidine && !enabled.noest) { enabled.yalidine = true; enabled.noest = true; }
-    var opts = document.querySelectorAll('#companyOpts .co-opt');
-    var visible = 0, first = null;
+    var customerEnabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
+    if (!customerEnabled.yalidine && !customerEnabled.noest) { customerEnabled.yalidine = true; customerEnabled.noest = true; }
+    // Only seller mode gets a carrier choice: the admin sees every carrier and
+    // picks which one ships the order. Customers never see the picker — their
+    // order uses the default (first customer-enabled) carrier.
+    var seller = isSeller();
+    var enabled = seller ? { yalidine: true, noest: true } : customerEnabled;
+    var wrap = document.getElementById('companyOpts');
+    if (!wrap) return;
+    var opts = wrap.querySelectorAll('.co-opt');
+    var first = null;
     opts.forEach(function (o) {
-      if (enabled[o.dataset.co]) { o.style.display = ''; visible++; if (!first) first = o.dataset.co; }
-      else { o.style.display = 'none'; }
+      var note = o.querySelector('.co-note');
+      if (note) note.remove();
+      if (enabled[o.dataset.co]) {
+        o.style.display = ''; if (!first) first = o.dataset.co;
+        if (seller && !customerEnabled[o.dataset.co]) o.insertAdjacentHTML('beforeend', '<span class="co-note" style="font-size:.66rem;font-weight:700;color:var(--ink-3);margin-inline-start:auto">(مخفية عن الزبائن)</span>');
+      } else { o.style.display = 'none'; }
     });
-    if (!enabled[company]) company = first;
+    if (!seller || !enabled[company]) company = first;
     opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === company); });
-    var field = document.getElementById('companyOpts').closest('.ffield');
-    if (field) field.style.display = visible <= 1 ? 'none' : '';
+    var field = wrap.closest('.ffield');
+    if (field) field.style.display = seller ? '' : 'none';
     refreshLists();
   }
 
@@ -224,9 +236,11 @@
   function money(n) { return n.toLocaleString('en-US') + ' د.ج'; }
 
   function updateFees() {
+    var fh = document.querySelector('[data-fee-home]'), fo = document.querySelector('[data-fee-office]');
+    if (!fh || !fo) return; // form replaced by the empty-cart message
     var w = selectedWilaya();
-    document.querySelector('[data-fee-home]').innerHTML = (w ? money(YALIDINE.feeForCarrier(company, w.id, 'home')) : '—') + '<small>التوصيل</small>';
-    document.querySelector('[data-fee-office]').innerHTML = (w ? money(YALIDINE.feeForCarrier(company, w.id, 'office')) : '—') + '<small>التوصيل</small>';
+    fh.innerHTML = (w ? money(YALIDINE.feeForCarrier(company, w.id, 'home')) : '—') + '<small>التوصيل</small>';
+    fo.innerHTML = (w ? money(YALIDINE.feeForCarrier(company, w.id, 'office')) : '—') + '<small>التوصيل</small>';
     deliveryFee = w ? YALIDINE.feeForCarrier(company, w.id, delivery) : 0;
     renderSummary();
   }
@@ -280,7 +294,7 @@
   });
 
   // delivery toggle
-  document.getElementById('deliveryOpts').addEventListener('click', function (e) {
+  document.getElementById('deliveryOpts') && document.getElementById('deliveryOpts').addEventListener('click', function (e) {
     var o = e.target.closest('.del-opt'); if (!o) return;
     document.querySelectorAll('.del-opt').forEach(function (x) { x.classList.remove('on'); });
     o.classList.add('on'); delivery = o.dataset.type;
@@ -344,25 +358,29 @@
   var SELLER_KEY = 'ds_staff';
   function isSeller() { try { return localStorage.getItem(SELLER_KEY) === '1'; } catch (e) { return false; } }
   function renderSeller() {
+    // the empty-cart message replaces the whole form, banner included
+    var banner = document.getElementById('sellerBanner'), login = document.getElementById('sellerLogin');
+    if (!banner || !login) return;
     var on = isSeller();
-    document.getElementById('sellerBanner').style.display = on ? 'flex' : 'none';
-    document.getElementById('sellerLogin').style.display = on ? 'none' : 'inline';
+    banner.style.display = on ? 'flex' : 'none';
+    login.style.display = on ? 'none' : 'inline';
+    applyCarriers(siteSettings); // seller mode exposes all carriers; re-sync wilaya list
   }
-  document.getElementById('sellerLogin').addEventListener('click', function (e) {
+  document.getElementById('sellerLogin') && document.getElementById('sellerLogin').addEventListener('click', function (e) {
     e.preventDefault();
     var pw = prompt('كلمة مرور لوحة التحكم:');
     if (pw === null) return;
     if (pw === 'tango88') { try { localStorage.setItem(SELLER_KEY, '1'); } catch (er) {} renderSeller(); }
     else alert('كلمة المرور غير صحيحة');
   });
-  document.getElementById('sellerLogout').addEventListener('click', function () {
+  document.getElementById('sellerLogout') && document.getElementById('sellerLogout').addEventListener('click', function () {
     try { localStorage.removeItem(SELLER_KEY); } catch (e) {}
     renderSeller();
   });
   renderSeller();
 
-  document.getElementById('orderForm').addEventListener('submit', function (e) { e.preventDefault(); placeOrder(false); });
-  document.getElementById('waConfirmBtn').addEventListener('click', function () { placeOrder(true); });
+  document.getElementById('orderForm') && document.getElementById('orderForm').addEventListener('submit', function (e) { e.preventDefault(); placeOrder(false); });
+  document.getElementById('waConfirmBtn') && document.getElementById('waConfirmBtn').addEventListener('click', function () { placeOrder(true); });
 
   document.getElementById('resendWa').addEventListener('click', function () { if (lastOrder) window.open(SiteUI.waLink(buildMessage(lastOrder)), '_blank'); });
 })();
