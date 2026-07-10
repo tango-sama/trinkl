@@ -176,7 +176,7 @@ exports.createNoestParcel = onCall(
       throw new HttpsError('failed-precondition', 'أدخلي API Token و user_guid الخاصين بـ Noest في إعدادات لوحة التحكم أولاً.');
     }
 
-    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
 
     // Stopdesk needs a station code in the destination wilaya.
     const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
@@ -262,7 +262,7 @@ exports.syncNoestFees = onCall(
 
     let res, body;
     try {
-      res = await fetch(NOEST_BASE + '/api/public/fees', { headers: { Authorization: 'Bearer ' + token } });
+      res = await fetch(NOEST_BASE + '/api/public/fees', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
       body = await res.json();
     } catch (e) {
       throw new HttpsError('unavailable', 'تعذّر جلب أسعار Noest: ' + e.message);
@@ -338,7 +338,7 @@ exports.syncCarriers = onCall(
 
     // NOEST
     if (no.apiToken) {
-      const h = { Authorization: 'Bearer ' + String(no.apiToken) };
+      const h = { Authorization: 'Bearer ' + String(no.apiToken), Accept: 'application/json' };
       const wRaw = await (await fetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
       const wArr = (Array.isArray(wRaw) ? wRaw : Object.values(wRaw)).filter((w) => w.is_active != 0);
       const cRaw = await (await fetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
