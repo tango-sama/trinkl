@@ -81,6 +81,8 @@
 .qdo{border:1.5px solid var(--line);border-radius:12px;padding:.65rem;cursor:pointer;font-size:.82rem;font-weight:800;text-align:center;color:var(--ink);transition:all .2s}
 .qdo.on{border-color:var(--rose);background:var(--rose-tint);color:var(--rose-deep)}
 .qdo small{display:block;font-weight:800;color:var(--rose-deep);margin-top:.2rem;font-size:.74rem}
+.qaddr{max-height:0;opacity:0;transform:translateY(-8px);overflow:hidden;margin-bottom:0;transition:max-height .4s ease,opacity .3s ease,transform .4s ease,margin-bottom .4s ease}
+.qaddr.show{max-height:110px;opacity:1;transform:none;margin-bottom:.95rem}
 .qsum{background:var(--bg-3);border-radius:12px;padding:.9rem 1rem;margin:1rem 0;font-size:.85rem}
 .qsum-line{display:flex;justify-content:space-between;gap:.5rem;margin-bottom:.4rem;color:var(--ink-2)}
 .qsum-line.tot{font-weight:900;color:var(--ink);font-size:1.05rem;border-top:1px solid var(--line);padding-top:.5rem;margin-top:.5rem;margin-bottom:0}
@@ -190,6 +192,7 @@
             <div class="qdo" data-type="office">🏢 المكتب (Stop Desk)<small data-o>—</small></div>
           </div>
         </div>
+        <div class="qfield qaddr show" id="qAddrField"><label>عنوان المنزل <span class="req">*</span></label><input class="qinput" id="qAddress" placeholder="الحي، الشارع، رقم المنزل..."></div>
         <div class="qsum" id="qSum"></div>
         <button type="submit" class="btn-primary btn-block" id="qSubmit">تأكيد الطلب</button>
         <p style="text-align:center;font-size:.74rem;color:var(--ink-3);margin-top:.8rem;line-height:1.6">سنراجع طلبكِ ونتواصل معكِ لتأكيده. الدفع عند الاستلام 🌸</p>
@@ -317,7 +320,11 @@
   document.getElementById('qDeliv').addEventListener('click', function (e) {
     var o = e.target.closest('.qdo'); if (!o) return;
     this.querySelectorAll('.qdo').forEach(function (x) { x.classList.remove('on'); });
-    o.classList.add('on'); qDelivery = o.dataset.type; updateQFee();
+    o.classList.add('on'); qDelivery = o.dataset.type;
+    var qaf = document.getElementById('qAddrField');
+    qaf.classList.toggle('show', qDelivery === 'home');
+    if (qDelivery !== 'home') document.getElementById('qAddress').classList.remove('err');
+    updateQFee();
   });
   document.getElementById('qCompany').addEventListener('click', function (e) {
     var o = e.target.closest('.qdo'); if (!o) return;
@@ -343,9 +350,11 @@
 
   document.getElementById('qForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    var name = document.getElementById('qName'), phone = document.getElementById('qPhone');
+    var name = document.getElementById('qName'), phone = document.getElementById('qPhone'),
+        qaddr = document.getElementById('qAddress');
     var ok = true;
     [name, phone, qw, qc].forEach(function (f) { var bad = !f.value.trim(); f.classList.toggle('err', bad); if (bad) ok = false; });
+    if (qDelivery === 'home') { var abad = !qaddr.value.trim(); qaddr.classList.toggle('err', abad); if (abad) ok = false; } else qaddr.classList.remove('err');
     if (phone.value && !/^0[567][0-9]{8}$/.test(phone.value.replace(/\s/g, ''))) { phone.classList.add('err'); ok = false; }
     if (!ok) return;
 
@@ -357,6 +366,7 @@
       customer: name.value.trim(), phone: phone.value.trim(),
       wilaya: w ? w.ar : '', wilayaId: w ? w.id : null, wilayaFr: w ? w.fr : '',
       baladiya: qc.value, communeFr: copt ? (copt.getAttribute('data-fr') || '') : '',
+      address: qDelivery === 'home' ? qaddr.value.trim() : '',
       deliveryCompany: qCompany, deliveryType: qDelivery, deliveryFee: qFee,
       items: [{ id: product.id, title: product.title || product.name, price: product.price, qty: qOrderQty, image: (DS.productImages(product)[0] || '') }],
       subtotal: sub, total: sub + qFee,

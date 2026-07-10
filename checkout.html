@@ -49,6 +49,8 @@
 .del-opt .dd{font-size:.74rem;color:var(--ink-3)}
 .del-opt .dprice{font-weight:900;font-size:.9rem;color:var(--rose-deep);white-space:nowrap}
 .del-opt .dprice small{display:block;font-size:.6rem;color:var(--ink-3);font-weight:700;text-align:center}
+.addr-field{max-height:0;opacity:0;transform:translateY(-8px);overflow:hidden;margin-bottom:0;transition:max-height .4s ease,opacity .3s ease,transform .4s ease,margin-bottom .4s ease}
+.addr-field.show{max-height:130px;opacity:1;transform:none;margin-bottom:1.1rem}
 .summary{position:sticky;top:90px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:20px;padding:1.5rem;box-shadow:var(--shadow)}
 .summary h3{font-weight:800;font-size:1.15rem;color:var(--ink);margin-bottom:1.1rem;padding-bottom:.9rem;border-bottom:1px solid var(--line)}
 .sum-item{display:flex;gap:.85rem;margin-bottom:.9rem}
@@ -125,6 +127,10 @@
             <div class="del-opt on" data-type="home"><div class="radio"></div><div style="flex:1"><div class="dt">🏠 توصيل للمنزل</div><div class="dd">إلى باب منزلكِ</div></div><div class="dprice" data-fee-home>—<small>التوصيل</small></div></div>
             <div class="del-opt" data-type="office"><div class="radio"></div><div style="flex:1"><div class="dt">🏢 مكتب التوصيل</div><div class="dd">Stop Desk</div></div><div class="dprice" data-fee-office>—<small>التوصيل</small></div></div>
           </div>
+        </div>
+        <div class="ffield full addr-field show" id="addrField">
+          <label>عنوان المنزل <span class="req">*</span></label>
+          <input class="finput" id="faddress" placeholder="الحي، الشارع، رقم المنزل...">
         </div>
         <button type="submit" class="btn-primary btn-block" id="confirmBtn" style="margin-top:.5rem">✅ تأكيد الطلب</button>
         <button type="button" class="btn-whatsapp btn-block" id="waConfirmBtn" style="margin-top:.7rem">تأكيد الطلب عبر واتساب</button>
@@ -277,7 +283,11 @@
   document.getElementById('deliveryOpts').addEventListener('click', function (e) {
     var o = e.target.closest('.del-opt'); if (!o) return;
     document.querySelectorAll('.del-opt').forEach(function (x) { x.classList.remove('on'); });
-    o.classList.add('on'); delivery = o.dataset.type; updateFees();
+    o.classList.add('on'); delivery = o.dataset.type;
+    var af = document.getElementById('addrField');
+    af.classList.toggle('show', delivery === 'home');
+    if (delivery !== 'home') document.getElementById('faddress').classList.remove('err');
+    updateFees();
   });
 
   function buildMessage(o) {
@@ -289,6 +299,7 @@
       '\n🧾 *الإجمالي:* ' + o.total.toLocaleString('en-US') + ' د.ج\n---------------------------\n' +
       '🔖 رقم الطلب: ' + o.num + '\n👤 الاسم: ' + o.customer + '\n📱 الهاتف: ' + o.phone +
       '\n📍 العنوان: ' + o.wilaya + ' - ' + o.baladiya +
+      (o.address ? '\n🏠 عنوان المنزل: ' + o.address : '') +
       '\n🏷️ شركة التوصيل: ' + (o.deliveryCompany === 'noest' ? 'Noest' : 'Yalidine') +
       '\n📦 نوع التوصيل: ' + (o.deliveryType === 'home' ? 'للمنزل (à domicile)' : 'للمكتب (Stop Desk)') +
       '\n---------------------------\nيرجى تأكيد الطلب.';
@@ -296,11 +307,13 @@
 
   function placeOrder(openWa) {
     var name = document.getElementById('fname'), phone = document.getElementById('fphone'),
-        wil = document.getElementById('fwilaya'), bal = document.getElementById('fbaladiya');
+        wil = document.getElementById('fwilaya'), bal = document.getElementById('fbaladiya'),
+        addr = document.getElementById('faddress');
     var ok = true;
     [name, phone, wil, bal].forEach(function (f) { var bad = !f.value.trim(); f.classList.toggle('err', bad); if (bad) ok = false; });
+    if (delivery === 'home') { var abad = !addr.value.trim(); addr.classList.toggle('err', abad); if (abad) ok = false; } else addr.classList.remove('err');
     if (phone.value && !/^0[567][0-9]{8}$/.test(phone.value.replace(/\s/g, ''))) { phone.classList.add('err'); ok = false; }
-    if (!ok) { alert('يرجى ملء جميع الحقول المطلوبة بشكل صحيح (اسم، هاتف صحيح يبدأ بـ 05/06/07، ولاية، بلدية).'); return; }
+    if (!ok) { alert('يرجى ملء جميع الحقول المطلوبة بشكل صحيح (اسم، هاتف صحيح يبدأ بـ 05/06/07، ولاية، بلدية، وعنوان المنزل للتوصيل للمنزل).'); return; }
 
     var w = selectedWilaya();
     var items = Cart.get().map(function (i) { return { id: i.id, title: i.title, price: i.price, qty: i.quantity || 1, image: i.image || '' }; });
@@ -311,6 +324,7 @@
       customer: name.value.trim(), phone: phone.value.trim(),
       wilaya: w ? w.ar : '', wilayaId: w ? w.id : null, wilayaFr: w ? w.fr : '',
       baladiya: bal.value, communeFr: copt ? (copt.getAttribute('data-fr') || '') : '',
+      address: delivery === 'home' ? addr.value.trim() : '',
       deliveryCompany: company, deliveryType: delivery, deliveryFee: deliveryFee,
       items: items, subtotal: sub, total: sub + deliveryFee
     };
