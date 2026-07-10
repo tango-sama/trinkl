@@ -244,6 +244,49 @@ exports.createNoestParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   getNoestLabels: fetches the shipping-label PDF for one or more
+   Noest trackings (the label endpoint needs the API token, so the
+   admin panel can't link to it directly). Multiple labels are merged
+   into a single PDF for one-click batch printing.
+   ─────────────────────────────────────────────────────────────── */
+exports.getNoestLabels = onCall(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' },
+  async (req) => {
+    const trackings = ((req.data && req.data.trackings) || []).map((t) => String(t).trim()).filter(Boolean).slice(0, 50);
+    if (!trackings.length) throw new HttpsError('invalid-argument', 'trackings is required');
+
+    const db = admin.firestore();
+    const credSnap = await db.collection('private').doc('noest').get();
+    const token = String((credSnap.exists ? credSnap.data() : {}).apiToken || '').trim();
+    if (!token) throw new HttpsError('failed-precondition', 'أدخلي بيانات Noest أولاً.');
+    const headers = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+
+    const pdfs = [];
+    for (const tr of trackings) {
+      let res;
+      try {
+        res = await fetch(NOEST_BASE + '/api/public/get/order/label?tracking=' + encodeURIComponent(tr), { headers });
+      } catch (e) {
+        throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+      }
+      if (!res.ok) throw new HttpsError('internal', 'تعذّر جلب وصل ' + tr + ' (HTTP ' + res.status + ')');
+      pdfs.push(Buffer.from(await res.arrayBuffer()));
+    }
+
+    if (pdfs.length === 1) return { pdf: pdfs[0].toString('base64'), count: 1 };
+
+    const { PDFDocument } = require('pdf-lib');
+    const merged = await PDFDocument.create();
+    for (const buf of pdfs) {
+      const doc = await PDFDocument.load(buf);
+      const pages = await merged.copyPages(doc, doc.getPageIndices());
+      pages.forEach((p) => merged.addPage(p));
+    }
+    return { pdf: Buffer.from(await merged.save()).toString('base64'), count: pdfs.length };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    syncNoestFees: fetches the partner's real per-wilaya pricing grid
    from Noest (/api/public/fees) and caches it to the public doc
    delivery_fees/noest, which the storefront reads to price Noest

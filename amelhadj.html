@@ -524,9 +524,23 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   }
 
   // ═══════════ ORDERS ═══════════
+  // Pending orders first (newest placed on top), then confirmed orders with the
+  // most recently confirmed parcel on top.
+  function confirmStamp(o) {
+    if (o.noest && o.noest.tracking) return Number(o.noest.createdAt) || 1;
+    if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 1;
+    return 0;
+  }
   views.orders = function () {
-    var list = state.orders;
-    $('#view').innerHTML = list.length ? list.map(function (o) {
+    var list = state.orders.slice().sort(function (a, b) {
+      var ca = confirmStamp(a), cb = confirmStamp(b);
+      if (!ca !== !cb) return ca ? 1 : -1;
+      if (ca && cb) return cb - ca;
+      return 0;
+    });
+    var printBar = '<div id="noestBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:300;background:#1E73E8;border-radius:100px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:.35rem .5rem">' +
+      '<button class="btn btn-sm" id="printNoest" style="background:transparent;color:#fff;font-weight:800;border:none">🖨️ طباعة الوصول المحددة (<span id="noestCount">0</span>)</button></div>';
+    $('#view').innerHTML = printBar + (list.length ? list.map(function (o) {
       var phone = String(o.phone || '').replace(/\s/g, '');
       var intl = phone.replace(/^0/, '213');
       var items = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1); }).join('<br>');
@@ -549,7 +563,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-items">' + (items || '—') + '</div>' +
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span><span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
-        (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem">🔵 طرد Noest: <b class="num">' + esc(o.noest.tracking) + '</b> · ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</div>' : '') +
+        (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><input type="checkbox" class="noest-sel" data-tracking="' + esc(o.noest.tracking) + '" title="تحديد للطباعة" style="width:17px;height:17px;accent-color:#1E73E8;cursor:pointer;flex-shrink:0"><span>🔵 طرد Noest:</span> <a href="#" class="num" data-nlabel="' + esc(o.noest.tracking) + '" title="فتح وصل التوصيل PDF" style="color:#9DBBF5;font-weight:800;text-decoration:underline">' + esc(o.noest.tracking) + '</a> <span>· ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</span></div>' : '') +
         (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking))
           ? (o.deliveryLabel ? '<div style="margin-top:.7rem;font-size:.8rem;color:var(--ink-2)">📝 اسم المنتج على الوصل: <b style="color:var(--ink)">' + esc(o.deliveryLabel) + '</b>' + (o.parcelPrice != null ? ' · 💰 سعر الطرد: <b style="color:var(--ink)" class="num">' + esc(DS.priceFmt(o.parcelPrice)) + '</b>' : '') + '</div>' : '')
           : '<div style="margin-top:.8rem"><label style="display:block;font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.35rem">📝 اسم المنتج على وصل التوصيل <span style="color:var(--danger)">*</span></label>' +
@@ -564,7 +578,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div>';
-    }).join('') : '<div class="empty"><div class="ic">📦</div>لا توجد طلبات بعد</div>';
+    }).join('') : '<div class="empty"><div class="ic">📦</div>لا توجد طلبات بعد</div>');
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
@@ -577,7 +591,47 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         DS.updateDoc('orders', o.id, { deliveryLabel: v }).catch(function (e) { console.error(e); });
       };
     });
+    var noestBar = document.getElementById('noestBar'), noestCount = document.getElementById('noestCount');
+    function syncNoestBar() {
+      var n = document.querySelectorAll('.noest-sel:checked').length;
+      if (noestBar) { noestBar.style.display = n ? 'block' : 'none'; noestCount.textContent = n; }
+    }
+    document.querySelectorAll('.noest-sel').forEach(function (c) { c.onchange = syncNoestBar; });
+    var pb = document.getElementById('printNoest');
+    if (pb) pb.onclick = function () {
+      var trs = Array.prototype.map.call(document.querySelectorAll('.noest-sel:checked'), function (c) { return c.dataset.tracking; });
+      openNoestLabels(trs, pb);
+    };
+    document.querySelectorAll('[data-nlabel]').forEach(function (a) {
+      a.onclick = function (e) { e.preventDefault(); openNoestLabels([a.dataset.nlabel], null); };
+    });
   };
+
+  // Fetch label PDF(s) for the given trackings via the getNoestLabels function
+  // (Noest requires the API token, so the browser can't link to them directly)
+  // and open the result — multiple labels arrive merged into one PDF.
+  function openNoestLabels(trackings, btn) {
+    if (!trackings || !trackings.length) return;
+    if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
+    var w = window.open('about:blank', '_blank');
+    var orig = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري تجهيز الوصول...'; }
+    firebase.functions().httpsCallable('getNoestLabels')({ trackings: trackings })
+      .then(function (res) {
+        var b64 = (res.data || {}).pdf || '';
+        var bin = atob(b64), arr = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        var url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+        if (w) w.location = url; else window.open(url, '_blank');
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      })
+      .catch(function (err) {
+        console.error('getNoestLabels', err);
+        if (w) { try { w.close(); } catch (e) {} }
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        alert('تعذّر جلب الوصل:\n' + (err && err.message ? err.message : 'خطأ'));
+      });
+  }
 
   function createParcel(fnName, field, id, btn, label) {
     var o = state.orders.find(function (x) { return String(x.id) === String(id); });
@@ -603,7 +657,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       .then(function () { return firebase.functions().httpsCallable(fnName)({ orderId: o.id }); })
       .then(function (res) {
         var d = res.data || {};
-        o[field] = { tracking: d.tracking, label: d.label || null, validated: d.validated };
+        o[field] = { tracking: d.tracking, label: d.label || null, validated: d.validated, createdAt: Date.now() };
         o.fulfilled = true;
         toast(d.alreadyCreated ? 'الطرد موجود مسبقاً ✓' : 'تم إنشاء طرد ' + label + ' ✓ ' + (d.tracking || ''));
         updateBadges(); views.orders();
