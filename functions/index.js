@@ -85,7 +85,7 @@ exports.createYalidineParcel = onCall(
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
       : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
-    const codPrice = Number(o.total != null ? o.total : o.subtotal) || 0;
+    const codPrice = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
     const useStopdesk = isStopdesk && !!stopdeskCenter;
 
     const parcel = {
@@ -199,7 +199,7 @@ exports.createNoestParcel = onCall(
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
       : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
-    const montant = Number(o.total != null ? o.total : o.subtotal) || 0;
+    const montant = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
 
     const payload = {
       user_guid: guid,
