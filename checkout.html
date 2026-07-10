@@ -111,15 +111,15 @@
         <div class="frow">
           <div class="ffield full"><label>الاسم الكامل <span class="req">*</span></label><input class="finput" id="fname" placeholder="الاسم واللقب"></div>
           <div class="ffield full"><label>رقم الهاتف <span class="req">*</span></label><input class="finput" id="fphone" type="tel" placeholder="0X XX XX XX XX" style="direction:ltr;text-align:right"></div>
+          <div class="ffield full" style="display:none">
+            <label>شركة التوصيل</label>
+            <div class="company-opts" id="companyOpts">
+              <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
+              <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
+            </div>
+          </div>
           <div class="ffield"><label>الولاية <span class="req">*</span></label><select class="fselect" id="fwilaya"><option value="">اختاري الولاية</option></select></div>
           <div class="ffield"><label>البلدية <span class="req">*</span></label><select class="fselect" id="fbaladiya" disabled><option value="">اختاري الولاية أولاً</option></select></div>
-        </div>
-        <div class="ffield full" style="display:none">
-          <label>شركة التوصيل</label>
-          <div class="company-opts" id="companyOpts">
-            <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
-            <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
-          </div>
         </div>
         <div class="ffield full">
           <label>نوع التوصيل</label>
