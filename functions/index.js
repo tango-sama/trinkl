@@ -275,12 +275,20 @@ exports.getNoestLabels = onCall(
 
     if (pdfs.length === 1) return { pdf: pdfs[0].toString('base64'), count: 1 };
 
+    // Each Noest label only occupies the top-left quadrant of its A4 page,
+    // so tile 4 labels per printed page instead of one per sheet.
     const { PDFDocument } = require('pdf-lib');
     const merged = await PDFDocument.create();
+    let page = null, slot = 0, W = 595.28, H = 841.89;
     for (const buf of pdfs) {
-      const doc = await PDFDocument.load(buf);
-      const pages = await merged.copyPages(doc, doc.getPageIndices());
-      pages.forEach((p) => merged.addPage(p));
+      const src = await PDFDocument.load(buf);
+      const first = src.getPages()[0];
+      const size = first.getSize(); W = size.width; H = size.height;
+      const label = await merged.embedPage(first, { left: 0, bottom: H / 2, right: W / 2, top: H });
+      if (slot % 4 === 0) page = merged.addPage([W, H]);
+      const pos = slot % 4;
+      page.drawPage(label, { x: (pos % 2) * (W / 2), y: pos < 2 ? H / 2 : 0 });
+      slot++;
     }
     return { pdf: Buffer.from(await merged.save()).toString('base64'), count: pdfs.length };
   }
