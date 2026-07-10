@@ -722,12 +722,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     if (c > 1) return c;
     return o.placedAt && o.placedAt.seconds ? o.placedAt.seconds * 1000 : (o.createdAt || 0);
   }
+  var openLedger = {}; // expanded sale rows, kept across live re-renders
   views.income = function () {
     var savedAmount = $('#expAmount') ? $('#expAmount').value : '';
     var savedNote = $('#expNote') ? $('#expNote').value : '';
     var sales = state.orders.filter(function (o) { return o.fulfilled; }).map(function (o) {
       var price = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
-      return { type: 'in', ts: saleStamp(o), amount: price - (Number(o.deliveryFee) || 0), label: '🛍️ طلب ' + (o.num || o.id) + (o.customer ? ' — ' + o.customer : '') };
+      return { type: 'in', ts: saleStamp(o), amount: price - (Number(o.deliveryFee) || 0), label: '🛍️ طلب ' + (o.num || o.id) + (o.customer ? ' — ' + o.customer : ''), order: o, price: price };
     });
     var exps = state.expenses.map(function (e) {
       return { type: 'out', ts: Number(e.createdAt) || 0, amount: Number(e.amount) || 0, label: '📦 ' + (e.note || 'مصاريف بضاعة'), id: e.id };
@@ -757,13 +758,35 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         (rows.length
           ? '<table class="ledger"><thead><tr><th>التاريخ</th><th>البيان</th><th>المبلغ</th><th></th></tr></thead><tbody>' +
             rows.map(function (r) {
-              return '<tr class="' + r.type + '"><td style="white-space:nowrap;font-size:.78rem">' + (r.ts ? new Date(r.ts).toLocaleString('ar-DZ') : '—') + '</td>' +
-                '<td>' + esc(r.label) + '</td>' +
+              var oid = r.order ? String(r.order.id) : '';
+              var html = '<tr class="' + r.type + '"' + (oid ? ' data-oid="' + esc(oid) + '" style="cursor:pointer" title="اضغطي لعرض التفاصيل"' : '') + '><td style="white-space:nowrap;font-size:.78rem">' + (r.ts ? new Date(r.ts).toLocaleString('ar-DZ') : '—') + '</td>' +
+                '<td>' + esc(r.label) + (oid ? ' <span style="color:var(--ink-3);font-size:.68rem">▾</span>' : '') + '</td>' +
                 '<td class="amt">' + (r.type === 'in' ? '+' : '−') + Number(r.amount).toLocaleString('en-US') + ' د.ج</td>' +
                 '<td style="text-align:left">' + (r.type === 'out' ? '<button class="btn btn-danger btn-sm" data-expdel="' + esc(r.id) + '" style="padding:.3rem .7rem">حذف</button>' : '') + '</td></tr>';
+              if (r.order) {
+                var o = r.order;
+                var itemsHtml = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1) + ' — ' + esc(DS.priceFmt(it.price)); }).join('<br>') || '—';
+                var track = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking) || '';
+                html += '<tr class="det" data-det="' + esc(oid) + '" style="display:' + (openLedger[oid] ? 'table-row' : 'none') + '"><td colspan="4" style="background:rgba(127,127,127,.06);padding:1rem 1.3rem">' +
+                  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;font-size:.83rem;line-height:1.9">' +
+                    '<div><b>🛒 المنتجات</b><br>' + itemsHtml + '</div>' +
+                    '<div><b>👤 الزبون</b><br>' + esc(o.customer || '—') + '<br><span class="num">📱 ' + esc(o.phone || '—') + '</span><br>📍 ' + esc(o.wilaya || '') + ' - ' + esc(o.baladiya || '') + (o.address ? '<br>🏠 ' + esc(o.address) : '') + '</div>' +
+                    '<div><b>🚚 التوصيل</b><br>' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (track ? '<br>رقم التتبع: <span class="num">' + esc(track) + '</span>' : '') + '</div>' +
+                    '<div><b>💰 الحساب</b><br>سعر الطرد: <span class="num">' + Number(r.price).toLocaleString('en-US') + '</span> د.ج' + (o.parcelPrice != null ? ' <span style="color:var(--ink-3);font-size:.72rem">(سعر معدَّل)</span>' : '') + '<br>− التوصيل: <span class="num">' + Number(o.deliveryFee || 0).toLocaleString('en-US') + '</span> د.ج<br>= الدخل: <b class="num" style="color:#22c55e">' + Number(r.amount).toLocaleString('en-US') + '</b> د.ج</div>' +
+                  '</div></td></tr>';
+              }
+              return html;
             }).join('') + '</tbody></table>'
           : '<div class="empty"><div class="ic">💰</div>لا توجد حركات بعد — نفّذي طلباً أو سجّلي مصروفاً</div>') +
       '</div>';
+    document.querySelectorAll('.ledger tr.in[data-oid]').forEach(function (tr) {
+      tr.onclick = function () {
+        var id = tr.dataset.oid;
+        openLedger[id] = !openLedger[id];
+        var det = document.querySelector('tr.det[data-det="' + id + '"]');
+        if (det) det.style.display = openLedger[id] ? 'table-row' : 'none';
+      };
+    });
     if (savedAmount) $('#expAmount').value = savedAmount;
     if (savedNote) $('#expNote').value = savedNote;
     $('#expAdd').onclick = function () {
