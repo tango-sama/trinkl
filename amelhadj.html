@@ -109,6 +109,14 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .tag.new{background:rgba(91,141,239,.18);color:#9DBBF5;border-color:transparent}
 .tag.done{background:rgba(34,197,94,.18);color:#7CE5A0;border-color:transparent}
 .empty{text-align:center;padding:3.5rem 1rem;color:var(--ink-3);font-weight:700}
+.ledger{width:100%;border-collapse:collapse;font-size:.88rem}
+.ledger th{text-align:right;padding:.75rem 1rem;font-size:.74rem;font-weight:800;color:var(--ink-3);border-bottom:1px solid var(--border)}
+.ledger td{padding:.7rem 1rem;border-top:1px solid var(--border);color:var(--ink-2);vertical-align:middle}
+.ledger td.amt{font-weight:900;white-space:nowrap;direction:ltr;text-align:left}
+.ledger tr.in td.amt{color:#22c55e}
+.ledger tr.out td.amt{color:#ef4444}
+.ledger tr.in td:first-child{border-right:3px solid #22c55e}
+.ledger tr.out td:first-child{border-right:3px solid #ef4444}
 .empty .ic{font-size:3rem;margin-bottom:.75rem}
 .pager{display:flex;justify-content:center;gap:.4rem;margin-top:1.25rem}
 .pager button{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--ink-2);cursor:pointer;font-weight:700}
@@ -162,6 +170,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       <div class="nav-item" data-view="featured"><span class="ic">⭐</span> المميزة <span class="nav-badge" id="bFeat">0</span></div>
       <div class="nav-item" data-view="orders"><span class="ic">📦</span> الطلبات <span class="nav-badge" id="bOrders" style="background:rgba(224,114,140,.2);color:#F3B4C2">0</span></div>
       <div class="nav-item" data-view="messages"><span class="ic">💬</span> الرسائل <span class="nav-badge" id="bMsgs">0</span></div>
+      <div class="nav-item" data-view="income"><span class="ic">💰</span> الأرباح</div>
       <div class="nav-item" data-view="settings"><span class="ic">⚙️</span> الإعدادات</div>
     </nav>
     <div class="sidebar-foot">
@@ -191,7 +200,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   function toast(m) { var t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2200); }
 
-  var state = { products: [], categories: [], featured: [], orders: [], messages: [], settings: {} };
+  var state = { products: [], categories: [], featured: [], orders: [], messages: [], settings: {}, expenses: [] };
   var catMap = {};
 
   // ───────── auth ─────────
@@ -214,12 +223,37 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
   // ───────── data ─────────
   function loadAll() {
-    Promise.all([DS.getProducts(), DS.getCategories(), DS.getFeatured(), DS.getOrders(), DS.getMessages(), DS.getSettings()])
+    Promise.all([DS.getProducts(), DS.getCategories(), DS.getFeatured(), DS.getOrders(), DS.getMessages(), DS.getSettings(), DS.getExpenses()])
       .then(function (r) {
         state.products = r[0]; state.categories = r[1]; state.featured = r[2]; state.orders = r[3]; state.messages = r[4]; state.settings = r[5] || {};
+        state.expenses = r[6] || [];
         catMap = {}; state.categories.forEach(function (c) { catMap[c.id] = c.name; });
         updateBadges(); render();
+        watchLedger();
       });
+  }
+
+  // Live ledger: keep orders/expenses fresh so the money tab updates as
+  // sales and expenses happen (only the income view re-renders itself).
+  var ledgerWatched = false;
+  function watchLedger() {
+    if (ledgerWatched || !DS.db) return; ledgerWatched = true;
+    function docsOf(snap) { var out = []; snap.forEach(function (d) { out.push(Object.assign({ id: d.id }, d.data())); }); return out; }
+    try {
+      DS.db.collection('orders').onSnapshot(function (snap) {
+        state.orders = docsOf(snap).sort(function (a, b) {
+          var ta = a.placedAt && a.placedAt.seconds ? a.placedAt.seconds : (a.createdAt || 0);
+          var tb = b.placedAt && b.placedAt.seconds ? b.placedAt.seconds : (b.createdAt || 0);
+          return tb - ta;
+        });
+        updateBadges();
+        if (current === 'income') views.income();
+      });
+      DS.db.collection('expenses').onSnapshot(function (snap) {
+        state.expenses = docsOf(snap).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+        if (current === 'income') views.income();
+      });
+    } catch (e) { console.error('watchLedger', e); }
   }
   function updateBadges() {
     $('#bProducts').textContent = state.products.length;
@@ -232,7 +266,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
   // ───────── routing ─────────
   var current = 'products';
-  var titles = { products: 'المنتجات', categories: 'التصنيفات', featured: 'المنتجات المميزة', orders: 'الطلبات', messages: 'رسائل الزبائن', settings: 'إعدادات الموقع' };
+  var titles = { products: 'المنتجات', categories: 'التصنيفات', featured: 'المنتجات المميزة', orders: 'الطلبات', messages: 'رسائل الزبائن', income: 'الأرباح والمصاريف', settings: 'إعدادات الموقع' };
   document.querySelectorAll('.nav-item').forEach(function (n) {
     n.addEventListener('click', function () {
       current = n.dataset.view;
@@ -678,6 +712,82 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-items">' + esc(m.message) + '</div></div>';
     }).join('') : '<div class="empty"><div class="ic">💬</div>لا توجد رسائل</div>';
     document.querySelectorAll('[data-mdel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف الرسالة؟')) return; DS.deleteDoc('messages', b.dataset.mdel).then(function () { state.messages = state.messages.filter(function (x) { return String(x.id) !== b.dataset.mdel; }); updateBadges(); toast('تم الحذف'); views.messages(); }); }; });
+  };
+
+  // ═══════════ INCOME / EXPENSES ═══════════
+  // Sales income = final package price (parcelPrice override or order total)
+  // minus the delivery fee, counted for fulfilled orders only.
+  function saleStamp(o) {
+    var c = confirmStamp(o);
+    if (c > 1) return c;
+    return o.placedAt && o.placedAt.seconds ? o.placedAt.seconds * 1000 : (o.createdAt || 0);
+  }
+  views.income = function () {
+    var savedAmount = $('#expAmount') ? $('#expAmount').value : '';
+    var savedNote = $('#expNote') ? $('#expNote').value : '';
+    var sales = state.orders.filter(function (o) { return o.fulfilled; }).map(function (o) {
+      var price = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
+      return { type: 'in', ts: saleStamp(o), amount: price - (Number(o.deliveryFee) || 0), label: '🛍️ طلب ' + (o.num || o.id) + (o.customer ? ' — ' + o.customer : '') };
+    });
+    var exps = state.expenses.map(function (e) {
+      return { type: 'out', ts: Number(e.createdAt) || 0, amount: Number(e.amount) || 0, label: '📦 ' + (e.note || 'مصاريف بضاعة'), id: e.id };
+    });
+    var rows = sales.concat(exps).sort(function (a, b) { return b.ts - a.ts; });
+    var incomeTotal = sales.reduce(function (s, r) { return s + r.amount; }, 0);
+    var expTotal = exps.reduce(function (s, r) { return s + r.amount; }, 0);
+    var net = incomeTotal - expTotal;
+    function statCard(title, value, color, sub) {
+      return '<div class="card" style="margin:0;text-align:center"><div style="font-size:.76rem;font-weight:800;color:var(--ink-3);margin-bottom:.45rem">' + title + '</div>' +
+        '<div class="num" style="font-size:1.45rem;font-weight:900;color:' + color + '">' + esc(DS.priceFmt(value)) + '</div>' +
+        (sub ? '<div style="font-size:.68rem;color:var(--ink-3);margin-top:.35rem">' + sub + '</div>' : '') + '</div>';
+    }
+    $('#view').innerHTML =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.4rem">' +
+        statCard('إجمالي الدخل', incomeTotal, '#22c55e', 'من ' + sales.length + ' طلب منفَّذ — بدون رسوم التوصيل') +
+        statCard('إجمالي المصاريف', expTotal, '#ef4444', exps.length + ' مصروف') +
+        statCard('صافي الربح', net, net >= 0 ? '#22c55e' : '#ef4444', 'الدخل − المصاريف') +
+      '</div>' +
+      '<div class="card"><h3 style="font-weight:900;margin-bottom:.9rem">➕ إضافة مصاريف (شراء بضاعة جديدة...)</h3>' +
+        '<div style="display:flex;gap:.7rem;flex-wrap:wrap">' +
+          '<input class="inp" id="expAmount" type="number" min="1" placeholder="المبلغ (د.ج)" style="max-width:180px;direction:ltr;text-align:right">' +
+          '<input class="inp" id="expNote" placeholder="ملاحظة — مثال: شراء كولاجين ×20" style="flex:1;min-width:200px">' +
+          '<button class="btn btn-danger" id="expAdd">تسجيل المصروف</button>' +
+        '</div></div>' +
+      '<div class="card" style="padding:0;overflow-x:auto">' +
+        (rows.length
+          ? '<table class="ledger"><thead><tr><th>التاريخ</th><th>البيان</th><th>المبلغ</th><th></th></tr></thead><tbody>' +
+            rows.map(function (r) {
+              return '<tr class="' + r.type + '"><td style="white-space:nowrap;font-size:.78rem">' + (r.ts ? new Date(r.ts).toLocaleString('ar-DZ') : '—') + '</td>' +
+                '<td>' + esc(r.label) + '</td>' +
+                '<td class="amt">' + (r.type === 'in' ? '+' : '−') + Number(r.amount).toLocaleString('en-US') + ' د.ج</td>' +
+                '<td style="text-align:left">' + (r.type === 'out' ? '<button class="btn btn-danger btn-sm" data-expdel="' + esc(r.id) + '" style="padding:.3rem .7rem">حذف</button>' : '') + '</td></tr>';
+            }).join('') + '</tbody></table>'
+          : '<div class="empty"><div class="ic">💰</div>لا توجد حركات بعد — نفّذي طلباً أو سجّلي مصروفاً</div>') +
+      '</div>';
+    if (savedAmount) $('#expAmount').value = savedAmount;
+    if (savedNote) $('#expNote').value = savedNote;
+    $('#expAdd').onclick = function () {
+      var amt = Number($('#expAmount').value);
+      var note = $('#expNote').value.trim();
+      if (!amt || amt <= 0) { toast('أدخلي مبلغاً صحيحاً'); $('#expAmount').focus(); return; }
+      var btn = this; btn.disabled = true;
+      DS.addDoc('expenses', { amount: amt, note: note, createdAt: Date.now() })
+        .then(function (d) {
+          if (!state.expenses.some(function (x) { return String(x.id) === String(d.id); })) state.expenses.unshift(d);
+          $('#expAmount').value = ''; $('#expNote').value = '';
+          toast('تم تسجيل المصروف ✓'); views.income();
+        })
+        .catch(function (e) { console.error(e); btn.disabled = false; toast('فشل الحفظ'); });
+    };
+    document.querySelectorAll('[data-expdel]').forEach(function (b) {
+      b.onclick = function () {
+        if (!confirm('حذف هذا المصروف؟')) return;
+        DS.deleteDoc('expenses', b.dataset.expdel).then(function () {
+          state.expenses = state.expenses.filter(function (x) { return String(x.id) !== b.dataset.expdel; });
+          toast('تم الحذف'); views.income();
+        });
+      };
+    });
   };
 
   // ═══════════ SETTINGS ═══════════

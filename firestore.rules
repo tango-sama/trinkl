@@ -27,5 +27,6 @@ service cloud.firestore {
     match /site_settings/{document=**}     { allow read, write: if true; }
     match /orders/{document=**}            { allow read, write: if true; }
     match /messages/{document=**}          { allow read, write: if true; }
+    match /expenses/{document=**}          { allow read, write: if true; }
   }
 }

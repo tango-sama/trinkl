@@ -87,6 +87,12 @@
       return mapDocs(snap).sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
     }).catch(function (e) { console.error('[DS] getMessages', e); return []; });
   }
+  // Admin expense entries (stock purchases etc.), newest first
+  function getExpenses() {
+    return db.collection('expenses').get().then(function (snap) {
+      return mapDocs(snap).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    }).catch(function (e) { console.error('[DS] getExpenses', e); return []; });
+  }
   // Synced carrier fee grid (e.g. Noest) → { "16": {home, desk}, ... } or null
   function getDeliveryFees(company) {
     return db.collection('delivery_fees').doc(company || 'noest').get()
@@ -160,7 +166,7 @@
     priceNum: priceNum, priceFmt: priceFmt, benefits: benefits, productImages: productImages,
     // reads
     getProducts: getProducts, getProduct: getProduct, getCategories: getCategories,
-    getFeatured: getFeatured, getSettings: getSettings, getOrders: getOrders, getMessages: getMessages,
+    getFeatured: getFeatured, getSettings: getSettings, getOrders: getOrders, getMessages: getMessages, getExpenses: getExpenses,
     getDeliveryFees: getDeliveryFees, getDeliveryData: getDeliveryData,
     // storefront writes
     saveOrder: saveOrder, saveMessage: saveMessage,
