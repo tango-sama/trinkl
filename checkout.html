@@ -39,6 +39,13 @@
 .co-opt[data-co="yalidine"].on{border-color:#E11900;background:rgba(225,25,0,.07)}
 .co-opt[data-co="noest"].on{border-color:#1E73E8;background:rgba(30,115,232,.07)}
 .co-opt .co-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.ins-row{display:none;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.85rem;border:1.5px solid var(--line);border-radius:14px;padding:.8rem 1rem;cursor:pointer;font-weight:800;font-size:.85rem;color:var(--ink);transition:all .2s;user-select:none}
+.ins-row.show{display:flex}
+.ins-row.on{border-color:#E11900;background:rgba(225,25,0,.07)}
+.ins-row .sw{width:44px;height:24px;border-radius:12px;background:var(--line);position:relative;flex-shrink:0;transition:background .2s}
+.ins-row .sw::after{content:'';position:absolute;top:3px;inset-inline-start:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:inset-inline-start .2s}
+.ins-row.on .sw{background:#E11900}
+.ins-row.on .sw::after{inset-inline-start:23px}
 .del-opt{border:1.5px solid var(--line);border-radius:14px;padding:1rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.75rem}
 .del-opt:hover{border-color:var(--rose-soft)}
 .del-opt.on{border-color:var(--rose);background:var(--rose-tint)}
@@ -114,9 +121,10 @@
           <div class="ffield full" style="display:none">
             <label>شركة التوصيل</label>
             <div class="company-opts" id="companyOpts">
-              <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
-              <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
+              <div class="co-opt on" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
+              <div class="co-opt" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
             </div>
+            <div class="ins-row" id="insRow"><span>🛡️ التأمين على الطرد (Assurance)</span><span class="sw"></span></div>
           </div>
           <div class="ffield"><label>الولاية <span class="req">*</span></label><select class="fselect" id="fwilaya"><option value="">اختاري الولاية</option></select></div>
           <div class="ffield"><label>البلدية <span class="req">*</span></label><select class="fselect" id="fbaladiya" disabled><option value="">اختاري الولاية أولاً</option></select></div>
@@ -176,7 +184,7 @@
 <script>
 (function () {
   document.getElementById('yr').textContent = new Date().getFullYear();
-  var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
+  var delivery = 'home', company = 'noest', lastOrder = null, deliveryFee = 0, insurance = false;
   var siteSettings = {};
 
   DS.getSettings().then(function (s) { SiteUI.applySettings(s); siteSettings = s || {}; applyCarriers(siteSettings); });
@@ -206,6 +214,7 @@
     });
     if (!seller || !enabled[company]) company = first;
     opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === company); });
+    updateInsuranceRow();
     var field = wrap.closest('.ffield');
     if (field) field.style.display = seller ? '' : 'none';
     refreshLists();
@@ -252,7 +261,16 @@
     var o = e.target.closest('.co-opt'); if (!o) return;
     this.querySelectorAll('.co-opt').forEach(function (x) { x.classList.remove('on'); });
     o.classList.add('on'); company = o.dataset.co;
+    updateInsuranceRow();
     populateWilayas(); updateFees();
+  });
+
+  // Yalidine parcel insurance (assurance) — only offered when Yalidine ships the order.
+  var insRow = document.getElementById('insRow');
+  function updateInsuranceRow() { if (insRow) insRow.classList.toggle('show', company === 'yalidine'); }
+  insRow && insRow.addEventListener('click', function () {
+    insurance = !insurance;
+    insRow.classList.toggle('on', insurance);
   });
 
   function renderSummary() {
@@ -315,6 +333,7 @@
       '\n📍 العنوان: ' + o.wilaya + ' - ' + o.baladiya +
       (o.address ? '\n🏠 عنوان المنزل: ' + o.address : '') +
       '\n🏷️ شركة التوصيل: ' + (o.deliveryCompany === 'noest' ? 'Noest' : 'Yalidine') +
+      (o.deliveryCompany === 'yalidine' ? '\n🛡️ التأمين: ' + (o.insurance ? 'مفعّل' : 'غير مفعّل') : '') +
       '\n📦 نوع التوصيل: ' + (o.deliveryType === 'home' ? 'للمنزل (à domicile)' : 'للمكتب (Stop Desk)') +
       '\n---------------------------\nيرجى تأكيد الطلب.';
   }
@@ -340,6 +359,7 @@
       baladiya: bal.value, communeFr: copt ? (copt.getAttribute('data-fr') || '') : '',
       address: delivery === 'home' ? addr.value.trim() : '',
       deliveryCompany: company, deliveryType: delivery, deliveryFee: deliveryFee,
+      insurance: company === 'yalidine' && insurance,
       items: items, subtotal: sub, total: sub + deliveryFee
     };
     if (isSeller()) order.source = 'admin_phone';
