@@ -13,6 +13,27 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
   var PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#FBEEEA"/><text x="50%" y="50%" font-size="120" text-anchor="middle" dominant-baseline="central">🌸</text></svg>');
 
+  // ───────── per-category color (admin-set, with a stable fallback palette) ─────────
+  var CAT_PALETTE = ['#F2A65A', '#7FB77E', '#5AA9E6', '#E07A9E', '#C792EA', '#5FC9A8', '#E6B655', '#EF9C8B'];
+  function catColor(c) {
+    if (c && c.color) return c.color;
+    var key = String((c && (c.id || c.name)) || '');
+    var h = 0; for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return CAT_PALETTE[h % CAT_PALETTE.length];
+  }
+  function hexRgb(hex) {
+    var c = String(hex || '').replace('#', '');
+    if (c.length === 3) c = c.split('').map(function (x) { return x + x; }).join('');
+    var n = parseInt(c, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function hexToRgba(hex, alpha) { var rgb = hexRgb(hex); return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha + ')'; }
+  function contrastText(hex) {
+    var rgb = hexRgb(hex);
+    var yiq = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
+    return yiq >= 150 ? '#3A2A30' : '#FFFFFF';
+  }
+
   // ───────── product card (shared by home + products pages) ─────────
   function productCardHTML(p, catName) {
     var imgs = (window.DS && DS.productImages) ? DS.productImages(p) : (p.image ? [p.image] : []);
@@ -125,6 +146,7 @@
   window.SiteUI = {
     productCardHTML: productCardHTML, observeReveals: observeReveals,
     applySettings: applySettings, num: num, esc: esc, PLACEHOLDER: PLACEHOLDER,
+    catColor: catColor, hexToRgba: hexToRgba, contrastText: contrastText,
     waLink: function (text) { return 'https://wa.me/' + SITE.WA + (text ? '?text=' + encodeURIComponent(text) : ''); }
   };
 })();

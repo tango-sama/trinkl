@@ -275,8 +275,10 @@
     var visible = cats.filter(function (c) { return c.visible !== false; }).slice(0, 8);
     var html = visible.map(function (c) {
       var img = c.image ? '<img src="' + SiteUI.esc(c.image) + '" alt="' + SiteUI.esc(c.name) + '" loading="lazy">' : '<div class="placeholder">🌸</div>';
-      return '<a class="cat-tile" href="products.html?cat=' + encodeURIComponent(c.id) + '">' + img +
-        '<div class="cat-meta"><div class="cat-name">' + SiteUI.esc(c.name) + '</div><div class="cat-go">تسوّقي الآن ←</div></div></a>';
+      var color = SiteUI.catColor(c);
+      return '<a class="cat-tile" href="products.html?cat=' + encodeURIComponent(c.id) + '">' +
+        '<div class="cat-accent" style="background:' + color + '"></div>' + img +
+        '<div class="cat-meta"><div class="cat-name"><span class="cat-dot" style="background:' + color + '"></span>' + SiteUI.esc(c.name) + '</div><div class="cat-go">تسوّقي الآن ←</div></div></a>';
     }).join('');
     document.getElementById('catGrid').innerHTML = html || '<p style="grid-column:1/-1;text-align:center;color:var(--ink-3)">لا توجد تصنيفات بعد.</p>';
     SiteUI.observeReveals(document.getElementById('catGrid'));

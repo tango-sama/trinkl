@@ -26,11 +26,16 @@
 .search-box input:focus{border-color:var(--rose)}
 .search-box svg{position:absolute;right:1rem;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-3)}
 .sortsel{background:var(--bg-2);border:1.5px solid var(--line);border-radius:100px;padding:.75rem 1.2rem;font-family:var(--sans);font-size:.88rem;color:var(--ink);cursor:pointer;outline:none}
-.filter-pills{max-width:1320px;margin:0 auto;padding:.5rem 3rem 1.5rem;display:flex;gap:.6rem;flex-wrap:wrap}
+.filter-pills{max-width:1320px;margin:0 auto;padding:.5rem 3rem 1.5rem;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.65rem}
 .fpill{background:var(--bg-2);border:1.5px solid var(--line);color:var(--ink-2);font-family:var(--sans);
-  font-size:.84rem;font-weight:700;padding:.5rem 1.2rem;border-radius:100px;cursor:pointer;transition:all .25s}
-.fpill:hover{border-color:var(--rose-soft);color:var(--rose-deep)}
-.fpill.active{background:linear-gradient(135deg,var(--rose),var(--rose-deep));border-color:transparent;color:#fff;box-shadow:0 6px 16px rgba(224,114,140,.3)}
+  font-size:.84rem;font-weight:700;padding:.6rem 1rem;border-radius:22px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;text-align:center;white-space:normal;line-height:1.25;min-height:44px}
+.fpill:hover{filter:brightness(.96);transform:translateY(-1px)}
+.fpill.active{box-shadow:0 6px 16px rgba(0,0,0,.16);transform:translateY(-1px)}
+.fpill[data-cat="all"]{background:linear-gradient(135deg,var(--rose),var(--rose-deep));border-color:transparent;color:#fff}
+.fpill[data-cat="all"].active{box-shadow:0 6px 16px rgba(224,114,140,.35)}
+@media(max-width:520px){.filter-pills{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
 .results-grid{max-width:1320px;margin:0 auto;padding:.5rem 3rem 4rem}
 .empty{text-align:center;color:var(--ink-3);padding:4rem 1rem;font-weight:700}
 .empty .ic{font-size:3.5rem;margin-bottom:1rem}
@@ -104,7 +109,7 @@
   document.getElementById('yr').textContent = new Date().getFullYear();
   var params = new URLSearchParams(location.search);
   var activeCat = params.get('cat') || 'all';
-  var search = '', sort = 'new', catMap = {}, ALL = [];
+  var search = '', sort = 'new', catMap = {}, ALL = [], CATS = [];
 
   var pillsEl = document.getElementById('pills'), grid = document.getElementById('pgrid'),
       empty = document.getElementById('empty'), countTag = document.getElementById('countTag'),
@@ -131,15 +136,21 @@
   function renderPills(cats) {
     var html = '<button class="fpill' + (activeCat === 'all' ? ' active' : '') + '" data-cat="all">الكل</button>';
     html += cats.filter(function (c) { return c.visible !== false; }).map(function (c) {
-      return '<button class="fpill' + (activeCat === c.id ? ' active' : '') + '" data-cat="' + SiteUI.esc(c.id) + '">' + SiteUI.esc(c.name) + '</button>';
+      var color = SiteUI.catColor(c);
+      var active = activeCat === c.id;
+      var style = active
+        ? 'background:' + color + ';border-color:' + color + ';color:' + SiteUI.contrastText(color)
+        : 'background:' + SiteUI.hexToRgba(color, .14) + ';border-color:' + SiteUI.hexToRgba(color, .5) + ';color:' + color;
+      return '<button class="fpill' + (active ? ' active' : '') + '" data-cat="' + SiteUI.esc(c.id) + '" style="' + style + '">' + SiteUI.esc(c.name) + '</button>';
     }).join('');
     pillsEl.innerHTML = html;
   }
 
   DS.getSettings().then(SiteUI.applySettings);
   DS.getCategories().then(function (cats) {
+    CATS = cats;
     cats.forEach(function (c) { catMap[c.id] = c.name; });
-    renderPills(cats);
+    renderPills(CATS);
     if (activeCat !== 'all') titleEl.textContent = catMap[activeCat] || 'المنتجات';
   });
   DS.getProducts().then(function (prods) { ALL = prods; window._DS_PRODUCTS = prods; render(); });
@@ -147,7 +158,7 @@
   pillsEl.addEventListener('click', function (e) {
     var b = e.target.closest('.fpill'); if (!b) return;
     activeCat = b.dataset.cat;
-    pillsEl.querySelectorAll('.fpill').forEach(function (x) { x.classList.toggle('active', x === b); });
+    renderPills(CATS);
     var u = new URL(location); if (activeCat === 'all') u.searchParams.delete('cat'); else u.searchParams.set('cat', activeCat);
     history.replaceState(null, '', u);
     render();

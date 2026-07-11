@@ -426,7 +426,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   }
 
   // ═══════════ CATEGORIES ═══════════
-  var cForm = { editId: null, name: '', id: '', image: '', visible: true };
+  var CAT_PALETTE = ['#F2A65A', '#7FB77E', '#5AA9E6', '#E07A9E', '#C792EA', '#5FC9A8', '#E6B655', '#EF9C8B'];
+  function nextCatColor() { return CAT_PALETTE[state.categories.length % CAT_PALETTE.length]; }
+  var cForm = { editId: null, name: '', id: '', image: '', visible: true, color: nextCatColor() };
   views.categories = function () {
     var cats = state.categories.slice().sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); });
     $('#view').innerHTML =
@@ -434,6 +436,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="grid2">' +
           '<div class="field"><label>اسم التصنيف</label><input class="inp" id="cName" value="' + esc(cForm.name) + '" placeholder="مثال: العناية بالشعر"></div>' +
           '<div class="field"><label>المعرّف ID (إنجليزي)</label><input class="inp" id="cId" value="' + esc(cForm.id) + '" placeholder="hair_care" dir="ltr"' + (cForm.editId ? ' disabled' : '') + '></div>' +
+          '<div class="field"><label>لون التصنيف</label><div style="display:flex;gap:.6rem;align-items:center">' +
+            '<input type="color" id="cColor" value="' + esc(cForm.color || CAT_PALETTE[0]) + '" style="width:48px;height:40px;border:1px solid var(--border);border-radius:9px;background:transparent;cursor:pointer;padding:2px">' +
+            '<input class="inp" id="cColorHex" value="' + esc(cForm.color || CAT_PALETTE[0]) + '" dir="ltr" style="flex:1;max-width:140px">' +
+            '<span style="font-size:.78rem;color:var(--ink-3)">لون زر هذا التصنيف في صفحة المنتجات</span>' +
+          '</div></div>' +
           '<div class="field full"><label>صورة التصنيف</label><div style="display:flex;gap:.75rem;align-items:center">' +
             '<img class="thumb-prev" id="cImgPrev" src="' + (cForm.image || transparent()) + '">' +
             '<input class="inp" id="cImg" value="' + esc(cForm.image) + '" placeholder="رابط الصورة" style="flex:1">' +
@@ -442,24 +449,27 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="row-actions"><button class="btn ' + (cForm.editId ? 'btn-blue' : 'btn-green') + '" id="cSave">' + (cForm.editId ? '💾 حفظ' : '➕ إضافة') + '</button>' +
           (cForm.editId ? '<button class="btn btn-gray" id="cCancel">إلغاء</button>' : '') + '</div>' +
       '</div>' +
-      '<div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr><th>الترتيب</th><th>الصورة</th><th>الاسم</th><th>المعرّف</th><th>الظهور</th><th>إجراءات</th></tr></thead><tbody>' +
+      '<div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr><th>الترتيب</th><th>الصورة</th><th>اللون</th><th>الاسم</th><th>المعرّف</th><th>الظهور</th><th>إجراءات</th></tr></thead><tbody>' +
         (cats.length ? cats.map(function (c, i) {
           return '<tr>' +
             '<td><div class="row-actions"><button class="btn btn-gray btn-sm" data-up="' + esc(c.id) + '"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="btn btn-gray btn-sm" data-down="' + esc(c.id) + '"' + (i === cats.length - 1 ? ' disabled' : '') + '>↓</button></div></td>' +
             '<td><img src="' + esc(c.image || transparent()) + '" style="width:42px;height:42px;border-radius:9px;object-fit:cover"></td>' +
+            '<td><span style="display:inline-block;width:26px;height:26px;border-radius:50%;background:' + esc(c.color || CAT_PALETTE[0]) + ';border:1px solid var(--border)" title="' + esc(c.color || '') + '"></span></td>' +
             '<td>' + esc(c.name) + '</td><td><span class="tag" dir="ltr">' + esc(c.id) + '</span></td>' +
             '<td>' + (c.visible === false ? '<span class="tag">مخفي</span>' : '<span class="tag done">ظاهر</span>') + '</td>' +
             '<td><div class="row-actions"><button class="btn btn-gray btn-sm" data-cvis="' + esc(c.id) + '">' + (c.visible === false ? 'إظهار' : 'إخفاء') + '</button><button class="btn btn-blue btn-sm" data-cedit="' + esc(c.id) + '">تعديل</button><button class="btn btn-danger btn-sm" data-cdel="' + esc(c.id) + '">حذف</button></div></td>' +
           '</tr>';
-        }).join('') : '<tr><td colspan="6"><div class="empty"><div class="ic">📁</div>لا توجد تصنيفات</div></td></tr>') + '</tbody></table></div></div>';
+        }).join('') : '<tr><td colspan="7"><div class="empty"><div class="ic">📁</div>لا توجد تصنيفات</div></td></tr>') + '</tbody></table></div></div>';
 
     $('#cName').oninput = function (e) { cForm.name = e.target.value; };
     $('#cId').oninput = function (e) { cForm.id = e.target.value.trim(); };
+    $('#cColor').oninput = function (e) { cForm.color = e.target.value; $('#cColorHex').value = e.target.value; };
+    $('#cColorHex').oninput = function (e) { var v = e.target.value.trim(); if (/^#[0-9a-fA-F]{6}$/.test(v)) { cForm.color = v; $('#cColor').value = v; } };
     $('#cImg').oninput = function (e) { cForm.image = e.target.value; $('#cImgPrev').src = e.target.value || transparent(); };
     $('#cImgUp').onclick = function () { pickImage('categories', function (url) { cForm.image = url; views.categories(); }); };
     $('#cSave').onclick = saveCategory;
-    if ($('#cCancel')) $('#cCancel').onclick = function () { cForm = { editId: null, name: '', id: '', image: '', visible: true }; views.categories(); };
-    document.querySelectorAll('[data-cedit]').forEach(function (b) { b.onclick = function () { var c = state.categories.find(function (x) { return x.id === b.dataset.cedit; }); cForm = { editId: c.id, name: c.name, id: c.id, image: c.image || '', visible: c.visible !== false }; window.scrollTo({ top: 0, behavior: 'smooth' }); views.categories(); }; });
+    if ($('#cCancel')) $('#cCancel').onclick = function () { cForm = { editId: null, name: '', id: '', image: '', visible: true, color: nextCatColor() }; views.categories(); };
+    document.querySelectorAll('[data-cedit]').forEach(function (b) { b.onclick = function () { var c = state.categories.find(function (x) { return x.id === b.dataset.cedit; }); cForm = { editId: c.id, name: c.name, id: c.id, image: c.image || '', visible: c.visible !== false, color: c.color || CAT_PALETTE[0] }; window.scrollTo({ top: 0, behavior: 'smooth' }); views.categories(); }; });
     document.querySelectorAll('[data-cdel]').forEach(function (b) { b.onclick = function () { delCategory(b.dataset.cdel); }; });
     document.querySelectorAll('[data-cvis]').forEach(function (b) { b.onclick = function () { toggleCatVis(b.dataset.cvis); }; });
     document.querySelectorAll('[data-up]').forEach(function (b) { b.onclick = function () { moveCat(b.dataset.up, -1); }; });
@@ -468,13 +478,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   function saveCategory() {
     if (!cForm.name || !cForm.id) { toast('املئي الاسم والمعرّف'); return; }
     if (!cForm.editId && state.categories.find(function (c) { return c.id === cForm.id; })) { toast('هذا المعرّف موجود مسبقاً'); return; }
-    var data = { id: cForm.id, name: cForm.name, image: cForm.image, visible: cForm.visible };
+    var data = { id: cForm.id, name: cForm.name, image: cForm.image, visible: cForm.visible, color: cForm.color || CAT_PALETTE[0] };
     if (cForm.editId) { var ex = state.categories.find(function (c) { return c.id === cForm.editId; }); if (ex && ex.sortOrder != null) data.sortOrder = ex.sortOrder; }
     else data.sortOrder = state.categories.length;
     DS.setDoc('categories', cForm.id, data).then(function () {
       var idx = state.categories.findIndex(function (c) { return c.id === cForm.id; });
       if (idx >= 0) state.categories[idx] = data; else state.categories.push(data);
-      catMap[data.id] = data.name; cForm = { editId: null, name: '', id: '', image: '', visible: true };
+      catMap[data.id] = data.name; cForm = { editId: null, name: '', id: '', image: '', visible: true, color: nextCatColor() };
       updateBadges(); toast('تم الحفظ ✓'); views.categories();
     }).catch(function (e) { console.error(e); toast('فشل الحفظ'); });
   }

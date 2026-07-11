@@ -162,8 +162,10 @@ nav.site-nav.scrolled{background:rgba(255,247,244,.88);backdrop-filter:blur(16px
 .cat-tile::after{content:'';position:absolute;inset:0;z-index:1;
   background:linear-gradient(to top,rgba(58,42,48,.78) 0%,rgba(58,42,48,.15) 45%,transparent 70%)}
 .cat-tile .cat-meta{position:absolute;bottom:0;right:0;left:0;z-index:2;padding:1.2rem;text-align:center}
-.cat-tile .cat-name{color:#fff;font-weight:800;font-size:1.05rem;text-shadow:0 2px 8px rgba(0,0,0,.3)}
+.cat-tile .cat-name{color:#fff;font-weight:800;font-size:1.05rem;text-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;gap:.45rem}
+.cat-tile .cat-dot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.6);flex-shrink:0}
 .cat-tile .cat-go{color:var(--gold-light);font-size:.72rem;font-weight:700;margin-top:.25rem;opacity:0;transform:translateY(8px);transition:all .4s var(--ease)}
+.cat-tile .cat-accent{position:absolute;top:0;right:0;left:0;height:5px;z-index:3}
 .cat-tile:hover .cat-go{opacity:1;transform:translateY(0)}
 
 /* ═══════════ FEATURES ROW ═══════════ */
