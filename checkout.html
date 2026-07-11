@@ -114,8 +114,8 @@
           <div class="ffield full" style="display:none">
             <label>شركة التوصيل</label>
             <div class="company-opts" id="companyOpts">
-              <div class="co-opt on" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
-              <div class="co-opt" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
+              <div class="co-opt on" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
+              <div class="co-opt" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
             </div>
           </div>
           <div class="ffield"><label>الولاية <span class="req">*</span></label><select class="fselect" id="fwilaya"><option value="">اختاري الولاية</option></select></div>
@@ -176,7 +176,7 @@
 <script>
 (function () {
   document.getElementById('yr').textContent = new Date().getFullYear();
-  var delivery = 'home', company = 'yalidine', lastOrder = null, deliveryFee = 0;
+  var delivery = 'home', company = 'noest', lastOrder = null, deliveryFee = 0;
   var siteSettings = {};
 
   DS.getSettings().then(function (s) { SiteUI.applySettings(s); siteSettings = s || {}; applyCarriers(siteSettings); });
