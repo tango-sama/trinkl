@@ -99,7 +99,7 @@ exports.createYalidineParcel = onCall(
       to_wilaya_name: useStopdesk ? (stopdeskCenter.wilaya_name || o.wilayaFr || o.wilaya) : (o.wilayaFr || o.wilaya || ''),
       product_list: productList,
       price: codPrice,
-      do_insurance: false,
+      do_insurance: o.insurance === true,
       declared_value: codPrice,
       length: 0, width: 0, height: 0, weight: 1,
       freeshipping: false,

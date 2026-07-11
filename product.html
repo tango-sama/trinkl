@@ -81,6 +81,13 @@
 .qdo{border:1.5px solid var(--line);border-radius:12px;padding:.65rem;cursor:pointer;font-size:.82rem;font-weight:800;text-align:center;color:var(--ink);transition:all .2s}
 .qdo.on{border-color:var(--rose);background:var(--rose-tint);color:var(--rose-deep)}
 .qdo small{display:block;font-weight:800;color:var(--rose-deep);margin-top:.2rem;font-size:.74rem}
+.qins{display:none;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.6rem;border:1.5px solid var(--line);border-radius:12px;padding:.65rem .8rem;cursor:pointer;font-size:.82rem;font-weight:800;color:var(--ink);transition:all .2s;user-select:none}
+.qins.show{display:flex}
+.qins.on{border-color:#E11900;background:rgba(225,25,0,.07)}
+.qins .sw{width:40px;height:22px;border-radius:11px;background:var(--line);position:relative;flex-shrink:0;transition:background .2s}
+.qins .sw::after{content:'';position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:inset-inline-start .2s}
+.qins.on .sw{background:#E11900}
+.qins.on .sw::after{inset-inline-start:21px}
 .qaddr{max-height:0;opacity:0;transform:translateY(-8px);overflow:hidden;margin-bottom:0;transition:max-height .4s ease,opacity .3s ease,transform .4s ease,margin-bottom .4s ease}
 .qaddr.show{max-height:110px;opacity:1;transform:none;margin-bottom:.95rem}
 .qsum{background:var(--bg-3);border-radius:12px;padding:.9rem 1rem;margin:1rem 0;font-size:.85rem}
@@ -181,6 +188,7 @@
             <div class="qdo on" data-co="noest">🔵 Noest</div>
             <div class="qdo" data-co="yalidine">🔴 Yalidine</div>
           </div>
+          <div class="qins" id="qIns"><span>🛡️ التأمين على الطرد (Assurance)</span><span class="sw"></span></div>
         </div>
         <div class="qrow">
           <div class="qfield"><label>الولاية <span class="req">*</span></label><select class="qselect" id="qWilaya"><option value="">اختاري</option></select></div>
@@ -236,6 +244,7 @@
     });
     if (!staff || !enabled[qCompany]) qCompany = first;
     opts.forEach(function (o) { o.classList.toggle('on', o.dataset.co === qCompany); });
+    updateQIns();
     var field = document.getElementById('qCompany').closest('.qfield');
     if (field) field.style.display = staff ? '' : 'none';
     populateQWilayas();
@@ -299,7 +308,7 @@
 
   // ───────── seller-direct quick order ─────────
   var esc = SiteUI.esc;
-  var qDelivery = 'home', qCompany = 'noest', qFee = 0, qOrderQty = 1;
+  var qDelivery = 'home', qCompany = 'noest', qFee = 0, qOrderQty = 1, qInsurance = false;
   var qov = document.getElementById('qov');
   var qw = document.getElementById('qWilaya'), qc = document.getElementById('qCommune');
 
@@ -338,7 +347,15 @@
   document.getElementById('qCompany').addEventListener('click', function (e) {
     var o = e.target.closest('.qdo'); if (!o) return;
     this.querySelectorAll('.qdo').forEach(function (x) { x.classList.remove('on'); });
-    o.classList.add('on'); qCompany = o.dataset.co; populateQWilayas(); updateQFee();
+    o.classList.add('on'); qCompany = o.dataset.co; updateQIns(); populateQWilayas(); updateQFee();
+  });
+
+  // Yalidine parcel insurance (assurance) — only offered when Yalidine ships the order.
+  var qIns = document.getElementById('qIns');
+  function updateQIns() { if (qIns) qIns.classList.toggle('show', qCompany === 'yalidine'); }
+  qIns && qIns.addEventListener('click', function () {
+    qInsurance = !qInsurance;
+    qIns.classList.toggle('on', qInsurance);
   });
   function updateQFee() {
     var w = qSelW();
@@ -377,6 +394,7 @@
       baladiya: qc.value, communeFr: copt ? (copt.getAttribute('data-fr') || '') : '',
       address: qDelivery === 'home' ? qaddr.value.trim() : '',
       deliveryCompany: qCompany, deliveryType: qDelivery, deliveryFee: qFee,
+      insurance: qCompany === 'yalidine' && qInsurance,
       items: [{ id: product.id, title: product.title || product.name, price: product.price, qty: qOrderQty, image: (DS.productImages(product)[0] || '') }],
       subtotal: sub, total: sub + qFee,
       source: 'seller_direct'
