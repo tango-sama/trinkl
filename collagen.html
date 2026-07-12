@@ -163,8 +163,14 @@ body{background:#F5FAF9}
 .cl-opt .co-info{flex:1;min-width:0}
 .cl-opt .co-name{font-size:.83rem;font-weight:800;color:var(--col-deep);line-height:1.4}
 .cl-opt .co-price{font-size:.82rem;font-weight:900;color:var(--col-mid);margin-top:.15rem}
-.cl-opt .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex-shrink:0}
-.cl-opt.on .radio{border-color:var(--col-teal);background:radial-gradient(circle,var(--col-teal) 0 40%,transparent 42%)}
+.cl-opt .check{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.cl-opt.on .check{border-color:var(--col-teal);background:var(--col-teal)}
+.cl-opt .check svg{width:14px;height:14px;color:#fff;opacity:0;transform:scale(.5);transition:all .2s}
+.cl-opt.on .check svg{opacity:1;transform:scale(1)}
+.cl-hint{text-align:center;font-size:.76rem;color:var(--ink-3);margin-bottom:.9rem}
+.cl-total{display:flex;align-items:center;justify-content:space-between;background:var(--col-pearl);border-radius:14px;
+  padding:.85rem 1rem;margin-bottom:1rem;font-weight:800;color:var(--col-deep)}
+.cl-total .tv{font-size:1.1rem;color:var(--col-mid)}
 .cl-fields{margin-top:1rem}
 .cl-field{margin-bottom:1rem}
 .cl-field label{display:block;font-size:.78rem;font-weight:800;color:var(--ink-2);margin-bottom:.45rem}
@@ -362,17 +368,26 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
 
   // ───────── order modal ─────────
   var ov = document.getElementById('orderOv'), body = document.getElementById('modalBody'), title = document.getElementById('modalTitle');
-  var selected = null;
+  var selected = []; // array of selected product ids (multi-select)
+  var pendingName = '', pendingPhone = '';
+
+  function selectedProducts() { return PRODUCTS.filter(function (p) { return selected.indexOf(p.id) !== -1; }); }
+  function selectedTotal() { return selectedProducts().reduce(function (n, p) { return n + p.price; }, 0); }
 
   function renderPicker() {
-    title.textContent = 'اختاري منتجكِ';
+    title.textContent = 'اختاري منتجاتكِ';
+    var count = selected.length;
     body.innerHTML =
+      '<p class="cl-hint">يمكنكِ اختيار أكثر من منتج في نفس الطلب</p>' +
       PRODUCTS.map(function (p) {
-        return '<div class="cl-opt' + (selected === p.id ? ' on' : '') + '" data-opt="' + p.id + '">' +
-          '<div class="radio"></div><img src="' + p.image + '" alt="">' +
+        var on = selected.indexOf(p.id) !== -1;
+        return '<div class="cl-opt' + (on ? ' on' : '') + '" data-opt="' + p.id + '">' +
+          '<div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' +
+          '<img src="' + p.image + '" alt="">' +
           '<div class="co-info"><div class="co-name">' + esc(p.title) + '</div><div class="co-price">' + money(p.price) + '</div></div>' +
         '</div>';
       }).join('') +
+      (count ? '<div class="cl-total"><span>الإجمالي (' + count + ' ' + (count === 1 ? 'منتج' : 'منتجات') + ')</span><span class="tv">' + money(selectedTotal()) + '</span></div>' : '') +
       '<div class="cl-fields">' +
         '<div class="cl-field"><label>الاسم الكامل <span style="color:var(--danger,#E5484D)">*</span></label><input class="cl-input" id="leadName" placeholder="الاسم واللقب"></div>' +
         '<div class="cl-field"><label>رقم الهاتف <span style="color:var(--danger,#E5484D)">*</span></label><input class="cl-input" id="leadPhone" type="tel" placeholder="0X XX XX XX XX" style="direction:ltr;text-align:right"></div>' +
@@ -380,14 +395,22 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
         '<p class="cl-note">سنتصل بكِ خلال وقت قصير لتأكيد الطلب وترتيب التوصيل. الدفع عند الاستلام.</p>' +
       '</div>';
 
+    var name = document.getElementById('leadName'), phone = document.getElementById('leadPhone');
+    if (name) name.value = pendingName || ''; if (phone) phone.value = pendingPhone || '';
     body.querySelectorAll('[data-opt]').forEach(function (el) {
-      el.addEventListener('click', function () { selected = el.getAttribute('data-opt'); renderPicker(); });
+      el.addEventListener('click', function () {
+        var id = el.getAttribute('data-opt');
+        var i = selected.indexOf(id);
+        if (i === -1) selected.push(id); else selected.splice(i, 1);
+        pendingName = name ? name.value : pendingName; pendingPhone = phone ? phone.value : pendingPhone;
+        renderPicker();
+      });
     });
     document.getElementById('leadSubmit').addEventListener('click', submitLead);
   }
 
   function openModal(preselect) {
-    selected = preselect || selected;
+    if (preselect && selected.indexOf(preselect) === -1) selected.push(preselect);
     renderPicker();
     ov.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -395,32 +418,34 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   function closeModal() { ov.classList.remove('open'); document.body.style.overflow = ''; }
 
   function submitLead() {
-    var p = PRODUCTS.find(function (x) { return x.id === selected; });
-    if (!p) { alert('يرجى اختيار منتج أولاً'); return; }
+    var picked = selectedProducts();
+    if (!picked.length) { alert('يرجى اختيار منتج واحد على الأقل'); return; }
     var name = document.getElementById('leadName'), phone = document.getElementById('leadPhone');
     var ok = true;
     [name, phone].forEach(function (f) { var bad = !f.value.trim(); f.classList.toggle('err', bad); if (bad) ok = false; });
     if (phone.value && !/^0[567][0-9]{8}$/.test(phone.value.replace(/\s/g, ''))) { phone.classList.add('err'); ok = false; }
     if (!ok) { alert('يرجى إدخال الاسم ورقم هاتف صحيح يبدأ بـ 05/06/07.'); return; }
 
+    var sub = selectedTotal();
     var order = {
       num: 'DS-' + Math.floor(1000 + Math.random() * 9000),
       customer: name.value.trim(), phone: phone.value.trim(),
-      items: [{ id: p.id, title: p.title, price: p.price, qty: 1, image: p.image }],
-      subtotal: p.price, total: p.price,
+      items: picked.map(function (p) { return { id: p.id, title: p.title, price: p.price, qty: 1, image: p.image }; }),
+      subtotal: sub, total: sub,
       source: 'landing_collagen'
     };
     if (window.DS && DS.saveOrder) DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
 
+    var namesList = picked.map(function (p) { return p.title; }).join('، ');
     title.textContent = 'تم استلام طلبكِ 🌸';
     body.innerHTML =
       '<div class="cl-success">' +
         '<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' +
         '<h4>شكراً لثقتكِ، ' + esc(order.customer.split(' ')[0]) + '!</h4>' +
-        '<p>استلمنا طلبكِ لمنتج «' + esc(p.title) + '». سنتصل بكِ قريباً على ' + esc(order.phone) + ' لتأكيد الطلب وترتيب التوصيل.</p>' +
+        '<p>استلمنا طلبكِ ل' + (picked.length > 1 ? 'منتجات' : 'منتج') + ' «' + esc(namesList) + '». سنتصل بكِ قريباً على ' + esc(order.phone) + ' لتأكيد الطلب وترتيب التوصيل.</p>' +
         '<button class="cl-submit" id="modalDone">تم</button>' +
       '</div>';
-    document.getElementById('modalDone').addEventListener('click', closeModal);
+    document.getElementById('modalDone').addEventListener('click', function () { selected = []; pendingName = ''; pendingPhone = ''; closeModal(); });
   }
 
   document.getElementById('modalClose').addEventListener('click', closeModal);
