@@ -139,8 +139,8 @@
       var color = SiteUI.catColor(c);
       var active = activeCat === c.id;
       var style = active
-        ? 'background:' + color + ';border-color:' + color + ';color:' + SiteUI.contrastText(color)
-        : 'background:' + SiteUI.hexToRgba(color, .14) + ';border-color:' + SiteUI.hexToRgba(color, .5) + ';color:' + color;
+        ? 'background:' + color + ';border-color:' + color + ';color:var(--ink)'
+        : 'background:' + SiteUI.hexToRgba(color, .14) + ';border-color:' + SiteUI.hexToRgba(color, .5) + ';color:var(--ink)';
       return '<button class="fpill' + (active ? ' active' : '') + '" data-cat="' + SiteUI.esc(c.id) + '" style="' + style + '">' + SiteUI.esc(c.name) + '</button>';
     }).join('');
     pillsEl.innerHTML = html;
