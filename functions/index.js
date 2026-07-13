@@ -178,7 +178,8 @@ exports.createNoestParcel = onCall(
 
     const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
 
-    // Stopdesk needs a station code in the destination wilaya.
+    // Stopdesk needs a station code in the destination wilaya. Prefer a desk
+    // in the customer's commune; fall back to the wilaya's first desk.
     const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
     let stationCode = null;
     if (isStopdesk) {
@@ -186,11 +187,24 @@ exports.createNoestParcel = onCall(
         const dRes = await fetch(NOEST_BASE + '/api/public/desks', { headers });
         if (dRes.ok) {
           const desks = await dRes.json();
+          const norm = (s) => String(s || '').toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim();
+          const wantCommune = norm(o.communeFr || o.baladiya);
+          let first = null;
           for (const k in desks) {
-            const code = String((desks[k] && desks[k].code) || '');
+            const d = desks[k] || {};
+            const code = String(d.code || '');
             const m = code.match(/^(\d+)/);
-            if (m && parseInt(m[1], 10) === Number(o.wilayaId)) { stationCode = code; break; }
+            if (!m || parseInt(m[1], 10) !== Number(o.wilayaId)) continue;
+            if (!first) first = code;
+            if (wantCommune) {
+              const hay = norm([d.commune, d.commune_name, d.name, d.station_name, d.address, d.adresse]
+                .filter(Boolean).join(' '));
+              if (hay && (hay.includes(wantCommune) || wantCommune.includes(hay))) { stationCode = code; break; }
+            }
           }
+          if (!stationCode) stationCode = first;
         }
       } catch (e) { /* fall back to home delivery */ }
     }
