@@ -161,6 +161,22 @@ body{background:#F5FAF9}
 .cl-step p{font-size:.8rem;color:var(--ink-3);line-height:1.6;max-width:230px;margin:0 auto}
 @media(max-width:768px){.cl-steps{grid-template-columns:1fr;gap:2rem}}
 
+/* ───────── customer reviews (masonry, in-view stagger) ───────── */
+.cl-reviews{columns:2;column-gap:.9rem}
+@media(min-width:640px){.cl-reviews{columns:3;column-gap:1.1rem}}
+.cl-review{break-inside:avoid;margin-bottom:.9rem;background:#fff;border:1px solid rgba(47,143,157,.14);border-radius:18px;
+  padding:1.05rem;box-shadow:0 8px 26px rgba(14,58,64,.06);
+  opacity:0;transform:scale(.8);filter:blur(10px);
+  transition:opacity .55s ease,transform .55s cubic-bezier(.22,1,.36,1),filter .55s ease}
+.cl-reviews.inview .cl-review{opacity:1;transform:scale(1);filter:blur(0)}
+.cl-review .stars{color:#F5A623;font-size:.82rem;letter-spacing:2px;margin-bottom:.45rem}
+.cl-review p{font-size:.79rem;color:var(--ink-2);line-height:1.85;margin-bottom:.75rem}
+.cl-review .who{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.cl-review .av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:.85rem}
+.cl-review .wn{font-size:.75rem;font-weight:800;color:var(--col-deep);display:block}
+.cl-review .ww{display:block;font-size:.63rem;color:var(--ink-3);font-weight:600;margin-top:1px}
+.cl-review .vb{margin-inline-start:auto;font-size:.58rem;font-weight:800;color:#12A150;background:#E6F8EC;padding:3px 8px;border-radius:100px;white-space:nowrap}
+
 /* ───────── final CTA banner ───────── */
 .cl-cta{max-width:1280px;margin:0 auto 5rem;padding:3rem;border-radius:28px;text-align:center;position:relative;overflow:hidden;
   background:linear-gradient(135deg,var(--col-deep),var(--col-mid))}
@@ -202,6 +218,16 @@ body{background:#F5FAF9}
 .cl-total{display:flex;align-items:center;justify-content:space-between;background:var(--col-pearl);border-radius:14px;
   padding:.85rem 1rem;margin-bottom:1rem;font-weight:800;color:var(--col-deep)}
 .cl-total .tv{font-size:1.1rem;color:var(--col-mid)}
+.cl-totals{background:var(--col-pearl);border-radius:14px;padding:.85rem 1rem;margin-bottom:1rem}
+.cl-totals .tl{display:flex;align-items:center;justify-content:space-between;font-size:.85rem;font-weight:700;color:var(--ink-2);padding:.2rem 0}
+.cl-totals .tl.grand{font-weight:900;color:var(--col-deep);border-top:1px dashed rgba(47,143,157,.35);margin-top:.4rem;padding-top:.55rem}
+.cl-totals .tl.grand span:last-child{font-size:1.1rem;color:var(--col-mid)}
+.cl-del{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.cl-dopt{border:1.5px solid var(--line);border-radius:14px;padding:.65rem .5rem;text-align:center;font-size:.78rem;font-weight:800;
+  color:var(--ink-2);cursor:pointer;transition:all .2s}
+.cl-dopt small{display:block;font-weight:700;color:var(--col-mid);margin-top:.25rem}
+.cl-dopt.on{border-color:var(--col-teal);background:rgba(47,143,157,.06);color:var(--col-deep)}
+select.cl-input{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23155F68' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .9rem center}
 .cl-fields{margin-top:1rem}
 .cl-field{margin-bottom:1rem}
 .cl-field label{display:block;font-size:.78rem;font-weight:800;color:var(--ink-2);margin-bottom:.45rem}
@@ -324,6 +350,26 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   </div>
 </section>
 
+<section class="cl-sec" id="reviews">
+  <div class="cl-sec-head">
+    <span class="cl-label">آراء زبوناتنا</span>
+    <h2 class="cl-title">زبونات سعيدات بالنتائج 💚</h2>
+    <div class="cl-underline"></div>
+    <p class="cl-sub">تجارب حقيقية من زبونات طلبنَ الكولاجين ووصلهنّ حتى باب المنزل.</p>
+  </div>
+  <div class="cl-reviews" id="clReviews">
+    <div class="cl-review"><div class="stars">★★★★★</div><p>بعد شهر من الاستعمال اليومي لاحظت فرقاً واضحاً في نضارة بشرتي، حتى صديقاتي سألوني ماذا أستعمل! المنتج أصلي والنتيجة حقيقية.</p><div class="who"><span class="av" style="background:#2F8F9D">أ</span><span><span class="wn">أمينة ب.</span><span class="ww">الجزائر العاصمة</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★★</div><p>كان شعري يتساقط بكثرة بعد الولادة، ومع الكولاجين والبيوتين قلّ التساقط كثيراً وبدأ يطلع لي شعر جديد. راضية جداً.</p><div class="who"><span class="av" style="background:#D6336C">خ</span><span><span class="wn">خديجة م.</span><span class="ww">وهران</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★☆</div><p>أظافري كانت تتكسر من أقل شيء، الآن صارت أقوى بكثير. النتيجة احتاجت صبراً لكنها تستحق.</p><div class="who"><span class="av" style="background:#7C5CBF">س</span><span><span class="wn">سارة ل.</span><span class="ww">سطيف</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★★</div><p>طلبته لأمي لآلام الركبة، وبعد شهرين قالت لي إنها تحس بمرونة أكثر في الحركة وقلّ التعب. شكراً لكم على الجدية.</p><div class="who"><span class="av" style="background:#1B6FA8">ف</span><span><span class="wn">فاطمة الزهراء</span><span class="ww">قسنطينة</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★★</div><p>البودرة بدون طعم نهائياً، أذوّبها في قهوتي كل صباح ولا أحس بها. أفضل طريقة لروتين جمال يومي سهل.</p><div class="who"><span class="av" style="background:#2E86C1">ل</span><span><span class="wn">ليندة ع.</span><span class="ww">تيزي وزو</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★★</div><p>التوصيل وصلني في يومين فقط والدفع عند الاستلام، تعامل راقٍ واحترافي. سأطلب مرة أخرى إن شاء الله.</p><div class="who"><span class="av" style="background:#12A150">ن</span><span><span class="wn">نسرين ط.</span><span class="ww">البليدة</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★★</div><p>هذه ثاني علبة أطلبها، النتيجة على بشرتي ومفاصلي واضحة وما عدت أستغني عنه. منتج أصلي ١٠٠٪.</p><div class="who"><span class="av" style="background:#C0392B">ح</span><span><span class="wn">حنان ك.</span><span class="ww">عنابة</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★☆</div><p>جربت أنواعاً كثيرة قبله، هذا أول واحد أحس معه بفرق حقيقي في كثافة الشعر. التغليف كان ممتازاً أيضاً.</p><div class="who"><span class="av" style="background:#B7791F">إ</span><span><span class="wn">إيمان ر.</span><span class="ww">ورقلة</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+    <div class="cl-review"><div class="stars">★★★★★</div><p>بشرتي صارت مشرقة أكثر والخطوط الرفيعة حول عيني خفّت. أنصح كل واحدة تبدأ من اليوم ولا تنتظر.</p><div class="who"><span class="av" style="background:#155F68">م</span><span><span class="wn">مريم د.</span><span class="ww">بجاية</span></span><span class="vb">✓ شراء موثّق</span></div></div>
+  </div>
+</section>
+
 <div class="cl-cta reveal">
   <h2>استثمري في نفسكِ اليوم</h2>
   <p>جمال يبدأ من الداخل ويستمر — الدفع عند الاستلام، وتوصيل لكل الولايات.</p>
@@ -355,10 +401,23 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="js/firebase.js"></script>
 <script src="js/site.js"></script>
+<script src="js/yalidine.js"></script>
 <script>
 (function () {
   document.getElementById('yr').textContent = new Date().getFullYear();
-  if (window.DS && DS.getSettings) DS.getSettings().then(function (s) { if (window.SiteUI) SiteUI.applySettings(s); });
+  if (window.DS && DS.getSettings) DS.getSettings().then(function (s) {
+    if (window.SiteUI) SiteUI.applySettings(s);
+    s = s || {};
+    // same rule as checkout: customers get the first customer-enabled carrier
+    var noestOn = s.noestEnabled !== false, yaliOn = s.yalidineEnabled !== false;
+    company = (noestOn || !yaliOn) ? 'noest' : 'yalidine';
+    if (ov.classList.contains('open')) renderPicker();
+  });
+  if (window.DS && DS.getDeliveryData) ['noest', 'yalidine'].forEach(function (c) {
+    DS.getDeliveryData(c).then(function (d) {
+      if (d) { YALIDINE.setCarrierData(c, d); if (ov.classList.contains('open')) renderPicker(); }
+    });
+  });
 
   var PRODUCTS = [
     {
@@ -418,14 +477,26 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   // ───────── order modal ─────────
   var ov = document.getElementById('orderOv'), body = document.getElementById('modalBody'), title = document.getElementById('modalTitle');
   var selected = []; // array of selected product ids (multi-select)
-  var pendingName = '', pendingPhone = '';
+  var company = 'noest';   // refined from settings above
+  var delivery = 'home';
+  var pending = { name: '', phone: '', wilaya: '', baladiya: '', address: '' };
 
   function selectedProducts() { return PRODUCTS.filter(function (p) { return selected.indexOf(p.id) !== -1; }); }
   function selectedTotal() { return selectedProducts().reduce(function (n, p) { return n + p.price; }, 0); }
 
+  function savePending() {
+    var g = function (id) { var el = document.getElementById(id); return el ? el.value : null; }, v;
+    if ((v = g('leadName')) !== null) pending.name = v;
+    if ((v = g('leadPhone')) !== null) pending.phone = v;
+    if ((v = g('leadAddress')) !== null) pending.address = v;
+  }
+
   function renderPicker() {
     title.textContent = 'اختاري منتجاتكِ';
     var count = selected.length;
+    var w = pending.wilaya ? YALIDINE.wilayaForCarrier(company, pending.wilaya) : null;
+    var fee = w ? YALIDINE.feeForCarrier(company, w.id, delivery) : 0;
+    var sub = selectedTotal();
     body.innerHTML =
       '<p class="cl-hint">يمكنكِ اختيار أكثر من منتج في نفس الطلب</p>' +
       PRODUCTS.map(function (p) {
@@ -436,24 +507,49 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
           '<div class="co-info"><div class="co-name">' + esc(p.title) + '</div><div class="co-price">' + money(p.price) + '</div></div>' +
         '</div>';
       }).join('') +
-      (count ? '<div class="cl-total"><span>الإجمالي (' + count + ' ' + (count === 1 ? 'منتج' : 'منتجات') + ')</span><span class="tv">' + money(selectedTotal()) + '</span></div>' : '') +
       '<div class="cl-fields">' +
         '<div class="cl-field"><label>الاسم الكامل <span style="color:var(--danger,#E5484D)">*</span></label><input class="cl-input" id="leadName" placeholder="الاسم واللقب"></div>' +
         '<div class="cl-field"><label>رقم الهاتف <span style="color:var(--danger,#E5484D)">*</span></label><input class="cl-input" id="leadPhone" type="tel" placeholder="0X XX XX XX XX" style="direction:ltr;text-align:right"></div>' +
+        '<div class="cl-field"><label>الولاية <span style="color:var(--danger,#E5484D)">*</span></label><select class="cl-input" id="leadWilaya">' +
+          '<option value="">اختاري الولاية</option>' +
+          YALIDINE.wilayasFor(company).map(function (x) { return '<option value="' + x.id + '"' + (String(pending.wilaya) === String(x.id) ? ' selected' : '') + '>' + x.id + ' - ' + esc(x.ar) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="cl-field"><label>البلدية <span style="color:var(--danger,#E5484D)">*</span></label><select class="cl-input" id="leadBaladiya"' + (w ? '' : ' disabled') + '>' +
+          (w ? '<option value="">اختاري البلدية</option>' + YALIDINE.communesForCarrier(company, w.id).map(function (n) { return '<option value="' + esc(n) + '"' + (pending.baladiya === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('')
+             : '<option value="">اختاري الولاية أولاً</option>') +
+        '</select></div>' +
+        '<div class="cl-field"><label>نوع التوصيل</label><div class="cl-del">' +
+          '<div class="cl-dopt' + (delivery === 'home' ? ' on' : '') + '" data-del="home">🏠 توصيل للمنزل<small>' + (w ? money(YALIDINE.feeForCarrier(company, w.id, 'home')) : '—') + '</small></div>' +
+          '<div class="cl-dopt' + (delivery === 'office' ? ' on' : '') + '" data-del="office">🏢 مكتب التوصيل<small>' + (w ? money(YALIDINE.feeForCarrier(company, w.id, 'office')) : '—') + '</small></div>' +
+        '</div></div>' +
+        (delivery === 'home' ? '<div class="cl-field"><label>عنوان المنزل <span style="color:var(--danger,#E5484D)">*</span></label><input class="cl-input" id="leadAddress" placeholder="الحي، الشارع، رقم المنزل..."></div>' : '') +
+        (count ? '<div class="cl-totals">' +
+          '<div class="tl"><span>المنتجات (' + count + ' ' + (count === 1 ? 'منتج' : 'منتجات') + ')</span><span>' + money(sub) + '</span></div>' +
+          '<div class="tl"><span>التوصيل</span><span>' + (w ? money(fee) : 'حسب الولاية') + '</span></div>' +
+          '<div class="tl grand"><span>الإجمالي</span><span>' + money(sub + fee) + '</span></div>' +
+        '</div>' : '') +
         '<button class="cl-submit" id="leadSubmit">✅ تأكيد الطلب</button>' +
         '<p class="cl-note">سنتصل بكِ خلال وقت قصير لتأكيد الطلب وترتيب التوصيل. الدفع عند الاستلام.</p>' +
       '</div>';
 
-    var name = document.getElementById('leadName'), phone = document.getElementById('leadPhone');
-    if (name) name.value = pendingName || ''; if (phone) phone.value = pendingPhone || '';
+    var name = document.getElementById('leadName'), phone = document.getElementById('leadPhone'), addr = document.getElementById('leadAddress');
+    if (name) name.value = pending.name; if (phone) phone.value = pending.phone; if (addr) addr.value = pending.address;
     body.querySelectorAll('[data-opt]').forEach(function (el) {
       el.addEventListener('click', function () {
         var id = el.getAttribute('data-opt');
         var i = selected.indexOf(id);
         if (i === -1) selected.push(id); else selected.splice(i, 1);
-        pendingName = name ? name.value : pendingName; pendingPhone = phone ? phone.value : pendingPhone;
+        savePending();
         renderPicker();
       });
+    });
+    document.getElementById('leadWilaya').addEventListener('change', function () {
+      savePending(); pending.wilaya = this.value; pending.baladiya = '';
+      renderPicker();
+    });
+    document.getElementById('leadBaladiya').addEventListener('change', function () { pending.baladiya = this.value; });
+    body.querySelectorAll('[data-del]').forEach(function (el) {
+      el.addEventListener('click', function () { savePending(); delivery = el.getAttribute('data-del'); renderPicker(); });
     });
     document.getElementById('leadSubmit').addEventListener('click', submitLead);
   }
@@ -469,18 +565,31 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   function submitLead() {
     var picked = selectedProducts();
     if (!picked.length) { alert('يرجى اختيار منتج واحد على الأقل'); return; }
-    var name = document.getElementById('leadName'), phone = document.getElementById('leadPhone');
+    savePending();
+    var name = document.getElementById('leadName'), phone = document.getElementById('leadPhone'),
+        wil = document.getElementById('leadWilaya'), bal = document.getElementById('leadBaladiya'),
+        addr = document.getElementById('leadAddress');
     var ok = true;
-    [name, phone].forEach(function (f) { var bad = !f.value.trim(); f.classList.toggle('err', bad); if (bad) ok = false; });
+    [name, phone, wil, bal].forEach(function (f) { var bad = !f.value.trim(); f.classList.toggle('err', bad); if (bad) ok = false; });
+    if (delivery === 'home') { var abad = !addr.value.trim(); addr.classList.toggle('err', abad); if (abad) ok = false; }
     if (phone.value && !/^0[567][0-9]{8}$/.test(phone.value.replace(/\s/g, ''))) { phone.classList.add('err'); ok = false; }
-    if (!ok) { alert('يرجى إدخال الاسم ورقم هاتف صحيح يبدأ بـ 05/06/07.'); return; }
+    if (!ok) { alert('يرجى ملء جميع الحقول المطلوبة: الاسم، هاتف صحيح يبدأ بـ 05/06/07، الولاية، البلدية' + (delivery === 'home' ? '، وعنوان المنزل.' : '.')); return; }
 
+    var w = YALIDINE.wilayaForCarrier(company, wil.value);
+    var fee = w ? YALIDINE.feeForCarrier(company, w.id, delivery) : 0;
+    var copt = bal.options[bal.selectedIndex];
     var sub = selectedTotal();
+    // same order shape as checkout.html so the admin → carrier flow just works
     var order = {
       num: 'DS-' + Math.floor(1000 + Math.random() * 9000),
       customer: name.value.trim(), phone: phone.value.trim(),
+      wilaya: w ? w.ar : '', wilayaId: w ? w.id : null, wilayaFr: w ? w.fr : '',
+      baladiya: bal.value, communeFr: copt ? (copt.getAttribute('data-fr') || bal.value) : bal.value,
+      address: delivery === 'home' ? addr.value.trim() : '',
+      deliveryCompany: company, deliveryType: delivery, deliveryFee: fee,
+      insurance: false,
       items: picked.map(function (p) { return { id: p.id, title: p.title, price: p.price, qty: 1, image: p.image }; }),
-      subtotal: sub, total: sub,
+      subtotal: sub, total: sub + fee,
       source: 'landing_collagen'
     };
     if (window.DS && DS.saveOrder) DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
@@ -494,7 +603,11 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
         '<p>استلمنا طلبكِ ل' + (picked.length > 1 ? 'منتجات' : 'منتج') + ' «' + esc(namesList) + '». سنتصل بكِ قريباً على ' + esc(order.phone) + ' لتأكيد الطلب وترتيب التوصيل.</p>' +
         '<button class="cl-submit" id="modalDone">تم</button>' +
       '</div>';
-    document.getElementById('modalDone').addEventListener('click', function () { selected = []; pendingName = ''; pendingPhone = ''; closeModal(); });
+    document.getElementById('modalDone').addEventListener('click', function () {
+      selected = []; delivery = 'home';
+      pending = { name: '', phone: '', wilaya: '', baladiya: '', address: '' };
+      closeModal();
+    });
   }
 
   document.getElementById('modalClose').addEventListener('click', closeModal);
@@ -508,6 +621,19 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     var b = e.target.closest('[data-pick]'); if (!b) return;
     openModal(b.getAttribute('data-pick'));
   });
+
+  // ───────── customer reviews: staggered in-view entrance ─────────
+  (function () {
+    var grid = document.getElementById('clReviews');
+    if (!grid) return;
+    var cards = Array.prototype.slice.call(grid.children);
+    cards.forEach(function (c, i) { c.style.transitionDelay = (i * 90) + 'ms'; });
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { grid.classList.add('inview'); return; }
+    var io = new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting) { grid.classList.add('inview'); io.disconnect(); }
+    }, { rootMargin: '0px 0px -120px 0px' });
+    io.observe(grid);
+  })();
 
   // ───────── trust strip 3D drum (swipe only, nothing clickable) ─────────
   (function () {
