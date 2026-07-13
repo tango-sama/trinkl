@@ -59,6 +59,34 @@ body{background:#F5FAF9}
 @media(max-width:980px){.cl-hero-inner{grid-template-columns:1fr}.cl-hero-visual{max-width:460px;margin:0 auto}}
 @media(max-width:640px){.cl-hero{padding:7rem 1.2rem 3.5rem}.cl-hero-ctas{justify-content:center}.cl-hero p.lead{margin-inline:auto}.cl-trust{justify-content:center}}
 
+/* ───────── 3D story stack (after hero) ───────── */
+.cl-story{position:relative;overflow:hidden;text-align:center;padding:4.5rem 1.2rem 4rem;
+  background:linear-gradient(180deg,#0A2A2E 0%,#0E3A40 100%)}
+.cl-story .cl-label{color:#BFEDE8;background:rgba(255,255,255,.07);border-color:rgba(191,237,232,.35)}
+.cl-story .cl-title{color:#fff}
+.cl-story-stage{position:relative;margin:2.6rem auto 0;perspective:1200px;touch-action:pan-y;cursor:grab;
+  width:min(430px,84vw);height:calc(min(430px,84vw)*.62)}
+.cl-story-stage:active{cursor:grabbing}
+.cl-scard{position:absolute;inset:0;border-radius:20px;overflow:hidden;background:#12444B;
+  box-shadow:0 22px 50px rgba(0,0,0,.5);opacity:0;transform:translate3d(260px,10px,-90px) rotateY(-45deg);transform-origin:center;
+  transition:transform .45s cubic-bezier(.22,1,.36,1),opacity .35s ease,filter .35s ease;will-change:transform;backface-visibility:hidden}
+.cl-scard img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-drag:none}
+.cl-story-caption{max-width:520px;margin:2.4rem auto 0;min-height:110px;opacity:0;transform:translateY(20px);
+  transition:opacity .4s ease,transform .4s ease}
+.cl-story-caption.show{opacity:1;transform:translateY(0)}
+.cl-story-caption h3{color:#fff;font-size:1.3rem;font-weight:900;margin-bottom:.55rem}
+.cl-story-caption h3 em{font-style:normal;background:linear-gradient(135deg,#E8C79A,#D9A86C);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cl-story-caption p{color:#BFEDE8;font-size:.92rem;line-height:1.9}
+.cl-story-dots{display:flex;justify-content:center;gap:.45rem;margin-top:1.4rem;opacity:0;transition:opacity .4s ease}
+.cl-story-dots.show{opacity:1}
+.cl-story-dots span{width:8px;height:8px;border-radius:100px;background:rgba(255,255,255,.25);transition:all .35s var(--ease)}
+.cl-story-dots span.on{background:#E8C79A;width:24px}
+.cl-story-hint{margin-top:1rem;font-size:.76rem;font-weight:700;color:rgba(191,237,232,.75);opacity:0;transition:opacity .4s ease;animation:clHint 1.8s ease-in-out infinite}
+.cl-story-hint.show{opacity:1}
+.cl-story-hint.gone{opacity:0!important;animation:none}
+@keyframes clHint{0%,100%{transform:translateX(0)}50%{transform:translateX(-8px)}}
+@media(max-width:640px){.cl-story{padding:3.5rem 1.2rem 3rem}.cl-story-caption{min-height:120px}}
+
 /* ───────── section shell (teal variant) ───────── */
 .cl-sec{max-width:1280px;margin:0 auto;padding:5rem 3rem}
 .cl-sec-head{text-align:center;margin-bottom:3rem}
@@ -67,6 +95,8 @@ body{background:#F5FAF9}
 .cl-title{font-size:clamp(1.6rem,3.6vw,2.35rem);font-weight:900;color:var(--col-deep);line-height:1.2}
 .cl-underline{width:70px;height:3px;margin:.8rem auto 0;border-radius:100px;background:linear-gradient(90deg,var(--col-teal),var(--gold))}
 .cl-sub{color:var(--ink-2);max-width:560px;margin:.9rem auto 0;font-size:.95rem}
+.cl-sec-grey{max-width:none;background:#ECEFF0}
+.cl-sec-grey>*{max-width:1184px;margin-inline:auto}
 @media(max-width:640px){.cl-sec{padding:3.5rem 1.2rem}}
 
 /* ───────── benefits ───────── */
@@ -80,15 +110,15 @@ body{background:#F5FAF9}
 .cl-benefit p{font-size:.8rem;color:var(--ink-3);line-height:1.6}
 @media(max-width:900px){.cl-benefits{grid-template-columns:repeat(2,1fr)}}
 
-/* ───────── trust strip ───────── */
-.cl-strip{display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border:1px solid rgba(47,143,157,.16);
-  border-radius:22px;box-shadow:0 8px 26px rgba(14,58,64,.06);overflow:hidden}
-.cl-strip .si{padding:1.6rem 1rem;text-align:center;border-inline-start:1px solid rgba(47,143,157,.14)}
-.cl-strip .si:first-child{border-inline-start:none}
+/* ───────── trust strip (3D swipe drum) ───────── */
+.cl-strip{position:relative;height:200px;max-width:520px;margin:0 auto;perspective:1000px;touch-action:pan-y;cursor:grab}
+.cl-strip:active{cursor:grabbing}
+.cl-strip .drum{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
+.cl-strip .si{position:absolute;top:50%;left:50%;width:min(230px,64vw);pointer-events:none;backface-visibility:hidden;
+  padding:1.6rem 1rem;text-align:center;background:#fff;border:1px solid rgba(47,143,157,.16);border-radius:20px;
+  box-shadow:0 8px 26px rgba(14,58,64,.08)}
 .cl-strip .si .ic{font-size:1.5rem;margin-bottom:.55rem}
 .cl-strip .si span{display:block;font-size:.78rem;font-weight:800;color:var(--col-deep);line-height:1.5}
-@media(max-width:900px){.cl-strip{grid-template-columns:repeat(3,1fr)}.cl-strip .si:nth-child(3n+1){border-inline-start:none}}
-@media(max-width:560px){.cl-strip{grid-template-columns:repeat(2,1fr)}.cl-strip .si:nth-child(odd){border-inline-start:none}.cl-strip .si:nth-child(even){border-inline-start:1px solid rgba(47,143,157,.14)}}
 
 /* ───────── products (numbered rows) ───────── */
 .cl-products{display:flex;flex-direction:column;gap:1.6rem}
@@ -229,7 +259,21 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   </div>
 </section>
 
-<section class="cl-sec reveal">
+<section class="cl-story" id="clStory">
+  <span class="cl-label">قصة جمالكِ</span>
+  <h2 class="cl-title">شاهدي ما يفعله الكولاجين</h2>
+  <div class="cl-story-stage" id="storyStage">
+    <figure class="cl-scard"><img src="assets/collagen/story-skin.webp" alt="بشرة نضرة ومشرقة" draggable="false"></figure>
+    <figure class="cl-scard"><img src="assets/collagen/story-hair.jpg" alt="شعر قوي وكثيف" draggable="false"></figure>
+    <figure class="cl-scard"><img src="assets/collagen/story-nails.jpg" alt="أظافر صحية وقوية" draggable="false"></figure>
+    <figure class="cl-scard"><img src="assets/collagen/story-joints.jpg" alt="مفاصل مرنة بلا آلام" draggable="false"></figure>
+  </div>
+  <div class="cl-story-caption" id="storyCaption"><h3></h3><p></p></div>
+  <div class="cl-story-dots" id="storyDots"><span></span><span></span><span></span><span></span></div>
+  <div class="cl-story-hint" id="storyHint">← اسحبي يساراً لاكتشاف باقي الفوائد</div>
+</section>
+
+<section class="cl-sec cl-sec-grey reveal">
   <div class="cl-sec-head">
     <span class="cl-label">فوائد الكولاجين</span>
     <h2 class="cl-title">تركيبة واحدة، جمال شامل</h2>
@@ -245,12 +289,14 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
 </section>
 
 <section class="cl-sec reveal" style="padding-top:0">
-  <div class="cl-strip">
-    <div class="si"><div class="ic">🧪</div><span>تركيبة نقية<br>وفعّالة</span></div>
-    <div class="si"><div class="ic">🌿</div><span>خالٍ من الجلوتين<br>والمواد الحافظة</span></div>
-    <div class="si"><div class="ic">💧</div><span>سريع الامتصاص<br>لنتائج أفضل</span></div>
-    <div class="si"><div class="ic">✅</div><span>مناسب للرجال<br>والنساء</span></div>
-    <div class="si"><div class="ic">🚚</div><span>توصيل سريع<br>لكل الولايات</span></div>
+  <div class="cl-strip" id="stripSpin">
+    <div class="drum" id="stripCyl">
+      <div class="si"><div class="ic">🧪</div><span>تركيبة نقية<br>وفعّالة</span></div>
+      <div class="si"><div class="ic">🌿</div><span>خالٍ من الجلوتين<br>والمواد الحافظة</span></div>
+      <div class="si"><div class="ic">💧</div><span>سريع الامتصاص<br>لنتائج أفضل</span></div>
+      <div class="si"><div class="ic">✅</div><span>مناسب للرجال<br>والنساء</span></div>
+      <div class="si"><div class="ic">🚚</div><span>توصيل سريع<br>لكل الولايات</span></div>
+    </div>
   </div>
 </section>
 
@@ -459,6 +505,203 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     var b = e.target.closest('[data-pick]'); if (!b) return;
     openModal(b.getAttribute('data-pick'));
   });
+
+  // ───────── trust strip 3D drum (swipe only, nothing clickable) ─────────
+  (function () {
+    var wrap = document.getElementById('stripSpin');
+    if (!wrap) return;
+    var cyl = document.getElementById('stripCyl');
+    var faces = Array.prototype.slice.call(cyl.children);
+    var N = faces.length, step = 360 / N;
+
+    function layoutFaces() {
+      var w = Math.min(230, window.innerWidth * 0.64);
+      var r = Math.round((w / 2) / Math.tan(Math.PI / N)) + 24;          // cylinder radius + breathing room
+      faces.forEach(function (f, i) {
+        f.style.transform = 'translate(-50%,-50%) rotateY(' + (i * step) + 'deg) translateZ(' + r + 'px)';
+      });
+    }
+    layoutFaces();
+    window.addEventListener('resize', layoutFaces);
+
+    var rot = 0, dragging = false, startX = 0, startRot = 0, lastX = 0, lastT = 0, vel = 0;
+    function render() { cyl.style.transform = 'rotateY(' + rot + 'deg)'; }
+    render();
+
+    wrap.addEventListener('pointerdown', function (e) {
+      dragging = true; startX = e.clientX; startRot = rot;
+      lastX = e.clientX; lastT = performance.now(); vel = 0;
+      cyl.style.transition = 'none';
+      if (wrap.setPointerCapture) wrap.setPointerCapture(e.pointerId);
+    });
+    wrap.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var now = performance.now();
+      vel = (e.clientX - lastX) / Math.max(1, now - lastT);
+      lastX = e.clientX; lastT = now;
+      rot = startRot + (e.clientX - startX) * 0.3;                       // finger drives the drum directly
+      render();
+    });
+    function releaseDrum() {
+      if (!dragging) return;
+      dragging = false;
+      var target = Math.round((rot + vel * 80) / step) * step;           // momentum, then snap fast
+      cyl.style.transition = 'transform .3s cubic-bezier(.22,1,.36,1)';
+      rot = target; render();
+    }
+    wrap.addEventListener('pointerup', releaseDrum);
+    wrap.addEventListener('pointercancel', releaseDrum);
+  })();
+
+  // ───────── 3D story stack ─────────
+  (function () {
+    var stage = document.getElementById('storyStage');
+    if (!stage) return;
+    var cards = Array.prototype.slice.call(stage.querySelectorAll('.cl-scard'));
+    var caption = document.getElementById('storyCaption');
+    var dots = Array.prototype.slice.call(document.getElementById('storyDots').children);
+    var hint = document.getElementById('storyHint');
+
+    var SLIDES = [
+      { t: 'بشرة <em>مشرقة ونضرة</em>', p: 'الكولاجين يعيد لبشرتكِ مرونتها وإشراقتها الطبيعية، ويقلل من ظهور التجاعيد والخطوط الدقيقة يوماً بعد يوم.' },
+      { t: 'شعر <em>أقوى وأكثر كثافة</em>', p: 'يغذّي بصيلات الشعر من الجذور، يقلل التساقط ويمنح شعركِ لمعاناً وحيوية تدوم.' },
+      { t: 'أظافر <em>صحية لا تتكسر</em>', p: 'يعزز نمو أظافركِ ويجعلها أقوى وأقل عرضة للتقصف والتكسر.' },
+      { t: 'مفاصل <em>مرنة بلا تعب</em>', p: 'يدعم صحة الغضاريف ويمنحكِ حرية الحركة والمرونة في نشاطكِ اليومي.' }
+    ];
+
+    var order = [0, 1, 2, 3];       // order[0] = card currently in front
+    var phase = 'scrub';            // scrub (scroll-driven) → ready (settled) → anim (swiping)
+    var timers = [];
+    var dotsBox = document.getElementById('storyDots');
+    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+    function isMob() { return window.innerWidth <= 768; }
+
+    // front card faces the screen; the rest wait tilted on the right, queued to slide left
+    function pose(d) {
+      if (d === 0) return { x: 0, y: 0, z: 30, ry: 0, o: 1 };
+      return { x: d * (isMob() ? 30 : 64), y: -d * 6, z: -d * 70, ry: -38, o: 1 - d * 0.08 };
+    }
+    var IN = { x: 260, y: 10, z: -90, ry: -45, o: 0 };                   // offstage right (entering)
+    var OUT = { x: -260, y: 10, z: -90, ry: 30, o: 0 };                  // offstage left (leaving past)
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function apply(el, from, to, t) {
+      el.style.transform = 'translate3d(' + lerp(from.x, to.x, t) + 'px,' + lerp(from.y, to.y, t) + 'px,' + lerp(from.z, to.z, t) + 'px) rotateY(' + lerp(from.ry, to.ry, t) + 'deg)';
+      el.style.opacity = String(lerp(from.o, to.o, t));
+    }
+    function setDepth(el, d) {
+      apply(el, pose(d), pose(d), 1);
+      el.style.filter = (d > 0 && !isMob()) ? 'blur(1.5px)' : 'none';
+      el.style.zIndex = String(30 - d);
+    }
+    function layout() { order.forEach(function (ci, d) { setDepth(cards[ci], d); }); }
+    function setCaption(ci) {
+      caption.querySelector('h3').innerHTML = SLIDES[ci].t;
+      caption.querySelector('p').textContent = SLIDES[ci].p;
+    }
+    function updateDots() { dots.forEach(function (dot, i) { dot.classList.toggle('on', i === order[0]); }); }
+
+    function showFront() {
+      setCaption(order[0]);
+      updateDots();
+      caption.classList.add('show');
+      dotsBox.classList.add('show');
+      phase = 'ready';
+      requestAnimationFrame(scrub);                                      // re-sync if the user scrolled mid-swipe
+    }
+
+    // scroll-linked 3D: progress follows the section's position in the viewport
+    function progress() {
+      var r = stage.getBoundingClientRect(), vh = window.innerHeight;
+      var c = r.top + r.height / 2;
+      var pIn = (vh - c) / (vh * 0.45);                                  // entering from below
+      var pOut = c / (vh * 0.45);                                        // leaving through the top
+      return Math.max(0, Math.min(1, Math.min(pIn, pOut)));
+    }
+    var settled = false;
+    function scrub() {
+      if (phase === 'anim') return;                                      // let a swipe finish first
+      var p = progress();
+      if (p >= 1) { if (!settled) settle(); return; }
+      settled = false; phase = 'scrub';
+      caption.classList.remove('show'); dotsBox.classList.remove('show'); hint.classList.remove('show');
+      var exiting = (stage.getBoundingClientRect().top + stage.offsetHeight / 2) < window.innerHeight * 0.5;
+      order.forEach(function (ci, d) {
+        var el = cards[ci];
+        el.style.transition = 'none';
+        el.style.filter = 'none';
+        el.style.zIndex = String(30 - d);
+        var t = Math.max(0, Math.min(1, p * 1.45 - d * 0.15));           // front card leads the sweep
+        apply(el, exiting ? OUT : IN, pose(d), t);
+      });
+    }
+    function settle() {
+      settled = true;
+      order.forEach(function (ci, d) {
+        var el = cards[ci];
+        el.style.transition = 'none';
+        setDepth(el, d);
+        void el.offsetHeight;
+        el.style.transition = '';                                        // transitions back on for swipes
+      });
+      showFront(); hint.classList.add('show');
+    }
+
+    function swap(dir) {
+      if (phase !== 'ready') return;
+      phase = 'anim';
+      caption.classList.remove('show');
+      hint.classList.add('gone');
+      var exitT = 'translate3d(-240px,8px,30px) rotateY(28deg)';         // exits leftward, continuing the flow
+      if (dir > 0) {
+        var front = cards[order[0]];
+        front.style.transform = exitT;                                   // front card fades out downward
+        front.style.opacity = '0';
+        later(function () {
+          order.push(order.shift());                                     // …and re-enters at the back (infinite loop)
+          front.style.transition = 'none';
+          setDepth(front, order.length - 1);
+          void front.offsetHeight;
+          front.style.transition = '';
+          layout();
+          later(showFront, 260);
+        }, 300);
+      } else {
+        var back = cards[order[order.length - 1]];
+        back.style.transition = 'none';
+        back.style.transform = exitT;                                    // back card slides in from below
+        back.style.opacity = '0';
+        back.style.zIndex = '31';
+        void back.offsetHeight;
+        back.style.transition = '';
+        order.unshift(order.pop());
+        layout();
+        later(showFront, 380);
+      }
+    }
+
+    // swipe / drag — RTL: swipe left = next
+    var startX = null, startY = null;
+    stage.addEventListener('pointerdown', function (e) { startX = e.clientX; startY = e.clientY; });
+    stage.addEventListener('pointerup', function (e) {
+      if (startX === null) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY; startX = null;
+      if (Math.abs(dy) > Math.abs(dx)) return;                           // vertical gesture = page scroll, ignore
+      if (dx < -35) swap(1);
+      else if (dx > 35) swap(-1);
+    });
+    stage.addEventListener('pointercancel', function () { startX = null; });
+
+    // drive the 3D sweep from scroll position (in and out, both directions)
+    var ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { ticking = false; scrub(); });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    scrub();
+  })();
 
   // ───────── top bar + sticky bar scroll state ─────────
   var topBar = document.getElementById('clTop'), sticky = document.getElementById('clSticky'), hero = document.querySelector('.cl-hero');
