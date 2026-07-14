@@ -138,6 +138,19 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .order-dots{display:flex;justify-content:center;gap:6px;margin:.45rem 0 .5rem}
 .order-dots i{width:8px;height:8px;border-radius:50%;background:#22C55E;display:block}
 .order-meta{display:flex;gap:1.25rem;flex-wrap:wrap;font-size:.82rem;color:var(--ink-2)}
+.ptrack{background:var(--card-2);border-radius:11px;padding:.9rem 1rem;margin-top:.6rem}
+.ptrack-empty{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;font-size:.82rem;color:var(--ink-3)}
+.ptrack-alert{display:flex;align-items:center;gap:.5rem;background:rgba(229,72,77,.14);color:#F2A1A4;font-weight:800;font-size:.85rem;padding:.6rem .8rem;border-radius:9px}
+.pstep{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.pstep-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:74px}
+.pstep-dot{width:32px;height:32px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--ink-3);flex-shrink:0}
+.pstep-node.done .pstep-dot{background:var(--green);border-color:var(--green);color:#fff}
+.pstep-node.on .pstep-dot{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 0 4px rgba(91,141,239,.22)}
+.pstep-lab{font-size:.66rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:.4rem;line-height:1.4}
+.pstep-node.on .pstep-lab,.pstep-node.done .pstep-lab{color:var(--ink-2)}
+.pstep-line{flex:1;height:2px;background:var(--border);margin:15px 2px 0;min-width:16px}
+.pstep-line.done{background:var(--green)}
+.ptrack-meta{font-size:.72rem;color:var(--ink-3);margin-top:.7rem}
 .toast{position:fixed;bottom:1.5rem;left:1.5rem;z-index:200;background:#13201A;color:#7CE5A0;border:1px solid #1f5137;padding:.8rem 1.3rem;border-radius:12px;font-weight:700;transform:translateY(120%);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
 .hidden{display:none!important}
@@ -577,6 +590,59 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 1;
     return 0;
   }
+  var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
+  function renderTrackStepper(o) {
+    var hasParcel = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking);
+    if (!hasParcel) return '';
+    var carrier = (o.noest && o.noest.tracking) ? 'noest' : 'yalidine';
+    var color = carrier === 'noest' ? '#1E73E8' : '#E11900';
+    var refreshBtn = '<button class="btn btn-sm ptrack-refresh" data-track="' + esc(o.id) + '" style="background:' + color + ';color:#fff;margin-right:auto">🔄 تحديث</button>';
+    var ts = o.trackingStatus;
+
+    if (!ts || ts.carrier !== carrier || ts.tracking !== (o[carrier] && o[carrier].tracking)) {
+      return '<div class="ptrack"><div class="ptrack-empty">لم يتم التحقق من حالة الطرد بعد.' + refreshBtn + '</div></div>';
+    }
+
+    var labels = ts.stageLabels || [];
+    var body;
+    if (ts.alert || ts.stage == null) {
+      body = '<div class="ptrack-alert">⚠️ ' + esc(ts.lastLabel || ts.alert || 'حالة غير معروفة') + '</div>';
+    } else {
+      body = '<div class="pstep">' + labels.map(function (lab, i) {
+        var state = i < ts.stage ? 'done' : (i === ts.stage ? 'on' : '');
+        var node = '<div class="pstep-node ' + state + '"><div class="pstep-dot">' + (state === 'done' ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
+        var line = i < labels.length - 1 ? '<div class="pstep-line' + (i < ts.stage ? ' done' : '') + '"></div>' : '';
+        return node + line;
+      }).join('') + '</div>';
+    }
+
+    var lastDate = ts.lastDate ? new Date(ts.lastDate).toLocaleString('ar-DZ') : null;
+    var updated = ts.updatedAt ? new Date(ts.updatedAt).toLocaleString('ar-DZ') : null;
+    var meta = '<div class="ptrack-meta">' +
+      (lastDate ? 'آخر حدث: ' + lastDate : '') + (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
+      (updated ? (lastDate ? ' — ' : '') + 'تحديث يدوي: ' + updated : '') +
+      '</div>';
+
+    return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
+  }
+
+  function refreshTracking(orderId, btn) {
+    if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
+    var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري التحقق...'; }
+    firebase.functions().httpsCallable('getParcelStatus')({ orderId: orderId })
+      .then(function (res) {
+        var o = state.orders.find(function (x) { return String(x.id) === String(orderId); });
+        if (o) o.trackingStatus = res.data;
+        views.orders();
+      })
+      .catch(function (err) {
+        console.error('getParcelStatus', err);
+        toast('تعذّر جلب حالة الطرد: ' + (err && err.message ? err.message : 'خطأ'));
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+      });
+  }
+
   views.orders = function () {
     var list = state.orders.slice().sort(function (a, b) {
       var ca = confirmStamp(a), cb = confirmStamp(b);
@@ -610,6 +676,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><input type="checkbox" class="noest-sel" data-tracking="' + esc(o.noest.tracking) + '" title="تحديد للطباعة" style="width:17px;height:17px;accent-color:#1E73E8;cursor:pointer;flex-shrink:0"><span>🔵 طرد Noest:</span> <a href="#" class="num" data-nlabel="' + esc(o.noest.tracking) + '" title="فتح وصل التوصيل PDF" style="color:#9DBBF5;font-weight:800;text-decoration:underline">' + esc(o.noest.tracking) + '</a> <span>· ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</span></div>' : '') +
+        renderTrackStepper(o) +
         (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking))
           ? (o.deliveryLabel ? '<div style="margin-top:.7rem;font-size:.8rem;color:var(--ink-2)">📝 اسم المنتج على الوصل: <b style="color:var(--ink)">' + esc(o.deliveryLabel) + '</b>' + (o.parcelPrice != null ? ' · 💰 سعر الطرد: <b style="color:var(--ink)" class="num">' + esc(DS.priceFmt(o.parcelPrice)) + '</b>' : '') + '</div>' : '')
           : '<div style="margin-top:.8rem"><label style="display:block;font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.35rem">📝 اسم المنتج على وصل التوصيل <span style="color:var(--danger)">*</span></label>' +
@@ -630,6 +697,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
     document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createParcel('createYalidineParcel', 'yalidine', b.dataset.oyal, b, 'Yalidine'); }; });
     document.querySelectorAll('[data-onoest]').forEach(function (b) { b.onclick = function () { createParcel('createNoestParcel', 'noest', b.dataset.onoest, b, 'Noest'); }; });
+    document.querySelectorAll('.ptrack-refresh').forEach(function (b) { b.onclick = function () { refreshTracking(b.dataset.track, b); }; });
     document.querySelectorAll('.note-inp').forEach(function (i) {
       i.onchange = function () {
         var o = state.orders.find(function (x) { return String(x.id) === String(i.dataset.notefor); });

@@ -258,6 +258,182 @@ exports.createNoestParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   getParcelStatus: called from the admin panel's "🔄 تحديث" button on
+   a confirmed order. Fetches the LIVE status from whichever carrier
+   shipped the order (o.noest.tracking or o.yalidine.tracking),
+   normalizes the raw carrier status into a small 5-stage pipeline
+   (or an "alert" state for failed/suspended/returned parcels), caches
+   the result on the order (trackingStatus) so the admin panel can
+   render it without hitting the carrier API on every page load, and
+   returns it. Refreshing is manual (button click) to respect each
+   carrier's rate limits — status is not polled automatically.
+   ─────────────────────────────────────────────────────────────── */
+const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم التسليم'];
+
+// Noest's status keys are a small fixed set, so an exact-match table is safe.
+const NOEST_STAGE = {
+  upload: 0, customer_validation: 0,
+  validation_collect_colis: 1, validation_reception_admin: 1, validation_reception: 1,
+  sent_to_redispatch: 2, fdr_activated: 3,
+  livre: 4, livred: 4,
+};
+const NOEST_ALERT = {
+  colis_suspendu: 'معلّق ⚠️',
+  nouvel_tentative_asked_by_customer: 'بانتظار محاولة توصيل جديدة',
+  return_asked_by_customer: 'مرتجع (بطلب من الزبون)',
+  return_asked_by_hub: 'مرتجع (بطلب من المركز)',
+  retour_dispatched_to_partenaires: 'قيد الإرجاع',
+  return_dispatched_to_partenaire: 'قيد الإرجاع',
+  colis_retour_transmit_to_partner: 'قيد الإرجاع',
+  livraison_echoue_recu: 'فشل التسليم',
+  return_validated_by_partener: 'تم تأكيد الإرجاع',
+  return_redispatched_to_livraison: 'إعادة محاولة التوصيل',
+  return_dispatched_to_warehouse: 'أُعيد إلى المخزن',
+  pickedup: 'استُلم (إرجاع)',
+  valid_return_pickup: 'تم تأكيد استلام الإرجاع',
+  pickup_picked_recu: 'تم استلام الإرجاع',
+};
+
+// Yalidine's status is free-text French, so match by keyword instead of an exact table.
+function yalidineNormalize(raw) {
+  const s = String(raw || '');
+  if (/^Livr[ée]/i.test(s)) return { stage: 4, alert: null };
+  if (/retour/i.test(s)) return { stage: null, alert: 'مرتجع / قيد الإرجاع' };
+  if (/(tentative|alerte|ch[ée]c)/i.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
+  if (/(sorti|attente du client|pr[êe]t pour livreur)/i.test(s)) return { stage: 3, alert: null };
+  if (/(centre|wilaya|localisation)/i.test(s)) return { stage: 2, alert: null };
+  if (/(ramass|bloqu|d[ée]bloqu|transfert|exp[ée]di)/i.test(s)) return { stage: 1, alert: null };
+  return { stage: 0, alert: null };
+}
+
+async function fetchNoestStatus(db, o) {
+  const credSnap = await db.collection('private').doc('noest').get();
+  const token = String((credSnap.exists ? credSnap.data() : {}).apiToken || '').trim();
+  if (!token) throw new HttpsError('failed-precondition', 'أدخلي بيانات Noest أولاً.');
+  const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
+
+  let res, body;
+  try {
+    res = await fetch(NOEST_BASE + '/api/public/get/trackings/info', {
+      method: 'POST', headers, body: JSON.stringify({ trackings: [o.noest.tracking] }),
+    });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+  }
+  // Noest returns this (not an HTTP error) for parcels still sitting unvalidated
+  // in "prêt à expédier" — very common right after creation, not a real failure.
+  if (body && body.message === 'Trackings non trouvés') {
+    return {
+      carrier: 'noest', tracking: o.noest.tracking,
+      stage: 0, alert: null, stageLabels: STAGE_LABELS,
+      lastLabel: 'بانتظار تأكيد الطلب في Noest', lastLocation: null, lastDate: null,
+      events: [], updatedAt: Date.now(),
+    };
+  }
+  if (!res.ok) throw new HttpsError('internal', 'Noest tracking error: ' + JSON.stringify(body));
+
+  const entry = (body && typeof body === 'object')
+    ? (body[o.noest.tracking] || body[Object.keys(body)[0]]) : null;
+  const rawEvents = (entry && (entry.activity || entry.events)) || [];
+  const events = rawEvents.map((e) => ({
+    key: e.event_key || e.key || e.status || '',
+    label: e.event || e.event_key || e.key || e.status || '',
+    date: e.date || e.created_at || e.updated_at || null,
+    location: e.location || e.by || e.commune || null,
+  })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const last = events[events.length - 1] || null;
+  const alert = last ? (NOEST_ALERT[last.key] || null) : null;
+  const stage = last && !alert ? (NOEST_STAGE[last.key] != null ? NOEST_STAGE[last.key] : 0) : (last ? null : 0);
+
+  return {
+    carrier: 'noest', tracking: o.noest.tracking,
+    stage, alert, stageLabels: STAGE_LABELS,
+    lastLabel: last ? (alert || STAGE_LABELS[stage] || last.label) : 'بانتظار المعالجة',
+    lastLocation: last ? last.location : null,
+    lastDate: last ? last.date : null,
+    events, updatedAt: Date.now(),
+  };
+}
+
+async function fetchYalidineStatus(db, o) {
+  const credSnap = await db.collection('private').doc('yalidine').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const apiId = String(cred.apiId || '').trim(), apiToken = String(cred.apiToken || '').trim();
+  if (!apiId || !apiToken) throw new HttpsError('failed-precondition', 'أدخلي بيانات Yalidine أولاً.');
+  const headers = { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken };
+
+  let res, body;
+  try {
+    res = await fetch(`${API_BASE}/parcels/?tracking=${encodeURIComponent(o.yalidine.tracking)}`, { headers });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
+  }
+  if (!res.ok) throw new HttpsError('internal', 'Yalidine tracking error: ' + JSON.stringify(body));
+  const parcel = (body && Array.isArray(body.data) && body.data[0]) || (body && !body.data && body.tracking ? body : null);
+  // No parcel record yet (just created, not picked up by Yalidine's system) — same
+  // "still pending" case as Noest's unvalidated parcels, not a real failure.
+  if (!parcel) {
+    return {
+      carrier: 'yalidine', tracking: o.yalidine.tracking,
+      stage: 0, alert: null, stageLabels: STAGE_LABELS,
+      lastLabel: 'بانتظار معالجة الطلب لدى Yalidine', lastLocation: null, lastDate: null,
+      events: [], updatedAt: Date.now(),
+    };
+  }
+
+  const rawStatus = parcel.last_status || '';
+  const { stage, alert } = yalidineNormalize(rawStatus);
+  const location = [parcel.current_commune_name, parcel.current_wilaya_name].filter(Boolean).join(' - ');
+
+  let events = [];
+  try {
+    const hRes = await fetch(`${API_BASE}/histories/${encodeURIComponent(o.yalidine.tracking)}`, { headers });
+    if (hRes.ok) {
+      const hBody = await hRes.json();
+      const list = Array.isArray(hBody) ? hBody : (hBody && hBody.data) || [];
+      events = list.map((h) => ({
+        key: h.status, label: h.status, date: h.date_status,
+        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - '),
+      })).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+  } catch (e) { /* history is best-effort; the parcel's own last_status already covers the stepper */ }
+
+  return {
+    carrier: 'yalidine', tracking: o.yalidine.tracking,
+    stage, alert, stageLabels: STAGE_LABELS,
+    lastLabel: alert || rawStatus || 'بانتظار المعالجة',
+    lastLocation: location || null,
+    lastDate: parcel.date_last_status || null,
+    events, updatedAt: Date.now(),
+  };
+}
+
+exports.getParcelStatus = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    let status;
+    if (o.noest && o.noest.tracking) status = await fetchNoestStatus(db, o);
+    else if (o.yalidine && o.yalidine.tracking) status = await fetchYalidineStatus(db, o);
+    else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
+
+    await ref.update({ trackingStatus: status });
+    return status;
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    getNoestLabels: fetches the shipping-label PDF for one or more
    Noest trackings (the label endpoint needs the API token, so the
    admin panel can't link to it directly). Multiple labels are merged
