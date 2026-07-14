@@ -38,6 +38,7 @@
 .co-opt.on{border-color:var(--rose);background:var(--rose-tint)}
 .co-opt[data-co="yalidine"].on{border-color:#E11900;background:rgba(225,25,0,.07)}
 .co-opt[data-co="noest"].on{border-color:#1E73E8;background:rgba(30,115,232,.07)}
+.co-opt[data-co="zr"].on{border-color:#E8A413;background:rgba(232,164,19,.08)}
 .co-opt .co-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
 .ins-row{display:none;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.85rem;border:1.5px solid var(--line);border-radius:14px;padding:.8rem 1rem;cursor:pointer;font-weight:800;font-size:.85rem;color:var(--ink);transition:all .2s;user-select:none}
 .ins-row.show{display:flex}
@@ -123,6 +124,7 @@
             <div class="company-opts" id="companyOpts">
               <div class="co-opt on" data-co="noest"><span class="co-dot" style="background:#1E73E8"></span> Noest — نوست</div>
               <div class="co-opt" data-co="yalidine"><span class="co-dot" style="background:#E11900"></span> Yalidine — ياليدين</div>
+              <div class="co-opt" data-co="zr"><span class="co-dot" style="background:#E8A413"></span> ZR Express — زد آر</div>
             </div>
             <div class="ins-row" id="insRow"><span>🛡️ التأمين على الطرد (Assurance)</span><span class="sw"></span></div>
           </div>
@@ -191,15 +193,18 @@
   // Load each carrier's own wilaya/commune/fee lists; refresh when ready.
   DS.getDeliveryData('yalidine').then(function (d) { if (d) { YALIDINE.setCarrierData('yalidine', d); refreshLists(); } });
   DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); refreshLists(); } });
+  DS.getDeliveryData('zr').then(function (d) { if (d) { YALIDINE.setCarrierData('zr', d); refreshLists(); } });
 
   function applyCarriers(s) {
-    var customerEnabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
-    if (!customerEnabled.yalidine && !customerEnabled.noest) { customerEnabled.yalidine = true; customerEnabled.noest = true; }
+    // ZR is opt-in (zrEnabled must be set to true in the admin settings);
+    // the other two stay visible unless explicitly hidden.
+    var customerEnabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false, zr: s.zrEnabled === true };
+    if (!customerEnabled.yalidine && !customerEnabled.noest && !customerEnabled.zr) { customerEnabled.yalidine = true; customerEnabled.noest = true; }
     // Only seller mode gets a carrier choice: the admin sees every carrier and
     // picks which one ships the order. Customers never see the picker — their
     // order uses the default (first customer-enabled) carrier.
     var seller = isSeller();
-    var enabled = seller ? { yalidine: true, noest: true } : customerEnabled;
+    var enabled = seller ? { yalidine: true, noest: true, zr: true } : customerEnabled;
     var wrap = document.getElementById('companyOpts');
     if (!wrap) return;
     var opts = wrap.querySelectorAll('.co-opt');
@@ -332,7 +337,7 @@
       '🔖 رقم الطلب: ' + o.num + '\n👤 الاسم: ' + o.customer + '\n📱 الهاتف: ' + o.phone +
       '\n📍 العنوان: ' + o.wilaya + ' - ' + o.baladiya +
       (o.address ? '\n🏠 عنوان المنزل: ' + o.address : '') +
-      '\n🏷️ شركة التوصيل: ' + (o.deliveryCompany === 'noest' ? 'Noest' : 'Yalidine') +
+      '\n🏷️ شركة التوصيل: ' + ({ noest: 'Noest', yalidine: 'Yalidine', zr: 'ZR Express' }[o.deliveryCompany] || o.deliveryCompany) +
       (o.deliveryCompany === 'yalidine' ? '\n🛡️ التأمين: ' + (o.insurance ? 'مفعّل' : 'غير مفعّل') : '') +
       '\n📦 نوع التوصيل: ' + (o.deliveryType === 'home' ? 'للمنزل (à domicile)' : 'للمكتب (Stop Desk)') +
       '\n---------------------------\nيرجى تأكيد الطلب.';
