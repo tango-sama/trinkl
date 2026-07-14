@@ -139,18 +139,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .order-dots i{width:8px;height:8px;border-radius:50%;background:#22C55E;display:block}
 .order-meta{display:flex;gap:1.25rem;flex-wrap:wrap;font-size:.82rem;color:var(--ink-2)}
 .ptrack{background:var(--card-2);border-radius:11px;padding:.9rem 1rem;margin-top:.6rem}
-.ptrack-empty{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;font-size:.82rem;color:var(--ink-3)}
-.ptrack-alert{display:flex;align-items:center;gap:.5rem;background:rgba(229,72,77,.14);color:#F2A1A4;font-weight:800;font-size:.85rem;padding:.6rem .8rem;border-radius:9px}
-.pstep{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
-.pstep-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:74px}
-.pstep-dot{width:32px;height:32px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--ink-3);flex-shrink:0}
-.pstep-node.done .pstep-dot{background:var(--green);border-color:var(--green);color:#fff}
-.pstep-node.on .pstep-dot{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 0 4px rgba(91,141,239,.22)}
-.pstep-lab{font-size:.66rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:.4rem;line-height:1.4}
-.pstep-node.on .pstep-lab,.pstep-node.done .pstep-lab{color:var(--ink-2)}
-.pstep-line{flex:1;height:2px;background:var(--border);margin:15px 2px 0;min-width:16px}
-.pstep-line.done{background:var(--green)}
-.ptrack-meta{font-size:.72rem;color:var(--ink-3);margin-top:.7rem}
+.ptrack-status{margin-top:.6rem;font-size:.84rem;color:var(--ink-2);line-height:1.6}
+.ptrack-status.alert{color:#F2A1A4;font-weight:800}
 .toast{position:fixed;bottom:1.5rem;left:1.5rem;z-index:200;background:#13201A;color:#7CE5A0;border:1px solid #1f5137;padding:.8rem 1.3rem;border-radius:12px;font-weight:700;transform:translateY(120%);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
 .hidden{display:none!important}
@@ -590,40 +580,27 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 1;
     return 0;
   }
-  var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
   function renderTrackStepper(o) {
     var hasParcel = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking);
     if (!hasParcel) return '';
     var carrier = (o.noest && o.noest.tracking) ? 'noest' : 'yalidine';
     var color = carrier === 'noest' ? '#1E73E8' : '#E11900';
-    var refreshBtn = '<button class="btn btn-sm ptrack-refresh" data-track="' + esc(o.id) + '" style="background:' + color + ';color:#fff;margin-right:auto">🔄 تحديث</button>';
+    var refreshBtn = '<button class="btn btn-sm ptrack-refresh" data-track="' + esc(o.id) + '" style="background:' + color + ';color:#fff">🔄 تحديث</button>';
     var ts = o.trackingStatus;
 
     if (!ts || ts.carrier !== carrier || ts.tracking !== (o[carrier] && o[carrier].tracking)) {
-      return '<div class="ptrack"><div class="ptrack-empty">لم يتم التحقق من حالة الطرد بعد.' + refreshBtn + '</div></div>';
+      return '<div class="ptrack">' + refreshBtn + '<div class="ptrack-status">لم يتم التحقق من حالة الطرد بعد.</div></div>';
     }
 
-    var labels = ts.stageLabels || [];
-    var body;
-    if (ts.alert || ts.stage == null) {
-      body = '<div class="ptrack-alert">⚠️ ' + esc(ts.lastLabel || ts.alert || 'حالة غير معروفة') + '</div>';
-    } else {
-      body = '<div class="pstep">' + labels.map(function (lab, i) {
-        var state = i < ts.stage ? 'done' : (i === ts.stage ? 'on' : '');
-        var node = '<div class="pstep-node ' + state + '"><div class="pstep-dot">' + (state === 'done' ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
-        var line = i < labels.length - 1 ? '<div class="pstep-line' + (i < ts.stage ? ' done' : '') + '"></div>' : '';
-        return node + line;
-      }).join('') + '</div>';
-    }
-
+    var label = ts.alert || (ts.stage != null && ts.stageLabels ? ts.stageLabels[ts.stage] : null) || ts.lastLabel || 'حالة غير معروفة';
     var lastDate = ts.lastDate ? new Date(ts.lastDate).toLocaleString('ar-DZ') : null;
     var updated = ts.updatedAt ? new Date(ts.updatedAt).toLocaleString('ar-DZ') : null;
-    var meta = '<div class="ptrack-meta">' +
-      (lastDate ? 'آخر حدث: ' + lastDate : '') + (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
-      (updated ? (lastDate ? ' — ' : '') + 'تحديث يدوي: ' + updated : '') +
-      '</div>';
+    var statusLine = (ts.alert ? '⚠️ ' : '') + esc(label) +
+      (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
+      (lastDate ? ' · آخر حدث: ' + lastDate : '') +
+      (updated ? ' · تحديث يدوي: ' + updated : '');
 
-    return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
+    return '<div class="ptrack">' + refreshBtn + '<div class="ptrack-status' + (ts.alert ? ' alert' : '') + '">' + statusLine + '</div></div>';
   }
 
   function refreshTracking(orderId, btn) {
