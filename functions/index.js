@@ -356,13 +356,20 @@ async function fetchNoestStatus(db, o) {
   let stage = 0;
   events.forEach((e) => { if (e.key in NOEST_STAGE) stage = Math.max(stage, NOEST_STAGE[e.key]); });
   const anyRecognized = events.some((e) => e.key in NOEST_STAGE);
+  // Our stage table only covers the event_keys we've seen so far. Log every key
+  // we don't recognize (not just when none match) so gaps in the table — which
+  // is why some orders show a stuck/blank tracker while others progress fine —
+  // are visible in the Cloud Functions logs.
+  events.forEach((e) => {
+    if (!(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT)) {
+      console.log('[getParcelStatus] unrecognized Noest event_key', e.key, e.label, 'tracking:', o.noest.tracking);
+    }
+  });
+  // Any real activity at all means Noest has started processing this parcel,
+  // even if the exact event_key isn't one we've mapped yet — so it's at least
+  // past "just created", not stuck showing stage 0 forever.
+  if (!alert && events.length && stage === 0) stage = 1;
   if (alert) stage = null;
-  if (last && !anyRecognized && !alert) {
-    // Nothing in the history matched our stage table — log the raw key so an
-    // unmapped Noest event can be added later, and surface Noest's own label
-    // instead of silently claiming "just created".
-    console.log('[getParcelStatus] unrecognized Noest event_key', last.key, last.label, 'tracking:', o.noest.tracking);
-  }
 
   return {
     carrier: 'noest', tracking: o.noest.tracking,

@@ -618,9 +618,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
     var lastDate = ts.lastDate ? new Date(ts.lastDate).toLocaleString('ar-DZ') : null;
     var updated = ts.updatedAt ? new Date(ts.updatedAt).toLocaleString('ar-DZ') : null;
+    // Always show the carrier's own status text (not just during an alert) so an
+    // imperfect stage-icon guess doesn't hide what Noest/Yalidine actually said.
+    var rawLabel = (!ts.alert && ts.lastLabel) ? ts.lastLabel : null;
     var meta = '<div class="ptrack-meta">' +
-      (lastDate ? 'آخر حدث: ' + lastDate : '') + (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
-      (updated ? (lastDate ? ' — ' : '') + 'تحديث يدوي: ' + updated : '') +
+      (rawLabel ? 'آخر حالة: ' + esc(rawLabel) : '') +
+      (lastDate ? (rawLabel ? ' · ' : '') + 'آخر حدث: ' + lastDate : '') + (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
+      (updated ? (lastDate || rawLabel ? ' — ' : '') + 'تحديث يدوي: ' + updated : '') +
       '</div>';
 
     return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
@@ -643,6 +647,32 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       });
   }
 
+  // Refreshes every order that has a parcel, one at a time (not in parallel) so
+  // we don't burst past Noest/Yalidine's rate limits when there are many orders.
+  function refreshAllTracking(btn) {
+    if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
+    var targets = state.orders.filter(function (o) { return (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking); });
+    if (!targets.length) { toast('لا توجد طلبات بها طرود لتحديثها'); return; }
+    var orig = btn ? btn.innerHTML : '';
+    if (btn) btn.disabled = true;
+    var i = 0, ok = 0, fail = 0;
+    function next() {
+      if (i >= targets.length) {
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        views.orders();
+        toast('تم تحديث ' + ok + ' طرد' + (fail ? ' — تعذّر تحديث ' + fail : ''));
+        return;
+      }
+      var o = targets[i++];
+      if (btn) btn.textContent = '⏳ جاري التحديث... (' + i + '/' + targets.length + ')';
+      firebase.functions().httpsCallable('getParcelStatus')({ orderId: o.id })
+        .then(function (res) { o.trackingStatus = res.data; ok++; })
+        .catch(function (err) { console.error('getParcelStatus', o.id, err); fail++; })
+        .then(function () { setTimeout(next, 350); });
+    }
+    next();
+  }
+
   views.orders = function () {
     var list = state.orders.slice().sort(function (a, b) {
       var ca = confirmStamp(a), cb = confirmStamp(b);
@@ -650,9 +680,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       if (ca && cb) return cb - ca;
       return 0;
     });
+    var trackedCount = list.filter(function (o) { return (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking); }).length;
+    var refreshAllBar = trackedCount ? '<div class="toolbar"><div class="row-actions">' +
+      '<button class="btn btn-blue btn-sm" id="refreshAllTrack">🔄 تحديث حالة كل الطرود (' + trackedCount + ')</button>' +
+      '</div></div>' : '';
     var printBar = '<div id="noestBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:300;background:#1E73E8;border-radius:100px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:.35rem .5rem">' +
       '<button class="btn btn-sm" id="printNoest" style="background:transparent;color:#fff;font-weight:800;border:none">🖨️ طباعة الوصول المحددة (<span id="noestCount">0</span>)</button></div>';
-    $('#view').innerHTML = printBar + (list.length ? list.map(function (o) {
+    $('#view').innerHTML = refreshAllBar + printBar + (list.length ? list.map(function (o) {
       var phone = String(o.phone || '').replace(/\s/g, '');
       var intl = phone.replace(/^0/, '213');
       var items = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1); }).join('<br>');
@@ -701,6 +735,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createParcel('createYalidineParcel', 'yalidine', b.dataset.oyal, b, 'Yalidine'); }; });
     document.querySelectorAll('[data-onoest]').forEach(function (b) { b.onclick = function () { createParcel('createNoestParcel', 'noest', b.dataset.onoest, b, 'Noest'); }; });
     document.querySelectorAll('.ptrack-refresh').forEach(function (b) { b.onclick = function () { refreshTracking(b.dataset.track, b); }; });
+    var refreshAllBtn = document.getElementById('refreshAllTrack');
+    if (refreshAllBtn) refreshAllBtn.onclick = function () { refreshAllTracking(refreshAllBtn); };
     document.querySelectorAll('.note-inp').forEach(function (i) {
       i.onchange = function () {
         var o = state.orders.find(function (x) { return String(x.id) === String(i.dataset.notefor); });
