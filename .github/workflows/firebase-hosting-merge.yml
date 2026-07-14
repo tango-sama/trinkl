@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting on merge
+name: Deploy to Firebase on merge
 on:
   push:
     branches:
@@ -14,3 +14,13 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DESERT_SHOP_24AF9 }}'
           channelId: live
           projectId: desert-shop-24af9
+      # action-hosting-deploy only publishes static Hosting files — Cloud
+      # Functions (functions/index.js) need their own deploy step, otherwise
+      # new/changed functions never reach the live project.
+      - name: Deploy Cloud Functions
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/gcp-key.json"
+          npx firebase-tools@latest deploy --only functions --project desert-shop-24af9 --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DESERT_SHOP_24AF9 }}
