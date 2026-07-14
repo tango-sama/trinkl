@@ -335,12 +335,15 @@ async function fetchNoestStatus(db, o) {
 
   const entry = (body && typeof body === 'object')
     ? (body[o.noest.tracking] || body[Object.keys(body)[0]]) : null;
+  // Noest's activity events carry no geographic location field — "by" is the
+  // partner/shop name (e.g. the account owner), not a place, so it must not
+  // be used as one.
   const rawEvents = (entry && (entry.activity || entry.events)) || [];
   const events = rawEvents.map((e) => ({
     key: e.event_key || e.key || e.status || '',
     label: e.event || e.event_key || e.key || e.status || '',
     date: e.date || e.created_at || e.updated_at || null,
-    location: e.location || e.by || e.commune || null,
+    location: e.location || null,
   })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const last = events[events.length - 1] || null;
