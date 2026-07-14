@@ -17,6 +17,12 @@ jobs:
       # action-hosting-deploy only publishes static Hosting files — Cloud
       # Functions (functions/index.js) need their own deploy step, otherwise
       # new/changed functions never reach the live project.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
       - name: Deploy Cloud Functions
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/gcp-key.json"
