@@ -272,7 +272,7 @@ const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد وال�
 
 // Noest's status keys are a small fixed set, so an exact-match table is safe.
 const NOEST_STAGE = {
-  upload: 0, customer_validation: 0,
+  upload: 0, edited_informations: 0, customer_validation: 0,
   validation_collect_colis: 1, validation_reception_admin: 1, validation_reception: 1,
   sent_to_redispatch: 2, fdr_activated: 3, mise_a_jour: 3,
   livre: 4, livred: 4,
@@ -308,14 +308,20 @@ function yalidineNormalize(raw) {
 
 async function fetchNoestStatus(db, o) {
   const credSnap = await db.collection('private').doc('noest').get();
-  const token = String((credSnap.exists ? credSnap.data() : {}).apiToken || '').trim();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const token = String(cred.apiToken || '').trim();
+  const guid = String(cred.userGuid || '').trim();
   if (!token) throw new HttpsError('failed-precondition', 'أدخلي بيانات Noest أولاً.');
   const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
 
   let res, body;
   try {
+    // Noest's API doc marks api_token AND user_guid as required body fields for
+    // get/trackings/info. Without user_guid the lookup isn't scoped to the
+    // account and Noest answers "Trackings non trouvés" for parcels that exist.
     res = await fetch(NOEST_BASE + '/api/public/get/trackings/info', {
-      method: 'POST', headers, body: JSON.stringify({ trackings: [o.noest.tracking] }),
+      method: 'POST', headers,
+      body: JSON.stringify({ api_token: token, user_guid: guid, trackings: [o.noest.tracking] }),
     });
     body = await res.json();
   } catch (e) {
@@ -355,7 +361,11 @@ async function fetchNoestStatus(db, o) {
   // the tracker back to "just created" even after real progress happened.
   let stage = 0;
   events.forEach((e) => { if (e.key in NOEST_STAGE) stage = Math.max(stage, NOEST_STAGE[e.key]); });
-  const anyRecognized = events.some((e) => e.key in NOEST_STAGE);
+  // Validated in Noest = any activity beyond the initial upload/edit. Used to
+  // sync o.noest.validated so the panel stops asking to confirm a parcel the
+  // seller already confirmed in the Noest dashboard.
+  const noestValidated = events.some((e) =>
+    e.key === 'customer_validation' || (NOEST_STAGE[e.key] || 0) >= 1 || (e.key in NOEST_ALERT));
   // Our stage table only covers the event_keys we've seen so far. Log every key
   // we don't recognize (not just when none match) so gaps in the table — which
   // is why some orders show a stuck/blank tracker while others progress fine —
@@ -365,18 +375,24 @@ async function fetchNoestStatus(db, o) {
       console.log('[getParcelStatus] unrecognized Noest event_key', e.key, e.label, 'tracking:', o.noest.tracking);
     }
   });
-  // Any real activity at all means Noest has started processing this parcel,
-  // even if the exact event_key isn't one we've mapped yet — so it's at least
-  // past "just created", not stuck showing stage 0 forever.
-  if (!alert && events.length && stage === 0) stage = 1;
+  // An event_key we've never mapped means Noest did something beyond the
+  // known pre-shipping steps — show at least stage 1 instead of sticking at
+  // "just created". Only unmapped keys count: upload/edit/validation events
+  // are mapped to 0 on purpose and must NOT bump a fresh parcel to "shipped".
+  const hasUnmapped = events.some((e) => !(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT));
+  if (!alert && hasUnmapped && stage === 0) stage = 1;
   if (alert) stage = null;
 
   return {
     carrier: 'noest', tracking: o.noest.tracking,
     stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: last ? (alert || (anyRecognized ? STAGE_LABELS[stage] : last.label)) : 'بانتظار المعالجة',
+    // Show Noest's OWN status text (e.g. "Validé", "Tentative de livraison"),
+    // never our stage guess — the stage table is incomplete and replacing the
+    // real label with STAGE_LABELS[stage] hid what Noest actually said.
+    lastLabel: last ? (alert || last.label || STAGE_LABELS[stage]) : 'بانتظار المعالجة',
     lastLocation: last ? last.location : null,
     lastDate: last ? last.date : null,
+    noestValidated,
     events, updatedAt: Date.now(),
   };
 }
@@ -452,7 +468,13 @@ exports.getParcelStatus = onCall(
     else if (o.yalidine && o.yalidine.tracking) status = await fetchYalidineStatus(db, o);
     else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
 
-    await ref.update({ trackingStatus: status });
+    const update = { trackingStatus: status };
+    // Noest activity proves the parcel was validated — sync the flag so the
+    // panel stops showing «أكّديه في Noest للشحن» on already-confirmed parcels.
+    if (status.carrier === 'noest' && status.noestValidated && !(o.noest && o.noest.validated)) {
+      update['noest.validated'] = true;
+    }
+    await ref.update(update);
     return status;
   }
 );

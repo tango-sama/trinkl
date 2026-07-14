@@ -630,6 +630,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
   }
 
+  // Store the fresh status on the order; the function also syncs
+  // noest.validated server-side when Noest's activity proves validation.
+  function applyTrackingResult(o, status) {
+    o.trackingStatus = status;
+    if (status && status.carrier === 'noest' && status.noestValidated && o.noest) o.noest.validated = true;
+  }
+
   function refreshTracking(orderId, btn) {
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
     var orig = btn ? btn.textContent : '';
@@ -637,7 +644,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     firebase.functions().httpsCallable('getParcelStatus')({ orderId: orderId })
       .then(function (res) {
         var o = state.orders.find(function (x) { return String(x.id) === String(orderId); });
-        if (o) o.trackingStatus = res.data;
+        if (o) applyTrackingResult(o, res.data);
         views.orders();
       })
       .catch(function (err) {
@@ -666,7 +673,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       var o = targets[i++];
       if (btn) btn.textContent = '⏳ جاري التحديث... (' + i + '/' + targets.length + ')';
       firebase.functions().httpsCallable('getParcelStatus')({ orderId: o.id })
-        .then(function (res) { o.trackingStatus = res.data; ok++; })
+        .then(function (res) { applyTrackingResult(o, res.data); ok++; })
         .catch(function (err) { console.error('getParcelStatus', o.id, err); fail++; })
         .then(function () { setTimeout(next, 350); });
     }
