@@ -340,12 +340,20 @@ async function fetchNoestStatus(db, o) {
     key: e.event_key || e.key || e.status || '',
     label: e.event || e.event_key || e.key || e.status || '',
     date: e.date || e.created_at || e.updated_at || null,
-    location: e.location || e.by || e.commune || null,
+    location: e.location || e.commune || null,
   })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const last = events[events.length - 1] || null;
   const alert = last ? (NOEST_ALERT[last.key] || null) : null;
-  const stage = last && !alert ? (NOEST_STAGE[last.key] != null ? NOEST_STAGE[last.key] : 0) : (last ? null : 0);
+  // Noest's activity log includes non-milestone events (payment settlement, info
+  // edits, price changes, etc.) that aren't in NOEST_STAGE. Using only the last
+  // event's stage would make an already-shipped parcel regress to "just created"
+  // whenever one of those happens to be the most recent entry, so take the
+  // highest milestone reached across the whole history instead.
+  const stage = alert ? null : events.reduce((max, e) => {
+    const s = NOEST_STAGE[e.key];
+    return s != null && s > max ? s : max;
+  }, 0);
 
   return {
     carrier: 'noest', tracking: o.noest.tracking,
