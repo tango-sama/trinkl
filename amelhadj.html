@@ -588,14 +588,27 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   function confirmStamp(o) {
     if (o.noest && o.noest.tracking) return Number(o.noest.createdAt) || 1;
     if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 1;
+    if (o.zr && o.zr.tracking) return Number(o.zr.createdAt) || 1;
     return 0;
+  }
+  // Carrier display metadata (name/color/icon), keyed by the order fields
+  // (o.noest / o.yalidine / o.zr) and by o.deliveryCompany.
+  var CO = {
+    yalidine: { name: 'Yalidine', color: '#E11900', icon: '🔴', bg: 'rgba(225,25,0,.18)', ink: '#FF9A8C' },
+    noest: { name: 'Noest', color: '#1E73E8', icon: '🔵', bg: 'rgba(30,115,232,.18)', ink: '#9DBBF5' },
+    zr: { name: 'ZR Express', color: '#E8A413', icon: '🟡', bg: 'rgba(232,164,19,.18)', ink: '#F5CE7A' }
+  };
+  function orderCarrier(o) {
+    if (o.noest && o.noest.tracking) return 'noest';
+    if (o.yalidine && o.yalidine.tracking) return 'yalidine';
+    if (o.zr && o.zr.tracking) return 'zr';
+    return null;
   }
   var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
   function renderTrackStepper(o) {
-    var hasParcel = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking);
-    if (!hasParcel) return '';
-    var carrier = (o.noest && o.noest.tracking) ? 'noest' : 'yalidine';
-    var color = carrier === 'noest' ? '#1E73E8' : '#E11900';
+    var carrier = orderCarrier(o);
+    if (!carrier) return '';
+    var color = CO[carrier].color;
     var refreshBtn = '<button class="btn btn-sm ptrack-refresh" data-track="' + esc(o.id) + '" style="background:' + color + ';color:#fff;margin-right:auto">🔄 تحديث</button>';
     var ts = o.trackingStatus;
 
@@ -658,7 +671,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   // we don't burst past Noest/Yalidine's rate limits when there are many orders.
   function refreshAllTracking(btn) {
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
-    var targets = state.orders.filter(function (o) { return (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking); });
+    var targets = state.orders.filter(function (o) { return !!orderCarrier(o); });
     if (!targets.length) { toast('لا توجد طلبات بها طرود لتحديثها'); return; }
     var orig = btn ? btn.innerHTML : '';
     if (btn) btn.disabled = true;
@@ -687,13 +700,14 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       if (ca && cb) return cb - ca;
       return 0;
     });
-    var trackedCount = list.filter(function (o) { return (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking); }).length;
+    var trackedCount = list.filter(function (o) { return !!orderCarrier(o); }).length;
     var refreshAllBar = trackedCount ? '<div class="toolbar"><div class="row-actions">' +
       '<button class="btn btn-blue btn-sm" id="refreshAllTrack">🔄 تحديث حالة كل الطرود (' + trackedCount + ')</button>' +
       '</div></div>' : '';
     var printBar = '<div id="noestBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:300;background:#1E73E8;border-radius:100px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:.35rem .5rem">' +
       '<button class="btn btn-sm" id="printNoest" style="background:transparent;color:#fff;font-weight:800;border:none">🖨️ طباعة الوصول المحددة (<span id="noestCount">0</span>)</button></div>';
     $('#view').innerHTML = refreshAllBar + printBar + (list.length ? list.map(function (o) {
+      var oco = CO[o.deliveryCompany] || CO.yalidine; // customer's chosen carrier (tag colors)
       var phone = String(o.phone || '').replace(/\s/g, '');
       var intl = phone.replace(/^0/, '213');
       var items = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1); }).join('<br>');
@@ -709,7 +723,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
       return '<div class="order-card' + (o.source === 'admin_phone' ? ' byadmin' : '') + (o.fulfilled ? ' confirmed' : '') + '">' +
         '<div class="odim">' +
-        '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + (o.deliveryCompany === 'noest' ? 'rgba(30,115,232,.18)' : 'rgba(225,25,0,.18)') + ';color:' + (o.deliveryCompany === 'noest' ? '#9DBBF5' : '#FF9A8C') + ';border-color:transparent;font-weight:800">' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
+        '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + oco.bg + ';color:' + oco.ink + ';border-color:transparent;font-weight:800">' + oco.icon + ' ' + oco.name + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +
@@ -718,10 +732,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><input type="checkbox" class="noest-sel" data-tracking="' + esc(o.noest.tracking) + '" title="تحديد للطباعة" style="width:17px;height:17px;accent-color:#1E73E8;cursor:pointer;flex-shrink:0"><span>🔵 طرد Noest:</span> <a href="#" class="num" data-nlabel="' + esc(o.noest.tracking) + '" title="فتح وصل التوصيل PDF" style="color:#9DBBF5;font-weight:800;text-decoration:underline">' + esc(o.noest.tracking) + '</a> <span>· ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</span></div>' : '') +
+        (o.zr && o.zr.tracking ? '<div class="order-items" style="background:rgba(232,164,19,.12);color:#F5CE7A;margin-top:.6rem">🟡 طرد ZR Express: <b class="num">' + esc(o.zr.tracking) + '</b> · <span style="font-size:.78rem">الوصل يُطبع من لوحة ZR</span></div>' : '') +
         '</div>' +
         renderTrackStepper(o) +
         '<div class="odim">' +
-        (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking))
+        (orderCarrier(o)
           ? (o.deliveryLabel ? '<div style="margin-top:.7rem;font-size:.8rem;color:var(--ink-2)">📝 اسم المنتج على الوصل: <b style="color:var(--ink)">' + esc(o.deliveryLabel) + '</b>' + (o.parcelPrice != null ? ' · 💰 سعر الطرد: <b style="color:var(--ink)" class="num">' + esc(DS.priceFmt(o.parcelPrice)) + '</b>' : '') + '</div>' : '')
           : '<div style="margin-top:.8rem"><label style="display:block;font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.35rem">📝 اسم المنتج على وصل التوصيل <span style="color:var(--danger)">*</span></label>' +
             '<input class="inp note-inp" data-notefor="' + esc(o.id) + '" value="' + esc(o.deliveryLabel || '') + '" placeholder="مثال: منتج تجميل — لن يظهر الاسم الحقيقي" style="padding:.55rem .85rem;font-size:.85rem"></div>' +
@@ -729,9 +744,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
             '<input class="inp price-inp" data-pricefor="' + esc(o.id) + '" type="number" min="0" inputmode="numeric" value="' + (o.parcelPrice != null ? esc(String(o.parcelPrice)) : '') + '" placeholder="اتركيه فارغاً لإبقاء ' + esc(String(o.total != null ? o.total : o.subtotal)) + ' د.ج" style="padding:.55rem .85rem;font-size:.85rem"></div>') +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
-          (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking)) ? '' :
-            '<button class="btn btn-sm" title="' + (o.deliveryCompany === 'noest' ? 'الزبون اختار Noest' : 'اختيار الزبون') + '" style="background:#E11900;color:#fff;' + (o.deliveryCompany === 'noest' ? 'opacity:.38;filter:grayscale(.5)' : '') + '" data-oyal="' + esc(o.id) + '">🔴 طرد Yalidine</button>' +
-            '<button class="btn btn-sm" title="' + (o.deliveryCompany === 'noest' ? 'اختيار الزبون' : 'الزبون اختار Yalidine') + '" style="background:#1E73E8;color:#fff;' + (o.deliveryCompany === 'noest' ? '' : 'opacity:.38;filter:grayscale(.5)') + '" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
+          (orderCarrier(o) ? '' : ['yalidine', 'noest', 'zr'].map(function (co) {
+            var bright = !o.deliveryCompany || o.deliveryCompany === co; // dim the carriers the customer didn't pick
+            return '<button class="btn btn-sm" title="' + (o.deliveryCompany === co ? 'اختيار الزبون' : (o.deliveryCompany ? 'الزبون اختار ' + ((CO[o.deliveryCompany] || {}).name || o.deliveryCompany) : '')) + '" style="background:' + CO[co].color + ';color:#fff;' + (bright ? '' : 'opacity:.38;filter:grayscale(.5)') + '" data-oco="' + co + '" data-oid="' + esc(o.id) + '">' + CO[co].icon + ' طرد ' + CO[co].name + '</button>';
+          }).join('')) +
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div></div>';
@@ -739,8 +755,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
-    document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createParcel('createYalidineParcel', 'yalidine', b.dataset.oyal, b, 'Yalidine'); }; });
-    document.querySelectorAll('[data-onoest]').forEach(function (b) { b.onclick = function () { createParcel('createNoestParcel', 'noest', b.dataset.onoest, b, 'Noest'); }; });
+    document.querySelectorAll('[data-oco]').forEach(function (b) {
+      b.onclick = function () {
+        var co = b.dataset.oco;
+        var fn = { yalidine: 'createYalidineParcel', noest: 'createNoestParcel', zr: 'createZrParcel' }[co];
+        createParcel(fn, co, b.dataset.oid, b, CO[co].name);
+      };
+    });
     document.querySelectorAll('.ptrack-refresh').forEach(function (b) { b.onclick = function () { refreshTracking(b.dataset.track, b); }; });
     var refreshAllBtn = document.getElementById('refreshAllTrack');
     if (refreshAllBtn) refreshAllBtn.onclick = function () { refreshAllTracking(refreshAllBtn); };
@@ -892,12 +913,12 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
               if (r.order) {
                 var o = r.order;
                 var itemsHtml = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1) + ' — ' + esc(DS.priceFmt(it.price)); }).join('<br>') || '—';
-                var track = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking) || '';
+                var track = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking) || (o.zr && o.zr.tracking) || '';
                 html += '<tr class="det" data-det="' + esc(oid) + '" style="display:' + (openLedger[oid] ? 'table-row' : 'none') + '"><td colspan="4" style="background:rgba(127,127,127,.06);padding:1rem 1.3rem">' +
                   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;font-size:.83rem;line-height:1.9">' +
                     '<div><b>🛒 المنتجات</b><br>' + itemsHtml + '</div>' +
                     '<div><b>👤 الزبون</b><br>' + esc(o.customer || '—') + '<br><span class="num">📱 ' + esc(o.phone || '—') + '</span><br>📍 ' + esc(o.wilaya || '') + ' - ' + esc(o.baladiya || '') + (o.address ? '<br>🏠 ' + esc(o.address) : '') + '</div>' +
-                    '<div><b>🚚 التوصيل</b><br>' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (track ? '<br>رقم التتبع: <span class="num">' + esc(track) + '</span>' : '') + '</div>' +
+                    '<div><b>🚚 التوصيل</b><br>' + (function (c) { return c.icon + ' ' + c.name; })(CO[o.deliveryCompany] || CO.yalidine) + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (track ? '<br>رقم التتبع: <span class="num">' + esc(track) + '</span>' : '') + '</div>' +
                     '<div><b>💰 الحساب</b><br>سعر الطرد: <span class="num">' + Number(r.price).toLocaleString('en-US') + '</span> د.ج' + (o.parcelPrice != null ? ' <span style="color:var(--ink-3);font-size:.72rem">(سعر معدَّل)</span>' : '') + '<br>− التوصيل: <span class="num">' + Number(o.deliveryFee || 0).toLocaleString('en-US') + '</span> د.ج<br>= الدخل: <b class="num" style="color:#22c55e">' + Number(r.amount).toLocaleString('en-US') + '</b> د.ج</div>' +
                   '</div></td></tr>';
               }
@@ -944,6 +965,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var s = state.settings || {};
     var yalEnabled = s.yalidineEnabled !== false;
     var noEnabled = s.noestEnabled !== false;
+    var zrEnabled = s.zrEnabled === true; // ZR is opt-in for customers
+    function carriersOnCount() { return (yalEnabled ? 1 : 0) + (noEnabled ? 1 : 0) + (zrEnabled ? 1 : 0); }
     var liveHours = s.tiktokLiveHours || 2;
     var liveActive = !!s.tiktokLive && (Date.now() - (s.tiktokLiveAt || 0) < liveHours * 3600000);
     function toggleBtn(id, on) { return '<button class="btn btn-sm" style="background:' + (on ? 'var(--green)' : 'var(--card-2)') + ';color:' + (on ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="' + id + '">' + (on ? '👁️ ظاهرة للزبائن — إخفاء' : '🚫 مخفية عن الزبائن — إظهار') + '</button>'; }
@@ -1003,6 +1026,15 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
         '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 تحديث قوائم التوصيل (ولايات/بلديات/أسعار)</button>' + toggleBtn('sToggleNoest', noEnabled) + '</div>' +
+      '</div>' +
+      '<div class="card" style="max-width:680px;border-color:#E8A413"><h3 style="color:#F5CE7A">🟡 ربط ZR Express API</h3>' +
+        '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.zrReady ? 'background:rgba(232,164,19,.15);color:#F5CE7A">✓ مربوط بحساب ZR Express' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>Token</label><input class="inp" id="sZrToken" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrReady ? '•••••• (محفوظ)' : 'أدخلي Token') + '"></div>' +
+          '<div class="field"><label>Key</label><input class="inp" id="sZrKey" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrReady ? '•••••• (محفوظ)' : 'أدخلي Key') + '"></div>' +
+        '</div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على Token و Key من لوحة ZR Express (procolis). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة. بعد الحفظ اضغطي «تحديث قوائم التوصيل» أعلاه لجلب أسعار ZR الحقيقية لكل ولاية. وصولات ZR تُطبع من لوحة ZR نفسها.</div>' +
+        '<div class="row-actions"><button class="btn" style="background:#E8A413;color:#fff" id="sSaveZr">💾 حفظ ربط ZR Express</button>' + toggleBtn('sToggleZr', zrEnabled) + '</div>' +
       '</div>';
     $('#sTheme').onclick = function () {
       var light = document.documentElement.classList.toggle('light');
@@ -1087,13 +1119,32 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     };
     if ($('#sToggleYal')) $('#sToggleYal').onclick = function () {
       var willOn = !yalEnabled;
-      if (!willOn && !noEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      if (!willOn && carriersOnCount() <= 1) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
       persistSettings({ yalidineEnabled: willOn }, willOn ? 'Yalidine ظاهرة للزبائن ✓' : 'تم إخفاء Yalidine عن الزبائن', function () { views.settings(); });
     };
     if ($('#sToggleNoest')) $('#sToggleNoest').onclick = function () {
       var willOn = !noEnabled;
-      if (!willOn && !yalEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      if (!willOn && carriersOnCount() <= 1) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
       persistSettings({ noestEnabled: willOn }, willOn ? 'Noest ظاهرة للزبائن ✓' : 'تم إخفاء Noest عن الزبائن', function () { views.settings(); });
+    };
+    if ($('#sToggleZr')) $('#sToggleZr').onclick = function () {
+      var willOn = !zrEnabled;
+      if (willOn && !s.zrReady) { toast('احفظي Token و Key الخاصين بـ ZR أولاً'); return; }
+      if (!willOn && carriersOnCount() <= 1) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      persistSettings({ zrEnabled: willOn }, willOn ? 'ZR Express ظاهرة للزبائن ✓' : 'تم إخفاء ZR Express عن الزبائن', function () { views.settings(); });
+    };
+    if ($('#sSaveZr')) $('#sSaveZr').onclick = function () {
+      var token = $('#sZrToken') ? $('#sZrToken').value.trim() : '';
+      var key = $('#sZrKey') ? $('#sZrKey').value.trim() : '';
+      var hasCreds = !!(token && key);
+      var alreadyReady = !!state.settings.zrReady;
+      if ((token && !key) || (key && !token)) { toast('أدخلي Token و Key معاً'); return; }
+      if (!hasCreds && !alreadyReady) { toast('أدخلي Token و Key'); return; }
+      function finish() { persistSettings({ zrReady: hasCreds || alreadyReady }, 'تم حفظ ربط ZR Express ✓', function () { views.settings(); }); }
+      if (hasCreds) {
+        DS.setDoc('private', 'zrexpress', { token: token, key: key, updatedAt: Date.now() })
+          .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
+      } else { finish(); }
     };
     if ($('#sSaveYal')) $('#sSaveYal').onclick = function () {
       var origin = $('#sOrigin') ? $('#sOrigin').value : '';
@@ -1127,7 +1178,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
       var btn = this, orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ جاري التحديث... (قد يستغرق دقيقة)';
       firebase.functions().httpsCallable('syncCarriers')({})
-        .then(function (res) { var r = (res.data || {}).result || {}; btn.disabled = false; btn.textContent = orig; toast('تم التحديث ✓ — Yalidine ' + ((r.yalidine || {}).wilayas || 0) + ' ولاية، Noest ' + ((r.noest || {}).wilayas || 0) + ' ولاية'); })
+        .then(function (res) { var r = (res.data || {}).result || {}; btn.disabled = false; btn.textContent = orig; toast('تم التحديث ✓ — Yalidine ' + ((r.yalidine || {}).wilayas || 0) + ' ولاية، Noest ' + ((r.noest || {}).wilayas || 0) + ' ولاية، ZR ' + ((r.zr || {}).wilayas || 0) + ' ولاية'); })
         .catch(function (err) { console.error('syncCarriers', err); btn.disabled = false; btn.textContent = orig; alert('تعذّر التحديث:\n' + (err && err.message ? err.message : 'خطأ')); });
     };
   };

@@ -258,6 +258,102 @@ exports.createNoestParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   createZrParcel: same flow for ZR Express (procolis.com API).
+   Credentials live in private/zrexpress ({ token, key }), sent as the
+   `token` / `key` request headers. ZR lets the sender supply the parcel
+   tracking, so a deterministic one is derived from the order — a retried
+   call regenerates the same tracking and ZR answers "Double Tracking",
+   which is treated as already-created. Parcels are pushed confirmed
+   (Confrimee: 1) because the seller only creates a parcel after
+   confirming the order with the customer. Labels have no API endpoint —
+   they are printed from the ZR dashboard.
+   ─────────────────────────────────────────────────────────────── */
+const ZR_BASE = 'https://procolis.com/api_v1';
+
+async function zrHeaders(db) {
+  const snap = await db.collection('private').doc('zrexpress').get();
+  const cred = snap.exists ? snap.data() : {};
+  const token = String(cred.token || '').trim();
+  const key = String(cred.key || '').trim();
+  if (!token || !key) {
+    throw new HttpsError('failed-precondition', 'أدخلي Token و Key الخاصين بـ ZR Express في إعدادات لوحة التحكم أولاً.');
+  }
+  return { token, key, 'Content-Type': 'application/json', Accept: 'application/json' };
+}
+
+exports.createZrParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    if (o.zr && o.zr.tracking) {
+      return { alreadyCreated: true, tracking: o.zr.tracking };
+    }
+    if (!o.wilayaId) {
+      throw new HttpsError('failed-precondition', 'الطلب لا يحتوي على رقم ولاية صالح.');
+    }
+    const headers = await zrHeaders(db);
+
+    const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
+      ? String(o.deliveryLabel).trim().slice(0, 250)
+      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+    const montant = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
+    const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
+    // order num + tail of the Firestore id: unique per order, stable on retry.
+    const tracking = (String(o.num || 'DS').replace(/[^\w-]/g, '') + '-' +
+      String(orderId).replace(/[^\w]/g, '').slice(-6)).toUpperCase();
+
+    const payload = {
+      Tracking: tracking,
+      TypeLivraison: isStopdesk ? 1 : 0, // 0 domicile, 1 stopdesk
+      TypeColis: 0,                      // 1 = échange
+      Confrimee: 1,                      // (sic — ZR's own spelling) straight to expedition
+      Client: (String(o.customer || '').trim() || '—').slice(0, 255),
+      MobileA: String(o.phone || '').replace(/\s/g, ''),
+      MobileB: '',
+      Adresse: [String(o.address || '').trim(), `${o.baladiya || ''} - ${o.wilaya || ''}`.trim()].filter(Boolean).join(' - ').slice(0, 255) || String(o.wilaya || '—'),
+      IDWilaya: Number(o.wilayaId),
+      Commune: o.communeFr || o.baladiya || '',
+      Total: montant,
+      Note: '',
+      TProduit: productList,
+      id_Externe: String(o.num || ('DS-' + orderId)),
+      Source: 'Desert Shop',
+    };
+
+    let res, text;
+    try {
+      res = await fetch(ZR_BASE + '/add_colis', { method: 'POST', headers, body: JSON.stringify({ Colis: [payload] }) });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر الاتصال بـ ZR Express: ' + e.message);
+    }
+    let body; try { body = JSON.parse(text); } catch (e) { body = text; }
+    const entry = body && body.Colis && body.Colis[0];
+    const msg = entry ? String(entry.MessageRetour || '') : '';
+    const duplicate = /double/i.test(msg);
+    if (!res.ok || !entry || (!/good/i.test(msg) && !duplicate)) {
+      throw new HttpsError('internal', 'فشل إنشاء طرد ZR Express: ' + (msg || (typeof body === 'string' ? body : JSON.stringify(body))));
+    }
+
+    const finalTracking = entry.Tracking || tracking;
+    await ref.update({
+      zr: { tracking: finalTracking, stopdesk: isStopdesk, createdAt: Date.now() },
+      status: 'Confirmed',
+      fulfilled: true,
+    });
+    return { ok: true, tracking: finalTracking, alreadyCreated: duplicate || undefined };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    getParcelStatus: called from the admin panel's "🔄 تحديث" button on
    a confirmed order. Fetches the LIVE status from whichever carrier
    shipped the order (o.noest.tracking or o.yalidine.tracking),
@@ -460,6 +556,56 @@ async function fetchYalidineStatus(db, o) {
   };
 }
 
+// ZR Express's Situation is free-text French — keyword-normalize like
+// Yalidine, and always surface ZR's raw text as lastLabel.
+function zrNormalize(raw) {
+  const s = String(raw || '');
+  if (!s || /(pr[ée]paration|pas encore|pr[êe]t [àa] exp[ée]d)/i.test(s)) return { stage: 0, alert: null };
+  if (/^livr/i.test(s)) return { stage: 4, alert: null };
+  if (/annul/i.test(s)) return { stage: null, alert: 'ملغى' };
+  if (/retour/i.test(s)) return { stage: null, alert: 'مرتجع / قيد الإرجاع' };
+  if (/(tentative|[ée]chou|[ée]ch[eè]c|suspend|alerte|injoignable|report[ée]|pas de r[ée]ponse)/i.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
+  if (/(sortie|en livraison|attente)/i.test(s) || /^sd\b/i.test(s)) return { stage: 3, alert: null };
+  if (/(dispatch|navette|transit|vers|centre|hub|arriv)/i.test(s)) return { stage: 2, alert: null };
+  if (/(ramass|exp[ée]di|pr[êe]t pour)/i.test(s)) return { stage: 1, alert: null };
+  return { stage: 0, alert: null };
+}
+
+async function fetchZrStatus(db, o) {
+  const headers = await zrHeaders(db);
+  let res, body;
+  try {
+    res = await fetch(ZR_BASE + '/lire', {
+      method: 'POST', headers, body: JSON.stringify({ Colis: [{ Tracking: o.zr.tracking }] }),
+    });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ ZR Express: ' + e.message);
+  }
+  if (!res.ok) throw new HttpsError('internal', 'ZR tracking error: ' + JSON.stringify(body));
+  // ZR answers the JSON literal null (or no Colis entry) for unknown trackings.
+  const entry = body && body.Colis && body.Colis[0];
+  if (!entry) {
+    return {
+      carrier: 'zr', tracking: o.zr.tracking,
+      stage: 0, alert: null, stageLabels: STAGE_LABELS,
+      lastLabel: 'بانتظار معالجة الطرد لدى ZR Express', lastLocation: null, lastDate: null,
+      events: [], updatedAt: Date.now(),
+    };
+  }
+
+  const situation = String(entry.Situation || entry.situation || entry.Statut || entry.statut || '').trim();
+  const { stage, alert } = zrNormalize(situation);
+  return {
+    carrier: 'zr', tracking: o.zr.tracking,
+    stage, alert, stageLabels: STAGE_LABELS,
+    lastLabel: alert || situation || 'بانتظار المعالجة',
+    lastLocation: null,
+    lastDate: entry.DateH_Action || entry.Date_Modification || entry.DateModification || null,
+    events: [], updatedAt: Date.now(),
+  };
+}
+
 exports.getParcelStatus = onCall(
   { region: 'us-central1' },
   async (req) => {
@@ -475,6 +621,7 @@ exports.getParcelStatus = onCall(
     let status;
     if (o.noest && o.noest.tracking) status = await fetchNoestStatus(db, o);
     else if (o.yalidine && o.yalidine.tracking) status = await fetchYalidineStatus(db, o);
+    else if (o.zr && o.zr.tracking) status = await fetchZrStatus(db, o);
     else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
 
     const update = { trackingStatus: status };
@@ -642,6 +789,25 @@ exports.syncCarriers = onCall(
       const byW = {};
       cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
       out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, NOEST_FEES);
+    }
+
+    // ZR EXPRESS — /tarification returns each wilaya's real Domicile/Stopdesk
+    // prices. ZR has no communes endpoint, so communes stay empty here and the
+    // storefront falls back to its built-in commune list.
+    const zrSnap = await db.collection('private').doc('zrexpress').get();
+    const zr = zrSnap.exists ? zrSnap.data() : {};
+    if (zr.token && zr.key) {
+      const h = { token: String(zr.token), key: String(zr.key), 'Content-Type': 'application/json', Accept: 'application/json' };
+      const tRaw = await (await fetch(ZR_BASE + '/tarification', { method: 'POST', headers: h, body: '{}' })).json();
+      const tArr = Array.isArray(tRaw) ? tRaw : Object.values(tRaw || {});
+      const table = {};
+      tArr.forEach((d) => {
+        if (!d || d.IDWilaya == null) return;
+        const home = parseInt(d.Domicile != null ? d.Domicile : d.domicile, 10);
+        const desk = parseInt(d.Stopdesk != null ? d.Stopdesk : d.stopdesk, 10);
+        if (!isNaN(home)) table[String(d.IDWilaya)] = [home, isNaN(desk) ? home : desk];
+      });
+      out.zr = await writeCarrierData(db, 'zr', Object.keys(table), {}, table);
     }
     return { ok: true, result: out };
   }
