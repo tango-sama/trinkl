@@ -297,12 +297,17 @@ const NOEST_ALERT = {
 // Yalidine's status is free-text French, so match by keyword instead of an exact table.
 function yalidineNormalize(raw) {
   const s = String(raw || '');
+  // Pre-shipping states first — "Pas encore expédié" / "Prêt à expédier"
+  // contain "expédi" and "Pas encore ramassé" contains "ramass", so testing
+  // the shipped keywords first would wrongly show them as already shipped.
+  if (/(pas encore|pr[êe]t [àa] exp[ée]dier|en pr[ée]paration|v[ée]rifier)/i.test(s)) return { stage: 0, alert: null };
   if (/^Livr[ée]/i.test(s)) return { stage: 4, alert: null };
-  if (/retour/i.test(s)) return { stage: null, alert: 'مرتجع / قيد الإرجاع' };
-  if (/(tentative|alerte|ch[ée]c)/i.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
-  if (/(sorti|attente du client|pr[êe]t pour livreur)/i.test(s)) return { stage: 3, alert: null };
+  if (/(retour|[ée]change)/i.test(s)) return { stage: null, alert: 'مرتجع / قيد الإرجاع' };
+  // Failures: "Tentative échouée", "En alerte", "Echèc livraison" (è!), "échoué".
+  if (/(tentative|alerte|[ée]ch[eè]c|[ée]chou)/i.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
+  if (/(sorti|attente|pr[êe]t pour livreur)/i.test(s)) return { stage: 3, alert: null };
   if (/(centre|wilaya|localisation)/i.test(s)) return { stage: 2, alert: null };
-  if (/(ramass|bloqu|d[ée]bloqu|transfert|exp[ée]di)/i.test(s)) return { stage: 1, alert: null };
+  if (/(ramass|bloqu|transfert|exp[ée]di)/i.test(s)) return { stage: 1, alert: null };
   return { stage: 0, alert: null };
 }
 
@@ -412,7 +417,11 @@ async function fetchYalidineStatus(db, o) {
     throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
   }
   if (!res.ok) throw new HttpsError('internal', 'Yalidine tracking error: ' + JSON.stringify(body));
-  const parcel = (body && Array.isArray(body.data) && body.data[0]) || (body && !body.data && body.tracking ? body : null);
+  // Only accept the parcel whose tracking actually matches — if the filter
+  // were ever ignored, data[0] would be some other parcel's state.
+  const list = (body && Array.isArray(body.data)) ? body.data : [];
+  const parcel = list.find((p) => p && p.tracking === o.yalidine.tracking)
+    || (body && !body.data && body.tracking === o.yalidine.tracking ? body : null);
   // No parcel record yet (just created, not picked up by Yalidine's system) — same
   // "still pending" case as Noest's unvalidated parcels, not a real failure.
   if (!parcel) {
