@@ -585,17 +585,28 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   // ═══════════ ORDERS ═══════════
   // Pending orders first (newest placed on top), then confirmed orders with the
   // most recently confirmed parcel on top.
+  var CARRIER_META = {
+    noest: { name: 'Noest', emoji: '🔵', color: '#1E73E8', tag: 'rgba(30,115,232,.18)', tagText: '#9DBBF5', tint: 'rgba(91,141,239,.12)' },
+    yalidine: { name: 'Yalidine', emoji: '🔴', color: '#E11900', tag: 'rgba(225,25,0,.18)', tagText: '#FF9A8C', tint: 'rgba(225,25,0,.12)' },
+    zrexpress: { name: 'ZRExpress', emoji: '🟡', color: '#E0A800', tag: 'rgba(224,168,0,.20)', tagText: '#F2D06B', tint: 'rgba(224,168,0,.12)' },
+  };
+  function orderCarrier(o) {
+    if (o.zrexpress && o.zrexpress.tracking) return 'zrexpress';
+    if (o.noest && o.noest.tracking) return 'noest';
+    if (o.yalidine && o.yalidine.tracking) return 'yalidine';
+    return null;
+  }
   function confirmStamp(o) {
+    if (o.zrexpress && o.zrexpress.tracking) return Number(o.zrexpress.createdAt) || 1;
     if (o.noest && o.noest.tracking) return Number(o.noest.createdAt) || 1;
     if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 1;
     return 0;
   }
   var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
   function renderTrackStepper(o) {
-    var hasParcel = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking);
-    if (!hasParcel) return '';
-    var carrier = (o.noest && o.noest.tracking) ? 'noest' : 'yalidine';
-    var color = carrier === 'noest' ? '#1E73E8' : '#E11900';
+    var carrier = orderCarrier(o);
+    if (!carrier) return '';
+    var color = CARRIER_META[carrier].color;
     var refreshBtn = '<button class="btn btn-sm ptrack-refresh" data-track="' + esc(o.id) + '" style="background:' + color + ';color:#fff;margin-right:auto">🔄 تحديث</button>';
     var ts = o.trackingStatus;
 
@@ -655,6 +666,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     $('#view').innerHTML = printBar + (list.length ? list.map(function (o) {
       var phone = String(o.phone || '').replace(/\s/g, '');
       var intl = phone.replace(/^0/, '213');
+      var dc = o.deliveryCompany || 'noest';
+      var cm = CARRIER_META[dc] || CARRIER_META.noest;
       var items = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1); }).join('<br>');
       var picList = (o.items || []).map(function (it) {
         var img = it.image;
@@ -667,7 +680,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
       return '<div class="order-card' + (o.source === 'admin_phone' ? ' byadmin' : '') + (o.fulfilled ? ' confirmed' : '') + '">' +
-        '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + (o.deliveryCompany === 'noest' ? 'rgba(30,115,232,.18)' : 'rgba(225,25,0,.18)') + ';color:' + (o.deliveryCompany === 'noest' ? '#9DBBF5' : '#FF9A8C') + ';border-color:transparent;font-weight:800">' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
+        '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + cm.tag + ';color:' + cm.tagText + ';border-color:transparent;font-weight:800">' + cm.emoji + ' ' + cm.name + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +
@@ -676,8 +689,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><input type="checkbox" class="noest-sel" data-tracking="' + esc(o.noest.tracking) + '" title="تحديد للطباعة" style="width:17px;height:17px;accent-color:#1E73E8;cursor:pointer;flex-shrink:0"><span>🔵 طرد Noest:</span> <a href="#" class="num" data-nlabel="' + esc(o.noest.tracking) + '" title="فتح وصل التوصيل PDF" style="color:#9DBBF5;font-weight:800;text-decoration:underline">' + esc(o.noest.tracking) + '</a> <span>· ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</span></div>' : '') +
+        (o.zrexpress && o.zrexpress.tracking ? '<div class="order-items" style="background:rgba(224,168,0,.12);color:#F2D06B;margin-top:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span>🟡 طرد ZRExpress:</span> <a href="#" class="num" data-zrlabel="' + esc(o.id) + '" title="فتح وصل التوصيل" style="color:#F2D06B;font-weight:800;text-decoration:underline">' + esc(o.zrexpress.tracking) + '</a></div>' : '') +
         renderTrackStepper(o) +
-        (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking))
+        (orderCarrier(o)
           ? (o.deliveryLabel ? '<div style="margin-top:.7rem;font-size:.8rem;color:var(--ink-2)">📝 اسم المنتج على الوصل: <b style="color:var(--ink)">' + esc(o.deliveryLabel) + '</b>' + (o.parcelPrice != null ? ' · 💰 سعر الطرد: <b style="color:var(--ink)" class="num">' + esc(DS.priceFmt(o.parcelPrice)) + '</b>' : '') + '</div>' : '')
           : '<div style="margin-top:.8rem"><label style="display:block;font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.35rem">📝 اسم المنتج على وصل التوصيل <span style="color:var(--danger)">*</span></label>' +
             '<input class="inp note-inp" data-notefor="' + esc(o.id) + '" value="' + esc(o.deliveryLabel || '') + '" placeholder="مثال: منتج تجميل — لن يظهر الاسم الحقيقي" style="padding:.55rem .85rem;font-size:.85rem"></div>' +
@@ -685,9 +699,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
             '<input class="inp price-inp" data-pricefor="' + esc(o.id) + '" type="number" min="0" inputmode="numeric" value="' + (o.parcelPrice != null ? esc(String(o.parcelPrice)) : '') + '" placeholder="اتركيه فارغاً لإبقاء ' + esc(String(o.total != null ? o.total : o.subtotal)) + ' د.ج" style="padding:.55rem .85rem;font-size:.85rem"></div>') +
         '<div class="row-actions" style="margin-top:.9rem">' +
           '<a class="btn btn-green btn-sm" href="https://wa.me/' + intl + '" target="_blank">💬 واتساب</a>' +
-          (((o.yalidine && o.yalidine.tracking) || (o.noest && o.noest.tracking)) ? '' :
-            '<button class="btn btn-sm" title="' + (o.deliveryCompany === 'noest' ? 'الزبون اختار Noest' : 'اختيار الزبون') + '" style="background:#E11900;color:#fff;' + (o.deliveryCompany === 'noest' ? 'opacity:.38;filter:grayscale(.5)' : '') + '" data-oyal="' + esc(o.id) + '">🔴 طرد Yalidine</button>' +
-            '<button class="btn btn-sm" title="' + (o.deliveryCompany === 'noest' ? 'اختيار الزبون' : 'الزبون اختار Yalidine') + '" style="background:#1E73E8;color:#fff;' + (o.deliveryCompany === 'noest' ? '' : 'opacity:.38;filter:grayscale(.5)') + '" data-onoest="' + esc(o.id) + '">🔵 طرد Noest</button>') +
+          (orderCarrier(o) ? '' :
+            ['yalidine', 'noest', 'zrexpress'].map(function (c) {
+              var m = CARRIER_META[c], chosen = dc === c;
+              return '<button class="btn btn-sm" title="' + (chosen ? 'الزبون اختار ' + m.name : 'إنشاء طرد ' + m.name + ' يدوياً') + '" style="background:' + m.color + ';color:#fff;' + (chosen ? '' : 'opacity:.38;filter:grayscale(.5)') + '" data-fcarrier="' + c + '" data-fid="' + esc(o.id) + '">' + m.emoji + ' طرد ' + m.name + '</button>';
+            }).join('')) +
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
         '</div></div>';
@@ -695,8 +711,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
     document.querySelectorAll('[data-odel]').forEach(function (b) { b.onclick = function () { if (!confirm('حذف هذا الطلب؟')) return; DS.deleteDoc('orders', b.dataset.odel).then(function () { state.orders = state.orders.filter(function (x) { return String(x.id) !== b.dataset.odel; }); updateBadges(); toast('تم الحذف'); views.orders(); }); }; });
-    document.querySelectorAll('[data-oyal]').forEach(function (b) { b.onclick = function () { createParcel('createYalidineParcel', 'yalidine', b.dataset.oyal, b, 'Yalidine'); }; });
-    document.querySelectorAll('[data-onoest]').forEach(function (b) { b.onclick = function () { createParcel('createNoestParcel', 'noest', b.dataset.onoest, b, 'Noest'); }; });
+    var FULFILL_FN = { yalidine: 'createYalidineParcel', noest: 'createNoestParcel', zrexpress: 'createZrParcel' };
+    document.querySelectorAll('[data-fcarrier]').forEach(function (b) {
+      b.onclick = function () { createParcel(FULFILL_FN[b.dataset.fcarrier], b.dataset.fcarrier, b.dataset.fid, b, CARRIER_META[b.dataset.fcarrier].name); };
+    });
     document.querySelectorAll('.ptrack-refresh').forEach(function (b) { b.onclick = function () { refreshTracking(b.dataset.track, b); }; });
     document.querySelectorAll('.note-inp').forEach(function (i) {
       i.onchange = function () {
@@ -718,6 +736,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     };
     document.querySelectorAll('[data-nlabel]').forEach(function (a) {
       a.onclick = function (e) { e.preventDefault(); openNoestLabels([a.dataset.nlabel], null); };
+    });
+    document.querySelectorAll('[data-zrlabel]').forEach(function (a) {
+      a.onclick = function (e) { e.preventDefault(); openZrLabel(a.dataset.zrlabel, a); };
     });
   };
 
@@ -743,6 +764,30 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         console.error('getNoestLabels', err);
         if (w) { try { w.close(); } catch (e) {} }
         if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        alert('تعذّر جلب الوصل:\n' + (err && err.message ? err.message : 'خطأ'));
+      });
+  }
+
+  // Fetch a fresh ZRExpress label via the getZrLabel function (label URLs are short-lived,
+  // so the admin panel can't link to them directly — a new one is generated on each click).
+  function openZrLabel(orderId, link) {
+    if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
+    var w = window.open('about:blank', '_blank');
+    var orig = link ? link.textContent : '';
+    if (link) link.textContent = '⏳ جاري التجهيز...';
+    firebase.functions().httpsCallable('getZrLabel')({ orderId: orderId })
+      .then(function (res) {
+        var d = res.data || {};
+        var bin = atob(d.file || ''), arr = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        var url = URL.createObjectURL(new Blob([arr], { type: d.contentType || 'application/pdf' }));
+        if (w) w.location = url; else window.open(url, '_blank');
+        if (link) link.textContent = orig;
+      })
+      .catch(function (err) {
+        console.error('getZrLabel', err);
+        if (w) { try { w.close(); } catch (e) {} }
+        if (link) link.textContent = orig;
         alert('تعذّر جلب الوصل:\n' + (err && err.message ? err.message : 'خطأ'));
       });
   }
@@ -846,12 +891,13 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
               if (r.order) {
                 var o = r.order;
                 var itemsHtml = (o.items || []).map(function (it) { return '• ' + esc(it.title) + ' ×' + (it.qty || it.quantity || 1) + ' — ' + esc(DS.priceFmt(it.price)); }).join('<br>') || '—';
-                var track = (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking) || '';
+                var track = (o.zrexpress && o.zrexpress.tracking) || (o.noest && o.noest.tracking) || (o.yalidine && o.yalidine.tracking) || '';
+                var lcm = CARRIER_META[o.deliveryCompany] || CARRIER_META.noest;
                 html += '<tr class="det" data-det="' + esc(oid) + '" style="display:' + (openLedger[oid] ? 'table-row' : 'none') + '"><td colspan="4" style="background:rgba(127,127,127,.06);padding:1rem 1.3rem">' +
                   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;font-size:.83rem;line-height:1.9">' +
                     '<div><b>🛒 المنتجات</b><br>' + itemsHtml + '</div>' +
                     '<div><b>👤 الزبون</b><br>' + esc(o.customer || '—') + '<br><span class="num">📱 ' + esc(o.phone || '—') + '</span><br>📍 ' + esc(o.wilaya || '') + ' - ' + esc(o.baladiya || '') + (o.address ? '<br>🏠 ' + esc(o.address) : '') + '</div>' +
-                    '<div><b>🚚 التوصيل</b><br>' + (o.deliveryCompany === 'noest' ? '🔵 Noest' : '🔴 Yalidine') + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (track ? '<br>رقم التتبع: <span class="num">' + esc(track) + '</span>' : '') + '</div>' +
+                    '<div><b>🚚 التوصيل</b><br>' + lcm.emoji + ' ' + lcm.name + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (track ? '<br>رقم التتبع: <span class="num">' + esc(track) + '</span>' : '') + '</div>' +
                     '<div><b>💰 الحساب</b><br>سعر الطرد: <span class="num">' + Number(r.price).toLocaleString('en-US') + '</span> د.ج' + (o.parcelPrice != null ? ' <span style="color:var(--ink-3);font-size:.72rem">(سعر معدَّل)</span>' : '') + '<br>− التوصيل: <span class="num">' + Number(o.deliveryFee || 0).toLocaleString('en-US') + '</span> د.ج<br>= الدخل: <b class="num" style="color:#22c55e">' + Number(r.amount).toLocaleString('en-US') + '</b> د.ج</div>' +
                   '</div></td></tr>';
               }
@@ -898,6 +944,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var s = state.settings || {};
     var yalEnabled = s.yalidineEnabled !== false;
     var noEnabled = s.noestEnabled !== false;
+    var zrEnabled = s.zrexpressEnabled !== false;
     var liveHours = s.tiktokLiveHours || 2;
     var liveActive = !!s.tiktokLive && (Date.now() - (s.tiktokLiveAt || 0) < liveHours * 3600000);
     function toggleBtn(id, on) { return '<button class="btn btn-sm" style="background:' + (on ? 'var(--green)' : 'var(--card-2)') + ';color:' + (on ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="' + id + '">' + (on ? '👁️ ظاهرة للزبائن — إخفاء' : '🚫 مخفية عن الزبائن — إظهار') + '</button>'; }
@@ -957,6 +1004,15 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '</div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على api_token و user_guid من NOEST عند إنشاء حسابكِ. تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
         '<div class="row-actions"><button class="btn btn-blue" id="sSaveNoest">💾 حفظ ربط Noest</button><button class="btn btn-gray" id="sSyncNoest">🔄 تحديث قوائم التوصيل (ولايات/بلديات/أسعار)</button>' + toggleBtn('sToggleNoest', noEnabled) + '</div>' +
+      '</div>' +
+      '<div class="card" style="max-width:680px;border-color:#E0A800"><h3 style="color:#E0C468">🟡 ربط ZRExpress API</h3>' +
+        '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.zrexpressReady ? 'background:rgba(224,168,0,.15);color:#E0C468">✓ مربوط بحساب ZRExpress' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>Tenant ID (X-Tenant)</label><input class="inp" id="sZrTenant" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrexpressReady ? '•••••• (محفوظ)' : 'أدخلي Tenant ID') + '"></div>' +
+          '<div class="field"><label>API Key</label><input class="inp" id="sZrKey" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrexpressReady ? '•••••• (محفوظ)' : 'أدخلي API Key') + '"></div>' +
+        '</div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على Tenant ID و API Key من بوابة ZRExpress (API Rest ← Token API — يظهر مرة واحدة فقط). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
+        '<div class="row-actions"><button class="btn" style="background:#E0A800;color:#1a1a1a;border:none" id="sSaveZr">💾 حفظ ربط ZRExpress</button><button class="btn btn-gray" id="sSyncZr">🔄 تحديث قوائم التوصيل (ولايات/بلديات)</button>' + toggleBtn('sToggleZr', zrEnabled) + '</div>' +
       '</div>';
     $('#sTheme').onclick = function () {
       var light = document.documentElement.classList.toggle('light');
@@ -1041,13 +1097,18 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     };
     if ($('#sToggleYal')) $('#sToggleYal').onclick = function () {
       var willOn = !yalEnabled;
-      if (!willOn && !noEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      if (!willOn && !noEnabled && !zrEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
       persistSettings({ yalidineEnabled: willOn }, willOn ? 'Yalidine ظاهرة للزبائن ✓' : 'تم إخفاء Yalidine عن الزبائن', function () { views.settings(); });
     };
     if ($('#sToggleNoest')) $('#sToggleNoest').onclick = function () {
       var willOn = !noEnabled;
-      if (!willOn && !yalEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      if (!willOn && !yalEnabled && !zrEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
       persistSettings({ noestEnabled: willOn }, willOn ? 'Noest ظاهرة للزبائن ✓' : 'تم إخفاء Noest عن الزبائن', function () { views.settings(); });
+    };
+    if ($('#sToggleZr')) $('#sToggleZr').onclick = function () {
+      var willOn = !zrEnabled;
+      if (!willOn && !yalEnabled && !noEnabled) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
+      persistSettings({ zrexpressEnabled: willOn }, willOn ? 'ZRExpress ظاهرة للزبائن ✓' : 'تم إخفاء ZRExpress عن الزبائن', function () { views.settings(); });
     };
     if ($('#sSaveYal')) $('#sSaveYal').onclick = function () {
       var origin = $('#sOrigin') ? $('#sOrigin').value : '';
@@ -1077,12 +1138,27 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
       } else { finish(); }
     };
-    if ($('#sSyncNoest')) $('#sSyncNoest').onclick = function () {
+    function syncCarriersClick() {
       if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
       var btn = this, orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ جاري التحديث... (قد يستغرق دقيقة)';
       firebase.functions().httpsCallable('syncCarriers')({})
-        .then(function (res) { var r = (res.data || {}).result || {}; btn.disabled = false; btn.textContent = orig; toast('تم التحديث ✓ — Yalidine ' + ((r.yalidine || {}).wilayas || 0) + ' ولاية، Noest ' + ((r.noest || {}).wilayas || 0) + ' ولاية'); })
+        .then(function (res) { var r = (res.data || {}).result || {}; btn.disabled = false; btn.textContent = orig; toast('تم التحديث ✓ — Yalidine ' + ((r.yalidine || {}).wilayas || 0) + ' ولاية، Noest ' + ((r.noest || {}).wilayas || 0) + ' ولاية، ZRExpress ' + ((r.zrexpress || {}).wilayas || 0) + ' ولاية'); })
         .catch(function (err) { console.error('syncCarriers', err); btn.disabled = false; btn.textContent = orig; alert('تعذّر التحديث:\n' + (err && err.message ? err.message : 'خطأ')); });
+    }
+    if ($('#sSyncNoest')) $('#sSyncNoest').onclick = syncCarriersClick;
+    if ($('#sSyncZr')) $('#sSyncZr').onclick = syncCarriersClick;
+    if ($('#sSaveZr')) $('#sSaveZr').onclick = function () {
+      var tenant = $('#sZrTenant') ? $('#sZrTenant').value.trim() : '';
+      var key = $('#sZrKey') ? $('#sZrKey').value.trim() : '';
+      var hasCreds = !!(tenant && key);
+      var alreadyReady = !!state.settings.zrexpressReady;
+      if ((tenant && !key) || (key && !tenant)) { toast('أدخلي Tenant ID و API Key معاً'); return; }
+      if (!hasCreds && !alreadyReady) { toast('أدخلي Tenant ID و API Key'); return; }
+      function finish() { persistSettings({ zrexpressReady: hasCreds || alreadyReady }, 'تم حفظ ربط ZRExpress ✓', function () { views.settings(); }); }
+      if (hasCreds) {
+        DS.setDoc('private', 'zrexpress', { tenantId: tenant, apiKey: key, updatedAt: Date.now() })
+          .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
+      } else { finish(); }
     };
   };
 
