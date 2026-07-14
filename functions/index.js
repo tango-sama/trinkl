@@ -340,7 +340,7 @@ async function fetchNoestStatus(db, o) {
     key: e.event_key || e.key || e.status || '',
     label: e.event || e.event_key || e.key || e.status || '',
     date: e.date || e.created_at || e.updated_at || null,
-    location: e.location || e.by || e.commune || null,
+    location: e.location || e.commune || null,
   })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const last = events[events.length - 1] || null;
