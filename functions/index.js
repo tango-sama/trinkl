@@ -258,6 +258,193 @@ exports.createNoestParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   createZrParcel: same flow for ZRExpress (api.zrexpress.app).
+   Credentials live in private/zrexpress ({ tenantId, apiKey }). Unlike
+   Yalidine/Noest, ZRExpress addresses need territory UUIDs instead of
+   plain wilaya/commune names, so the destination is looked up live
+   against ZRExpress's own territory list right before creating the
+   parcel — the same idea as the Yalidine center / Noest desk lookups
+   above, just against a different API.
+   ─────────────────────────────────────────────────────────────── */
+const ZR_BASE = 'https://api.zrexpress.app/api/v1';
+
+// 0XXXXXXXXX → +213XXXXXXXXX (ZRExpress wants international format).
+function zrPhone(p) {
+  let d = String(p || '').replace(/[^\d]/g, '');
+  if (d.startsWith('213')) return '+' + d;
+  if (d.startsWith('0')) d = d.slice(1);
+  return '+213' + d;
+}
+
+// A throwaway-but-valid UUID v4 (ZRExpress requires a customerId even without a stored customer).
+function zrUuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0; const v = c === 'x' ? r : ((r & 0x3) | 0x8);
+    return v.toString(16);
+  });
+}
+
+// Parse a ZR error body into a readable message (error.detail / error.errors[] / title / raw).
+function zrErrMsg(body, status) {
+  if (!body) return 'HTTP ' + status;
+  if (typeof body === 'string') return body || ('HTTP ' + status);
+  if (body.detail) return String(body.detail);
+  if (body.errors) {
+    if (Array.isArray(body.errors)) return body.errors.map((e) => (e && (e.message || e.description)) || JSON.stringify(e)).join('; ');
+    try { return Object.values(body.errors).reduce((a, b) => a.concat(b), []).join('; '); } catch (e) { /* fall through */ }
+    return JSON.stringify(body.errors);
+  }
+  return String(body.title || ('HTTP ' + status));
+}
+
+// fetch + parse JSON-or-text in one go.
+async function zrFetch(url, opts) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+  return { res, body };
+}
+
+async function zrCreds(db) {
+  const credSnap = await db.collection('private').doc('zrexpress').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const tenantId = String(cred.tenantId || '').trim();
+  const apiKey = String(cred.apiKey || '').trim();
+  if (!tenantId || !apiKey) {
+    throw new HttpsError('failed-precondition', 'أدخلي Tenant ID و API Key الخاصين بـ ZRExpress في إعدادات لوحة التحكم أولاً.');
+  }
+  return { tenantId, apiKey };
+}
+function zrHeaders(c) { return { 'X-Tenant': c.tenantId, 'X-Api-Key': c.apiKey, 'Content-Type': 'application/json' }; }
+
+// Destination wilaya/commune territory UUIDs, resolved live from ZRExpress's own
+// territory list (mirrors the Yalidine-center / Noest-desk lookups above).
+async function zrResolveTerritory(headers, wilayaCode, communeName) {
+  const { res, body } = await zrFetch(ZR_BASE + '/territories/search', {
+    method: 'POST', headers,
+    body: JSON.stringify({ pageNumber: 1, pageSize: 5000, orderBy: ['code asc'] }),
+  });
+  if (!res.ok) throw new HttpsError('unavailable', 'تعذّر جلب قائمة ولايات ZRExpress: ' + zrErrMsg(body, res.status));
+  const rows = (body && (body.data || body.items || body.results)) || [];
+  const wRow = rows.find((t) => t.level === 'wilaya' && Number(t.code) === Number(wilayaCode));
+  if (!wRow) throw new HttpsError('failed-precondition', 'ولاية الزبون غير مدعومة لدى ZRExpress — حدّثي قوائم التوصيل.');
+
+  const norm = (s) => String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim();
+  const wanted = norm(communeName);
+  const communeRows = rows.filter((t) => t.level === 'commune' && t.parentId === wRow.id);
+  const cRow = communeRows.find((t) => norm(t.name) === wanted) ||
+    communeRows.find((t) => wanted && (norm(t.name).includes(wanted) || wanted.includes(norm(t.name)))) ||
+    communeRows[0];
+  if (!cRow) throw new HttpsError('failed-precondition', 'لم يُعثر على بلدية مطابقة لدى ZRExpress.');
+
+  const hasPickup = communeRows.some((t) => t.delivery && t.delivery.hasPickupPoint);
+  return { cityTerritoryId: wRow.id, districtTerritoryId: cRow.id, hasPickup };
+}
+
+// Pickup-point (stopdesk) parcels need a hubId in the destination wilaya; falls back to
+// home delivery if none is found (same fallback style as the Yalidine/Noest lookups).
+async function zrFindHub(headers, cityTerritoryId) {
+  try {
+    const { res, body } = await zrFetch(ZR_BASE + '/hubs/search', {
+      method: 'POST', headers, body: JSON.stringify({ pageNumber: 1, pageSize: 200 }),
+    });
+    if (!res.ok) return null;
+    const hubs = (body && (body.data || body.items || body.results)) || [];
+    const hit = hubs.find((h) => h && h.IsPickupPoint && h.address && String(h.address.cityTerritoryId) === String(cityTerritoryId));
+    return hit ? hit.id : null;
+  } catch (e) { return null; }
+}
+
+exports.createZrParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    if (o.zrexpress && o.zrexpress.tracking) {
+      return { alreadyCreated: true, tracking: o.zrexpress.tracking };
+    }
+    if (!o.wilayaId) throw new HttpsError('failed-precondition', 'الطلب لا يحتوي على رقم ولاية صالح.');
+
+    const cred = await zrCreds(db);
+    const headers = zrHeaders(cred);
+
+    const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
+    const territory = await zrResolveTerritory(headers, o.wilayaId, o.communeFr || o.baladiya);
+
+    let deliveryType = 'home', hubId = null;
+    if (isStopdesk && territory.hasPickup) {
+      hubId = await zrFindHub(headers, territory.cityTerritoryId);
+      if (hubId) deliveryType = 'pickup-point';
+    }
+    const useStopdesk = deliveryType === 'pickup-point';
+
+    const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
+      ? String(o.deliveryLabel).trim().slice(0, 250)
+      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+    const amount = Math.max(0, Math.min(150000, Math.round(Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0)));
+
+    const payload = {
+      customer: {
+        customerId: zrUuid(),
+        name: (String(o.customer || '').trim() || 'Client').slice(0, 200),
+        phone: { number1: zrPhone(o.phone) },
+      },
+      deliveryAddress: {
+        cityTerritoryId: territory.cityTerritoryId,
+        districtTerritoryId: territory.districtTerritoryId,
+        street: String(o.address || '').slice(0, 200),
+      },
+      orderedProducts: [{
+        productName: productList, unitPrice: amount, quantity: 1, stockType: 'none',
+        length: 20, width: 10, height: 1, weight: 1,
+      }],
+      amount,
+      description: productList,
+      deliveryType,
+      externalId: String(o.num || orderId),
+    };
+    if (useStopdesk && hubId) payload.hubId = hubId;
+
+    const { res, body } = await zrFetch(ZR_BASE + '/parcels', { method: 'POST', headers, body: JSON.stringify(payload) });
+    if (!(res.status === 201 || res.ok) || !body || !body.id) {
+      throw new HttpsError('internal', 'رفضت ZRExpress الطرد: ' + zrErrMsg(body, res.status));
+    }
+    const parcelId = body.id;
+
+    // The create response only returns the parcel id; fetch the tracking number via search.
+    let tracking = null;
+    try {
+      const { body: sBody } = await zrFetch(ZR_BASE + '/parcels/search', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          pageNumber: 1, pageSize: 1,
+          advancedFilter: { logic: 'and', filters: [{ field: 'externalId', operator: 'eq', value: payload.externalId }] },
+        }),
+      });
+      const row = ((sBody && (sBody.data || sBody.items || sBody.results)) || [])[0] || {};
+      tracking = row.trackingNumber || null;
+    } catch (e) { /* tracking fills in on the next status refresh */ }
+
+    await ref.update({
+      zrexpress: { tracking: tracking || parcelId, parcelId, stopdesk: useStopdesk, createdAt: Date.now() },
+      status: 'Confirmed',
+      fulfilled: true,
+    });
+
+    return { ok: true, tracking: tracking || parcelId };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    getParcelStatus: called from the admin panel's "🔄 تحديث" button on
    a confirmed order. Fetches the LIVE status from whichever carrier
    shipped the order (o.noest.tracking or o.yalidine.tracking),
@@ -411,6 +598,55 @@ async function fetchYalidineStatus(db, o) {
   };
 }
 
+// ZRExpress's status is a free-text state name (English), so match by keyword like Yalidine's.
+function zrNormalize(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (/(deliver|livr[ée])/.test(s) && !/(not|non|fail|[ée]chou)/.test(s)) return { stage: 4, alert: null };
+  if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
+  if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
+  if (/(out for delivery|en cours de livraison|dispatch)/.test(s)) return { stage: 3, alert: null };
+  if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
+  if (/(pick|ramass|creat|confirm)/.test(s)) return { stage: 1, alert: null };
+  return { stage: 0, alert: null };
+}
+
+async function fetchZrStatus(db, o) {
+  const cred = await zrCreds(db);
+  const headers = zrHeaders(cred);
+  const tracking = o.zrexpress.tracking;
+
+  const { res, body } = await zrFetch(ZR_BASE + '/parcels/search', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      pageNumber: 1, pageSize: 1,
+      advancedFilter: { logic: 'and', filters: [{ field: 'trackingNumber', operator: 'eq', value: tracking }] },
+    }),
+  });
+  if (!res.ok) throw new HttpsError('internal', 'ZRExpress tracking error: ' + zrErrMsg(body, res.status));
+  const row = ((body && (body.data || body.items || body.results)) || [])[0];
+  if (!row) {
+    return {
+      carrier: 'zrexpress', tracking,
+      stage: 0, alert: null, stageLabels: STAGE_LABELS,
+      lastLabel: 'بانتظار معالجة الطلب لدى ZRExpress', lastLocation: null, lastDate: null,
+      events: [], updatedAt: Date.now(),
+    };
+  }
+
+  const rawStatus = (row.state && (row.state.name || row.state.stateName)) || row.stateName || '';
+  const { stage, alert } = zrNormalize(rawStatus);
+  const location = (row.currentHub && (row.currentHub.name || row.currentHub.cityName)) || null;
+
+  return {
+    carrier: 'zrexpress', tracking,
+    stage, alert, stageLabels: STAGE_LABELS,
+    lastLabel: alert || rawStatus || 'بانتظار المعالجة',
+    lastLocation: location,
+    lastDate: row.updatedAt || row.lastStatusAt || null,
+    events: [], updatedAt: Date.now(),
+  };
+}
+
 exports.getParcelStatus = onCall(
   { region: 'us-central1' },
   async (req) => {
@@ -426,6 +662,7 @@ exports.getParcelStatus = onCall(
     let status;
     if (o.noest && o.noest.tracking) status = await fetchNoestStatus(db, o);
     else if (o.yalidine && o.yalidine.tracking) status = await fetchYalidineStatus(db, o);
+    else if (o.zrexpress && o.zrexpress.tracking) status = await fetchZrStatus(db, o);
     else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
 
     await ref.update({ trackingStatus: status });
@@ -481,6 +718,52 @@ exports.getNoestLabels = onCall(
       slot++;
     }
     return { pdf: Buffer.from(await merged.save()).toString('base64'), count: pdfs.length };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
+   getZrLabel: fetches a fresh printable label for a ZRExpress parcel.
+   Label URLs are short-lived (expiring Azure links), so one is
+   generated on demand each time instead of being cached. Label
+   endpoints authenticate with Authorization: Bearer per the ZR spec,
+   but some tenants only accept X-Api-Key — try Bearer first, then
+   fall back so printing works regardless of tenant configuration.
+   ─────────────────────────────────────────────────────────────── */
+exports.getZrLabel = onCall(
+  { region: 'us-central1', timeoutSeconds: 60 },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+    if (!o.zrexpress || !o.zrexpress.tracking) throw new HttpsError('failed-precondition', 'لا يوجد طرد ZRExpress لهذا الطلب.');
+
+    const cred = await zrCreds(db);
+    const variants = [
+      { 'X-Tenant': cred.tenantId, Authorization: 'Bearer ' + cred.apiKey, 'Content-Type': 'application/json' },
+      { 'X-Tenant': cred.tenantId, 'X-Api-Key': cred.apiKey, 'Content-Type': 'application/json' },
+    ];
+    let res, body;
+    for (const h of variants) {
+      ({ res, body } = await zrFetch(ZR_BASE + '/parcels/labels/individual', {
+        method: 'POST', headers: h, body: JSON.stringify({ trackingNumbers: [o.zrexpress.tracking] }),
+      }));
+      if (res.ok || (res.status !== 401 && res.status !== 403)) break;
+    }
+    if (!res.ok) throw new HttpsError('unavailable', 'تعذّر جلب وصل ZRExpress: ' + zrErrMsg(body, res.status));
+
+    const url = (body && body.parcelLabelFiles && body.parcelLabelFiles[0] && body.parcelLabelFiles[0].fileUrl) || (body && body.fileUrl) || null;
+    if (!url) throw new HttpsError('internal', 'لم يُرجع ZRExpress رابط الوصل.');
+
+    const fRes = await fetch(url);
+    if (!fRes.ok) throw new HttpsError('unavailable', 'تعذّر تحميل ملف الوصل.');
+    const contentType = fRes.headers.get('content-type') || 'application/pdf';
+    const buf = Buffer.from(await fRes.arrayBuffer());
+    return { file: buf.toString('base64'), contentType };
   }
 );
 
@@ -552,14 +835,48 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable) {
   return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0) };
 }
 
+// ZRExpress exposes no fee grid and its wilaya/commune list is keyed by UUID, not the
+// standard 1-58 numbering — normalise it to the same shape as Yalidine/Noest (by wilaya
+// `code`, priced with YAL_FEES) so the storefront's carrier lookups stay carrier-agnostic.
+async function syncZrTerritories(db, cred) {
+  const headers = zrHeaders(cred);
+  const { res, body } = await zrFetch(ZR_BASE + '/territories/search', {
+    method: 'POST', headers,
+    body: JSON.stringify({ pageNumber: 1, pageSize: 5000, orderBy: ['code asc'] }),
+  });
+  if (!res.ok) throw new HttpsError('internal', 'ZRExpress territories error: ' + zrErrMsg(body, res.status));
+  const rows = (body && (body.data || body.items || body.results)) || [];
+
+  const wilayaIds = [];
+  const codeById = {}; // wilaya UUID -> numeric wilaya code
+  rows.forEach((t) => {
+    if (t.level !== 'wilaya') return;
+    const del = t.delivery || {};
+    if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
+    const code = Number(t.code);
+    if (!code) return;
+    wilayaIds.push(code); codeById[t.id] = code;
+  });
+  const byW = {};
+  rows.forEach((t) => {
+    if (t.level !== 'commune' || !t.parentId || codeById[t.parentId] == null) return;
+    const del = t.delivery || {};
+    if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
+    (byW[codeById[t.parentId]] = byW[codeById[t.parentId]] || []).push(t.name);
+  });
+  return writeCarrierData(db, 'zrexpress', wilayaIds, byW, YAL_FEES);
+}
+
 exports.syncCarriers = onCall(
   { region: 'us-central1', timeoutSeconds: 120 },
   async () => {
     const db = admin.firestore();
     const yalSnap = await db.collection('private').doc('yalidine').get();
     const noSnap = await db.collection('private').doc('noest').get();
+    const zrSnap = await db.collection('private').doc('zrexpress').get();
     const yal = yalSnap.exists ? yalSnap.data() : {};
     const no = noSnap.exists ? noSnap.data() : {};
+    const zr = zrSnap.exists ? zrSnap.data() : {};
     const out = {};
 
     // YALIDINE
@@ -587,6 +904,11 @@ exports.syncCarriers = onCall(
       const byW = {};
       cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
       out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, NOEST_FEES);
+    }
+
+    // ZREXPRESS
+    if (zr.tenantId && zr.apiKey) {
+      out.zrexpress = await syncZrTerritories(db, zr);
     }
     return { ok: true, result: out };
   }
