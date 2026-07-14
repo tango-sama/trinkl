@@ -274,7 +274,7 @@ const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد وال�
 const NOEST_STAGE = {
   upload: 0, customer_validation: 0,
   validation_collect_colis: 1, validation_reception_admin: 1, validation_reception: 1,
-  sent_to_redispatch: 2, fdr_activated: 3,
+  sent_to_redispatch: 2, fdr_activated: 3, mise_a_jour: 3,
   livre: 4, livred: 4,
 };
 const NOEST_ALERT = {
@@ -348,12 +348,26 @@ async function fetchNoestStatus(db, o) {
 
   const last = events[events.length - 1] || null;
   const alert = last ? (NOEST_ALERT[last.key] || null) : null;
-  const stage = last && !alert ? (NOEST_STAGE[last.key] != null ? NOEST_STAGE[last.key] : 0) : (last ? null : 0);
+
+  // Stage = the highest recognized milestone reached across the WHOLE history,
+  // not just the last event. Looking only at the last event meant an
+  // intermediate event_key we don't have mapped (e.g. a hub scan) would reset
+  // the tracker back to "just created" even after real progress happened.
+  let stage = 0;
+  events.forEach((e) => { if (e.key in NOEST_STAGE) stage = Math.max(stage, NOEST_STAGE[e.key]); });
+  const anyRecognized = events.some((e) => e.key in NOEST_STAGE);
+  if (alert) stage = null;
+  if (last && !anyRecognized && !alert) {
+    // Nothing in the history matched our stage table — log the raw key so an
+    // unmapped Noest event can be added later, and surface Noest's own label
+    // instead of silently claiming "just created".
+    console.log('[getParcelStatus] unrecognized Noest event_key', last.key, last.label, 'tracking:', o.noest.tracking);
+  }
 
   return {
     carrier: 'noest', tracking: o.noest.tracking,
     stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: last ? (alert || STAGE_LABELS[stage] || last.label) : 'بانتظار المعالجة',
+    lastLabel: last ? (alert || (anyRecognized ? STAGE_LABELS[stage] : last.label)) : 'بانتظار المعالجة',
     lastLocation: last ? last.location : null,
     lastDate: last ? last.date : null,
     events, updatedAt: Date.now(),
