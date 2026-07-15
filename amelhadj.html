@@ -648,6 +648,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   function applyTrackingResult(o, status) {
     o.trackingStatus = status;
     if (status && status.carrier === 'noest' && status.noestValidated && o.noest) o.noest.validated = true;
+    // ZR Express can heal a not-yet-resolved tracking number on refresh (see
+    // functions/index.js getParcelStatus) — keep the in-memory order in sync so
+    // the just-rendered stepper doesn't look stale until the next full reload.
+    if (status && status.carrier === 'zr' && status.tracking && o.zr) o.zr.tracking = status.tracking;
   }
 
   function refreshTracking(orderId, btn) {

@@ -1,8 +1,9 @@
 /* Delivery data for Algeria — 58 wilayas, communes, and per-company
    home/stopdesk fees (DZD). Carriers: Yalidine, Noest, and ZR Express.
-   Fees are editable defaults; ZR has no static columns — its real tariff
-   comes from delivery_data/zr (synced from ZR's tarification API), with
-   the Yalidine defaults as fallback until the first sync.
+   Fees are editable defaults; ZR Express's API exposes no fee grid, so it
+   is priced with the same defaults as Yalidine (see functions/index.js
+   syncCarriers). Its real wilaya/commune list still comes from
+   delivery_data/zr, synced live from ZR's territories API.
    Exposed as window.DELIVERY (alias window.YALIDINE). */
 (function () {
   var COMPANIES = [

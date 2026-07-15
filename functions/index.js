@@ -435,18 +435,13 @@ exports.createZrParcel = onCall(
     }
     const parcelId = body.id;
 
-    // The create response only returns the parcel id; fetch the tracking number via search.
+    // The create response only returns the parcel id; fetch the tracking number
+    // by that id. If this fails, refreshing status later (fetchZrStatus) also
+    // looks up by parcelId and heals o.zr.tracking once it succeeds.
     let tracking = null;
     try {
-      const { body: sBody } = await zrFetch(ZR_BASE + '/parcels/search', {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          pageNumber: 1, pageSize: 1,
-          advancedFilter: { logic: 'and', filters: [{ field: 'externalId', operator: 'eq', value: payload.externalId }] },
-        }),
-      });
-      const row = ((sBody && (sBody.items || sBody.data || sBody.results)) || [])[0] || {};
-      tracking = row.trackingNumber || null;
+      const { res: pRes, body: pBody } = await zrFetch(ZR_BASE + '/parcels/' + parcelId, { method: 'GET', headers });
+      if (pRes.ok) tracking = pBody.trackingNumber || null;
     } catch (e) { /* tracking fills in on the next status refresh */ }
 
     await ref.update({
@@ -662,13 +657,16 @@ async function fetchYalidineStatus(db, o) {
   };
 }
 
-// ZR Express's status is a free-text state name (English), so match by keyword like Yalidine's.
+// ZR Express's status is a free-text state name (English, e.g. "OutForDelivery" with
+// no spaces), so match by keyword like Yalidine's. "Out for delivery" must be checked
+// before the "delivered" test — it contains "delivery", which "delivered" would
+// otherwise substring-match and misreport as fully delivered.
 function zrNormalize(raw) {
   const s = String(raw || '').toLowerCase();
-  if (/(deliver|livr[ée])/.test(s) && !/(not|non|fail|[ée]chou)/.test(s)) return { stage: 4, alert: null };
+  if (/out\s*for\s*delivery|en cours de livraison|dispatch/.test(s)) return { stage: 3, alert: null };
+  if (/^(delivered|livr[ée])/.test(s)) return { stage: 4, alert: null };
   if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
   if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
-  if (/(out for delivery|en cours de livraison|dispatch)/.test(s)) return { stage: 3, alert: null };
   if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
   if (/(pick|ramass|creat|confirm)/.test(s)) return { stage: 1, alert: null };
   return { stage: 0, alert: null };
@@ -678,16 +676,29 @@ async function fetchZrStatus(db, o) {
   const cred = await zrCreds(db);
   const headers = zrHeaders(cred);
   const tracking = o.zr.tracking;
+  const parcelId = o.zr.parcelId;
 
-  const { res, body } = await zrFetch(ZR_BASE + '/parcels/search', {
-    method: 'POST', headers,
-    body: JSON.stringify({
-      pageNumber: 1, pageSize: 1,
-      advancedFilter: { logic: 'and', filters: [{ field: 'trackingNumber', operator: 'eq', value: tracking }] },
-    }),
-  });
-  if (!res.ok) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
-  const row = ((body && (body.items || body.data || body.results)) || [])[0];
+  // Prefer the direct get-by-id lookup (we already have the parcel's own UUID) —
+  // a plain GET, and it can't get stuck the way a trackingNumber search can if the
+  // tracking number was never resolved at creation time. Fall back to searching by
+  // tracking number for any older record that has no stored parcelId.
+  let row = null;
+  if (parcelId) {
+    const { res, body } = await zrFetch(ZR_BASE + '/parcels/' + parcelId, { method: 'GET', headers });
+    if (res.ok) row = body;
+    else if (res.status !== 404) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
+  }
+  if (!row) {
+    const { res, body } = await zrFetch(ZR_BASE + '/parcels/search', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        pageNumber: 1, pageSize: 1,
+        advancedFilter: { logic: 'and', filters: [{ field: 'trackingNumber', operator: 'eq', value: tracking }] },
+      }),
+    });
+    if (!res.ok) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
+    row = ((body && (body.items || body.data || body.results)) || [])[0];
+  }
   if (!row) {
     return {
       carrier: 'zr', tracking,
@@ -700,7 +711,7 @@ async function fetchZrStatus(db, o) {
   const rawStatus = (row.state && row.state.name) || '';
   const { stage, alert } = zrNormalize(rawStatus);
   return {
-    carrier: 'zr', tracking,
+    carrier: 'zr', tracking: row.trackingNumber || tracking,
     stage, alert, stageLabels: STAGE_LABELS,
     lastLabel: alert || rawStatus || 'بانتظار المعالجة',
     lastLocation: null,
@@ -732,6 +743,12 @@ exports.getParcelStatus = onCall(
     // panel stops showing «أكّديه في Noest للشحن» on already-confirmed parcels.
     if (status.carrier === 'noest' && status.noestValidated && !(o.noest && o.noest.validated)) {
       update['noest.validated'] = true;
+    }
+    // ZR Express's create call sometimes can't resolve the real tracking number
+    // right away (falls back to the internal parcel id) — heal it once a refresh
+    // finds the real one, so the admin panel stops showing the raw parcel id.
+    if (status.carrier === 'zr' && status.tracking && status.tracking !== o.zr.tracking) {
+      update['zr.tracking'] = status.tracking;
     }
     await ref.update(update);
     return status;
