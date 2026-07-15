@@ -145,12 +145,23 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .pstep-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:74px}
 .pstep-dot{width:32px;height:32px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--ink-3);flex-shrink:0}
 .pstep-node.done .pstep-dot{background:var(--green);border-color:var(--green);color:#fff}
-.pstep-node.on .pstep-dot{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 0 4px rgba(91,141,239,.22)}
+.pstep-node.cur .pstep-dot{box-shadow:0 0 0 4px rgba(34,197,94,.25)}
 .pstep-lab{font-size:.66rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:.4rem;line-height:1.4}
-.pstep-node.on .pstep-lab,.pstep-node.done .pstep-lab{color:var(--ink-2)}
-.pstep-line{flex:1;height:2px;background:var(--border);margin:15px 2px 0;min-width:16px}
+.pstep-node.done .pstep-lab{color:var(--ink-2)}
+.pstep-node.cur .pstep-lab{color:var(--green)}
+.pstep-line{position:relative;flex:1;height:2px;background:var(--border);margin:15px 2px 0;min-width:16px}
 .pstep-line.done{background:var(--green)}
-.ptrack-meta{font-size:.72rem;color:var(--ink-3);margin-top:.7rem}
+.pstep-line.warn{background:#E5484D}
+.pstep-warn{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);font-size:1rem;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.ptrack-meta{font-size:.72rem;color:var(--ink-3);margin-top:.7rem;display:flex;flex-direction:column;gap:.35rem}
+.ptrack-status{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.ptrack-badge{font-size:.75rem;font-weight:800;padding:.22rem .6rem;border-radius:100px;white-space:nowrap}
+.ptrack-badge.ok{background:rgba(34,197,94,.18);color:#7CE5A0}
+.ptrack-badge.warn{background:rgba(229,72,77,.16);color:#F2A1A4}
+.ptrack-badge.bad{background:rgba(229,72,77,.2);color:#F2A1A4}
+.ptrack-raw{color:var(--ink-2);font-size:.74rem}
+.ptrack-raw b{color:var(--ink);font-weight:800}
+.ptrack-sub{color:var(--ink-3);font-size:.7rem}
 .toast{position:fixed;bottom:1.5rem;left:1.5rem;z-index:200;background:#13201A;color:#7CE5A0;border:1px solid #1f5137;padding:.8rem 1.3rem;border-radius:12px;font-weight:700;transform:translateY(120%);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
 .hidden{display:none!important}
@@ -617,28 +628,49 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     }
 
     var labels = ts.stageLabels || [];
+    var hasAlert = !!ts.alert;
+    var terminal = (ts.stage == null);          // return / cancel — no step progress
+    var WARN_IDX = 3;                            // ⚠️ sits between "خرج للتوصيل" and "تم الاستلام"
     var body;
-    if (ts.alert || ts.stage == null) {
-      body = '<div class="ptrack-alert">⚠️ ' + esc(ts.lastLabel || ts.alert || 'حالة غير معروفة') + '</div>';
+    if (terminal) {
+      body = '<div class="ptrack-alert">⚠️ ' + esc(ts.alert || ts.lastLabel || 'حالة غير معروفة') + '</div>';
     } else {
       body = '<div class="pstep">' + labels.map(function (lab, i) {
-        var state = i < ts.stage ? 'done' : (i === ts.stage ? 'on' : '');
-        var node = '<div class="pstep-node ' + state + '"><div class="pstep-dot">' + (state === 'done' ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
-        var line = i < labels.length - 1 ? '<div class="pstep-line' + (i < ts.stage ? ' done' : '') + '"></div>' : '';
+        var reached = i <= ts.stage;            // reached steps (and every one before) turn green
+        var cls = 'pstep-node' + (reached ? ' done' : '') + (i === ts.stage && !hasAlert ? ' cur' : '');
+        var node = '<div class="' + cls + '"><div class="pstep-dot">' + (reached ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
+        var line = '';
+        if (i < labels.length - 1) {
+          var warnHere = hasAlert && i === WARN_IDX;
+          line = '<div class="pstep-line' + (i < ts.stage ? ' done' : '') + (warnHere ? ' warn' : '') + '">' +
+                 (warnHere ? '<span class="pstep-warn" title="' + esc(ts.alert) + '">🔺</span>' : '') + '</div>';
+        }
         return node + line;
       }).join('') + '</div>';
     }
 
     var lastDate = ts.lastDate ? new Date(ts.lastDate).toLocaleString('ar-DZ') : null;
     var updated = ts.updatedAt ? new Date(ts.updatedAt).toLocaleString('ar-DZ') : null;
-    // Always show the carrier's own status text (not just during an alert) so an
-    // imperfect stage-icon guess doesn't hide what Noest/Yalidine actually said.
-    var rawLabel = (!ts.alert && ts.lastLabel) ? ts.lastLabel : null;
+    var carrierName = (CO[carrier] && CO[carrier].name) || carrier;
+    // Show BOTH our Arabic stage and the carrier's own status text, so it's clear
+    // what step we display AND exactly what the delivery API reported.
+    var stageAr = (!terminal && labels[ts.stage]) ? labels[ts.stage] : null;
+    var badge = terminal
+      ? '<span class="ptrack-badge bad">⚠️ ' + esc(ts.alert || '—') + '</span>'
+      : (hasAlert
+          ? '<span class="ptrack-badge warn">🔺 ' + esc(ts.alert) + '</span>'
+          : (stageAr ? '<span class="ptrack-badge ok">' + esc(stageAr) + '</span>' : ''));
+    var rawLabel = ts.lastLabel ? esc(ts.lastLabel) : null;
     var meta = '<div class="ptrack-meta">' +
-      (rawLabel ? 'آخر حالة: ' + esc(rawLabel) : '') +
-      (lastDate ? (rawLabel ? ' · ' : '') + 'آخر حدث: ' + lastDate : '') + (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
-      (updated ? (lastDate || rawLabel ? ' — ' : '') + 'تحديث يدوي: ' + updated : '') +
-      '</div>';
+      '<div class="ptrack-status">' + badge +
+        (rawLabel ? '<span class="ptrack-raw">حالة ' + esc(carrierName) + ': <b>' + rawLabel + '</b></span>' : '') +
+      '</div>' +
+      '<div class="ptrack-sub">' +
+        (lastDate ? '🕒 آخر حدث: ' + lastDate : '') +
+        (ts.lastLocation ? (lastDate ? ' · ' : '') + '📍 ' + esc(ts.lastLocation) : '') +
+        (updated ? ((lastDate || ts.lastLocation) ? ' · ' : '') + '🔄 تحديث: ' + updated : '') +
+      '</div>' +
+    '</div>';
 
     return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
   }
