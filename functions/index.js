@@ -582,11 +582,18 @@ async function fetchNoestStatus(db, o) {
   // "just created". Only unmapped keys count: upload/edit/validation events
   // are mapped to 0 on purpose and must NOT bump a fresh parcel to "shipped".
   const hasUnmapped = events.some((e) => !(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT));
-  if (!alert && hasUnmapped && stage === 0) stage = 1;
-  // "Colis en transit" means Noest handed the parcel to transport, but it can
-  // arrive under an event_key mapped to a pre-shipping stage, which left
-  // "تم إنشاء الطلب" unchecked. Any "en transit" label = creation done → stage ≥ 1.
-  if (!alert && stage === 0 && events.some((e) => /en\s*transit/i.test(e.label))) stage = 1;
+  // Noest keeps introducing event_keys we haven't tabled yet, and they're almost
+  // always the *newest* milestone — so scoring only the keys we recognize left the
+  // tracker a full step behind Noest's real state (a delivered parcel stuck on
+  // "خرج للتوصيل", out-for-delivery stuck on "في مركز الفرز", and so on). When the
+  // most recent event is one we don't recognize (and isn't an alert), Noest has
+  // moved past the last milestone we could map — advance one step beyond it, capped
+  // at the final stage. This also covers "Colis en transit" clearing the
+  // "تم إنشاء الطلب" step. Falls back to the old 0→1 bump when the unrecognized
+  // activity isn't the most recent event.
+  const lastUnmapped = last && !(last.key in NOEST_STAGE) && !(last.key in NOEST_ALERT);
+  if (!alert && lastUnmapped) stage = Math.min(stage + 1, STAGE_LABELS.length - 1);
+  else if (!alert && hasUnmapped && stage === 0) stage = 1;
   if (alert) stage = null;
 
   return {
