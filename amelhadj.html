@@ -629,33 +629,31 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 
     var labels = ts.stageLabels || [];
     var hasAlert = !!ts.alert;
-    var terminal = (ts.stage == null);          // return / cancel — no step progress
+    var isReturn = (ts.stage == null);          // return / cancel — no forward-progress value
+    var effStage = isReturn ? -1 : ts.stage;    // -1 = nothing reached, but the steps still show
     var WARN_IDX = 3;                            // ⚠️ sits between "خرج للتوصيل" and "تم الاستلام"
-    var body;
-    if (terminal) {
-      body = '<div class="ptrack-alert">⚠️ ' + esc(ts.alert || ts.lastLabel || 'حالة غير معروفة') + '</div>';
-    } else {
-      body = '<div class="pstep">' + labels.map(function (lab, i) {
-        var reached = i <= ts.stage;            // reached steps (and every one before) turn green
-        var cls = 'pstep-node' + (reached ? ' done' : '') + (i === ts.stage && !hasAlert ? ' cur' : '');
-        var node = '<div class="' + cls + '"><div class="pstep-dot">' + (reached ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
-        var line = '';
-        if (i < labels.length - 1) {
-          var warnHere = hasAlert && i === WARN_IDX;
-          line = '<div class="pstep-line' + (i < ts.stage ? ' done' : '') + (warnHere ? ' warn' : '') + '">' +
-                 (warnHere ? '<span class="pstep-warn" title="' + esc(ts.alert) + '">🔺</span>' : '') + '</div>';
-        }
-        return node + line;
-      }).join('') + '</div>';
-    }
+    // The stepper is ALWAYS shown — an alert/return only adds a ⚠️ marker and a
+    // badge, it never replaces the tracker with a banner.
+    var body = '<div class="pstep">' + labels.map(function (lab, i) {
+      var reached = i <= effStage;              // reached steps (and every one before) turn green
+      var cls = 'pstep-node' + (reached ? ' done' : '') + (i === effStage && !hasAlert ? ' cur' : '');
+      var node = '<div class="' + cls + '"><div class="pstep-dot">' + (reached ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
+      var line = '';
+      if (i < labels.length - 1) {
+        var warnHere = hasAlert && i === WARN_IDX;
+        line = '<div class="pstep-line' + (i < effStage ? ' done' : '') + (warnHere ? ' warn' : '') + '">' +
+               (warnHere ? '<span class="pstep-warn" title="' + esc(ts.alert) + '">🔺</span>' : '') + '</div>';
+      }
+      return node + line;
+    }).join('') + '</div>';
 
     var lastDate = ts.lastDate ? new Date(ts.lastDate).toLocaleString('ar-DZ') : null;
     var updated = ts.updatedAt ? new Date(ts.updatedAt).toLocaleString('ar-DZ') : null;
     var carrierName = (CO[carrier] && CO[carrier].name) || carrier;
     // Show BOTH our Arabic stage and the carrier's own status text, so it's clear
     // what step we display AND exactly what the delivery API reported.
-    var stageAr = (!terminal && labels[ts.stage]) ? labels[ts.stage] : null;
-    var badge = terminal
+    var stageAr = (!isReturn && labels[ts.stage]) ? labels[ts.stage] : null;
+    var badge = isReturn
       ? '<span class="ptrack-badge bad">⚠️ ' + esc(ts.alert || '—') + '</span>'
       : (hasAlert
           ? '<span class="ptrack-badge warn">🔺 ' + esc(ts.alert) + '</span>'
