@@ -583,6 +583,10 @@ async function fetchNoestStatus(db, o) {
   // are mapped to 0 on purpose and must NOT bump a fresh parcel to "shipped".
   const hasUnmapped = events.some((e) => !(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT));
   if (!alert && hasUnmapped && stage === 0) stage = 1;
+  // "Colis en transit" means Noest handed the parcel to transport, but it can
+  // arrive under an event_key mapped to a pre-shipping stage, which left
+  // "تم إنشاء الطلب" unchecked. Any "en transit" label = creation done → stage ≥ 1.
+  if (!alert && stage === 0 && events.some((e) => /en\s*transit/i.test(e.label))) stage = 1;
   if (alert) stage = null;
 
   return {
@@ -668,7 +672,9 @@ function zrNormalize(raw) {
   if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
   if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
   if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
-  if (/(pick|ramass|creat|confirm)/.test(s)) return { stage: 1, alert: null };
+  // "Prêt à expédier" = parcel registered and ready for pickup. Count order
+  // creation as done (stage 1) so the "تم إنشاء الطلب" step is checked off.
+  if (/(pick|ramass|creat|confirm)/.test(s) || /pr[êe]t\s*[àa]\s*exp[ée]dier|ready\s*to\s*ship/.test(s)) return { stage: 1, alert: null };
   return { stage: 0, alert: null };
 }
 
