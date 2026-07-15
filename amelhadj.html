@@ -1030,11 +1030,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       '<div class="card" style="max-width:680px;border-color:#E8A413"><h3 style="color:#F5CE7A">🟡 ربط ZR Express API</h3>' +
         '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.zrReady ? 'background:rgba(232,164,19,.15);color:#F5CE7A">✓ مربوط بحساب ZR Express' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
         '<div class="grid2">' +
-          '<div class="field"><label>Token</label><input class="inp" id="sZrToken" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrReady ? '•••••• (محفوظ)' : 'أدخلي Token') + '"></div>' +
-          '<div class="field"><label>Key</label><input class="inp" id="sZrKey" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrReady ? '•••••• (محفوظ)' : 'أدخلي Key') + '"></div>' +
+          '<div class="field"><label>Tenant ID (X-Tenant)</label><input class="inp" id="sZrTenant" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrReady ? '•••••• (محفوظ)' : 'أدخلي Tenant ID') + '"></div>' +
+          '<div class="field"><label>Secret Key</label><input class="inp" id="sZrKey" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.zrReady ? '•••••• (محفوظ)' : 'أدخلي Secret Key') + '"></div>' +
         '</div>' +
-        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على Token و Key من لوحة ZR Express (procolis). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة. بعد الحفظ اضغطي «تحديث قوائم التوصيل» أعلاه لجلب أسعار ZR الحقيقية لكل ولاية. وصولات ZR تُطبع من لوحة ZR نفسها.</div>' +
-        '<div class="row-actions"><button class="btn" style="background:#E8A413;color:#fff" id="sSaveZr">💾 حفظ ربط ZR Express</button>' + toggleBtn('sToggleZr', zrEnabled) + '</div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">احصلي على Tenant ID و Secret Key من بوابة ZR Express (API Rest ← Token API — يظهر مرة واحدة فقط). تُخزَّن بشكل آمن ولا تظهر في الموقع. اتركي الحقول فارغة للإبقاء على القيم المحفوظة.</div>' +
+        '<div class="row-actions"><button class="btn" style="background:#E8A413;color:#fff" id="sSaveZr">💾 حفظ ربط ZR Express</button><button class="btn btn-gray" id="sSyncZr">🔄 تحديث قوائم التوصيل (ولايات/بلديات)</button>' + toggleBtn('sToggleZr', zrEnabled) + '</div>' +
       '</div>';
     $('#sTheme').onclick = function () {
       var light = document.documentElement.classList.toggle('light');
@@ -1129,20 +1129,20 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     };
     if ($('#sToggleZr')) $('#sToggleZr').onclick = function () {
       var willOn = !zrEnabled;
-      if (willOn && !s.zrReady) { toast('احفظي Token و Key الخاصين بـ ZR أولاً'); return; }
+      if (willOn && !s.zrReady) { toast('احفظي Tenant ID و Secret Key الخاصين بـ ZR أولاً'); return; }
       if (!willOn && carriersOnCount() <= 1) { toast('يجب إبقاء شركة توصيل واحدة على الأقل'); return; }
       persistSettings({ zrEnabled: willOn }, willOn ? 'ZR Express ظاهرة للزبائن ✓' : 'تم إخفاء ZR Express عن الزبائن', function () { views.settings(); });
     };
     if ($('#sSaveZr')) $('#sSaveZr').onclick = function () {
-      var token = $('#sZrToken') ? $('#sZrToken').value.trim() : '';
+      var tenant = $('#sZrTenant') ? $('#sZrTenant').value.trim() : '';
       var key = $('#sZrKey') ? $('#sZrKey').value.trim() : '';
-      var hasCreds = !!(token && key);
+      var hasCreds = !!(tenant && key);
       var alreadyReady = !!state.settings.zrReady;
-      if ((token && !key) || (key && !token)) { toast('أدخلي Token و Key معاً'); return; }
-      if (!hasCreds && !alreadyReady) { toast('أدخلي Token و Key'); return; }
+      if ((tenant && !key) || (key && !tenant)) { toast('أدخلي Tenant ID و Secret Key معاً'); return; }
+      if (!hasCreds && !alreadyReady) { toast('أدخلي Tenant ID و Secret Key'); return; }
       function finish() { persistSettings({ zrReady: hasCreds || alreadyReady }, 'تم حفظ ربط ZR Express ✓', function () { views.settings(); }); }
       if (hasCreds) {
-        DS.setDoc('private', 'zrexpress', { token: token, key: key, updatedAt: Date.now() })
+        DS.setDoc('private', 'zrexpress', { tenantId: tenant, secretKey: key, updatedAt: Date.now() })
           .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
       } else { finish(); }
     };
@@ -1174,13 +1174,15 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           .then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
       } else { finish(); }
     };
-    if ($('#sSyncNoest')) $('#sSyncNoest').onclick = function () {
+    function syncCarriersClick() {
       if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
       var btn = this, orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ جاري التحديث... (قد يستغرق دقيقة)';
       firebase.functions().httpsCallable('syncCarriers')({})
         .then(function (res) { var r = (res.data || {}).result || {}; btn.disabled = false; btn.textContent = orig; toast('تم التحديث ✓ — Yalidine ' + ((r.yalidine || {}).wilayas || 0) + ' ولاية، Noest ' + ((r.noest || {}).wilayas || 0) + ' ولاية، ZR ' + ((r.zr || {}).wilayas || 0) + ' ولاية'); })
         .catch(function (err) { console.error('syncCarriers', err); btn.disabled = false; btn.textContent = orig; alert('تعذّر التحديث:\n' + (err && err.message ? err.message : 'خطأ')); });
-    };
+    }
+    if ($('#sSyncNoest')) $('#sSyncNoest').onclick = syncCarriersClick;
+    if ($('#sSyncZr')) $('#sSyncZr').onclick = syncCarriersClick;
   };
 
   // ───────── helpers ─────────
