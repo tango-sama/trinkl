@@ -613,7 +613,10 @@ async function fetchNoestStatus(db, o) {
   if (cur.stage === null) {
     stage = null;                       // return / cancel — no meaningful progress
   } else if (alert) {
-    stage = Math.max(stage, 3);         // suspended/problem → warn just before delivery
+    // A delivery problem (Tentative/Suspendu) means the parcel is NOT delivered —
+    // pin it at "out for delivery" so the ⚠️ sits before the final step and
+    // "تم الاستلام" never turns green (a stray `livre` event must not deliver it).
+    stage = STAGE_LABELS.length - 2;
   }
   // Validated in Noest = any activity beyond the initial upload/edit.
   const noestValidated = events.some((e) =>

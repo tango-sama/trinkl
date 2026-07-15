@@ -631,6 +631,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var hasAlert = !!ts.alert;
     var isReturn = (ts.stage == null);          // return / cancel — no forward-progress value
     var effStage = isReturn ? -1 : ts.stage;    // -1 = nothing reached, but the steps still show
+    // A delivery-problem ⚠️ means the parcel is NOT delivered — never let the final
+    // step ("تم الاستلام") turn green while the triangle shows.
+    if (hasAlert && !isReturn) effStage = Math.min(effStage, labels.length - 2);
     var WARN_IDX = 3;                            // ⚠️ sits between "خرج للتوصيل" and "تم الاستلام"
     // The stepper is ALWAYS shown — an alert/return only adds a ⚠️ marker and a
     // badge, it never replaces the tracker with a banner.
