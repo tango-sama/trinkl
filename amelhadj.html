@@ -129,6 +129,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .order-card.byadmin{border-color:#7C5CBF;box-shadow:inset 4px 0 0 #7C5CBF}
 .order-card.confirmed .odim{opacity:.55;filter:grayscale(.6);transition:opacity .2s,filter .2s}
 .order-card.confirmed:hover .odim{opacity:.85;filter:grayscale(.25)}
+.ocard>summary.ocard-h{cursor:pointer;list-style:none;display:block}
+.ocard>summary.ocard-h::-webkit-details-marker{display:none}
+.ocard>summary.ocard-h::after{content:'▸ عرض التفاصيل';display:block;font-size:.72rem;color:var(--ink-3);font-weight:800;margin-top:.6rem}
+.ocard[open]>summary.ocard-h::after{content:'▾ إخفاء التفاصيل'}
+.order-card:has(.ocard:not([open])){opacity:.82}
 .order-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:.75rem}
 .order-items{background:var(--card-2);border-radius:11px;padding:.75rem 1rem;font-size:.84rem;color:var(--ink-2);margin:.5rem 0}
 .order-pics{display:flex;gap:.6rem;overflow-x:auto;background:var(--card-2);border-radius:11px;padding:.6rem;margin:.5rem 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
@@ -825,12 +830,15 @@ details[open] .ptrack-log-h::before{content:'▾ '}
           '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
+      // Orders older than 7 days start folded to keep the list scannable; newer ones stay open.
+      var isOld = when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000);
       return '<div class="order-card' + (o.source === 'admin_phone' ? ' byadmin' : '') + (o.fulfilled ? ' confirmed' : '') + '">' +
-        '<div class="odim">' +
+        '<details class="ocard"' + (isOld ? '' : ' open') + '><summary class="ocard-h">' +
         '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + oco.bg + ';color:' + oco.ink + ';border-color:transparent;font-weight:800">' + oco.icon + ' ' + oco.name + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +
+        '</summary><div class="odim">' +
         pics +
         '<div class="order-items">' + (items || '—') + '</div>' +
         '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>' +
@@ -854,7 +862,7 @@ details[open] .ptrack-log-h::before{content:'▾ '}
           }).join('')) +
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
-        '</div></div></div>';
+        '</div></div></details></div>';
     }).join('') : '<div class="empty"><div class="ic">📦</div>لا توجد طلبات بعد</div>');
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
