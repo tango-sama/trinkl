@@ -97,7 +97,6 @@ body{background:#F5FAF9}
 .ba-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:1rem 1rem 1.35rem;backdrop-filter:blur(6px)}
 .ba-frame{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:3/2.4;cursor:ew-resize;touch-action:pan-y;user-select:none;-webkit-user-select:none;--ba:50%}
 .ba-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
-.ba-before{filter:grayscale(.55) brightness(.78) contrast(.92) sepia(.22)}
 .ba-after{clip-path:inset(0 calc(100% - var(--ba)) 0 0);transition:clip-path .7s cubic-bezier(.22,1,.36,1)}
 .ba-handle{position:absolute;top:0;bottom:0;left:var(--ba);width:0;transition:left .7s cubic-bezier(.22,1,.36,1)}
 .ba-frame.dragging .ba-after,.ba-frame.dragging .ba-handle{transition:none}
@@ -114,12 +113,20 @@ body{background:#F5FAF9}
 .ba-ph{color:#fff;font-size:clamp(1.2rem,2.6vw,1.6rem);font-weight:900;margin:3.4rem auto 0;line-height:1.5}
 .ba-ph em{font-style:normal;background:linear-gradient(135deg,#E8C79A,#D9A86C);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .ba-pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;max-width:1100px;margin:1.8rem auto 0;text-align:right}
-.ba-prob{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:1.3rem;transition:all .35s var(--ease)}
-.ba-prob:hover{transform:translateY(-6px);background:rgba(255,255,255,.08)}
-.ba-prob .bp-ic{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center;font-size:1.35rem;margin-bottom:.8rem}
-.ba-prob h4{color:#fff;font-size:.95rem;font-weight:800;margin-bottom:.4rem}
-.ba-prob p{color:#BFEDE8;font-size:.78rem;line-height:1.75;margin-bottom:.75rem}
-.ba-prob .bp-fix{display:flex;align-items:flex-start;gap:.45rem;font-size:.76rem;font-weight:700;color:#E8C79A;line-height:1.65;border-top:1px dashed rgba(255,255,255,.15);padding-top:.75rem}
+.ba-prob{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:1.3rem;
+  min-height:340px;display:flex;flex-direction:column;justify-content:flex-end;transition:all .35s var(--ease);
+  box-shadow:0 14px 34px rgba(0,0,0,.35)}
+.ba-prob:hover{transform:translateY(-6px);border-color:rgba(232,199,154,.45);box-shadow:0 22px 48px rgba(0,0,0,.5)}
+.ba-prob .bp-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;transition:transform .7s var(--ease)}
+.ba-prob:hover .bp-bg{transform:scale(1.07)}
+.ba-prob::after{content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(180deg,rgba(10,42,46,.45) 0%,rgba(10,42,46,.72) 45%,rgba(7,30,34,.96) 100%)}
+.ba-prob .bp-body{position:relative;z-index:2}
+.ba-prob h4{color:#fff;font-size:1rem;font-weight:900;margin-bottom:.45rem;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.ba-prob h4::before{content:'';display:inline-block;width:22px;height:2px;border-radius:100px;vertical-align:middle;
+  margin-inline-end:.5rem;background:linear-gradient(90deg,#E8C79A,#D9A86C)}
+.ba-prob p{color:#D9EEEB;font-size:.78rem;line-height:1.75;margin-bottom:.75rem;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.ba-prob .bp-fix{display:flex;align-items:flex-start;gap:.45rem;font-size:.76rem;font-weight:700;color:#E8C79A;line-height:1.65;border-top:1px dashed rgba(232,199,154,.35);padding-top:.75rem}
 .ba-prob .bp-fix b{flex-shrink:0}
 .cl-ba .btn-gold{margin-top:2.4rem}
 @media(max-width:960px){.cl-ba-grid{grid-template-columns:1fr;max-width:430px}.ba-pgrid{grid-template-columns:repeat(2,1fr)}}
@@ -330,7 +337,7 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   <div class="cl-ba-grid">
     <div class="ba-card">
       <div class="ba-frame">
-        <img class="ba-img ba-before" src="assets/collagen/story-skin.webp" alt="البشرة قبل الكولاجين" draggable="false">
+        <img class="ba-img ba-before" src="assets/collagen/ba-skin-before.webp" alt="البشرة قبل الكولاجين" draggable="false">
         <img class="ba-img ba-after" src="assets/collagen/story-skin.webp" alt="البشرة بعد الكولاجين" draggable="false">
         <span class="ba-tag ba-tag-before">قبل</span>
         <span class="ba-tag ba-tag-after">بعد</span>
@@ -341,7 +348,7 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     </div>
     <div class="ba-card">
       <div class="ba-frame">
-        <img class="ba-img ba-before" src="assets/collagen/story-hair.jpg" alt="الشعر قبل الكولاجين" draggable="false">
+        <img class="ba-img ba-before" src="assets/collagen/ba-hair-before.webp" alt="الشعر قبل الكولاجين" draggable="false">
         <img class="ba-img ba-after" src="assets/collagen/story-hair.jpg" alt="الشعر بعد الكولاجين" draggable="false">
         <span class="ba-tag ba-tag-before">قبل</span>
         <span class="ba-tag ba-tag-after">بعد</span>
@@ -352,7 +359,7 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     </div>
     <div class="ba-card">
       <div class="ba-frame">
-        <img class="ba-img ba-before" src="assets/collagen/story-nails.jpg" alt="الأظافر قبل الكولاجين" draggable="false">
+        <img class="ba-img ba-before" src="assets/collagen/ba-nails-before.webp" alt="الأظافر قبل الكولاجين" draggable="false">
         <img class="ba-img ba-after" src="assets/collagen/story-nails.jpg" alt="الأظافر بعد الكولاجين" draggable="false">
         <span class="ba-tag ba-tag-before">قبل</span>
         <span class="ba-tag ba-tag-after">بعد</span>
@@ -367,40 +374,52 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   <h3 class="ba-ph">هل تعانين من إحدى هذه المشاكل؟ <em>منتجاتنا صُمّمت لأجلكِ</em></h3>
   <div class="ba-pgrid">
     <div class="ba-prob">
-      <div class="bp-ic">🫤</div>
-      <h4>التجاعيد والخطوط الدقيقة</h4>
-      <p>بعد سن 25 يفقد الجسم قرابة 1% من كولاجينه سنوياً، فتظهر الخطوط حول العينين والفم وتفقد البشرة امتلاءها.</p>
-      <div class="bp-fix"><b>✓</b>ببتيدات الكولاجين تدعم مرونة البشرة وتساعد على تقليل مظهر الخطوط من الداخل.</div>
+      <img class="bp-bg" src="assets/collagen/prob-wrinkles.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>التجاعيد والخطوط الدقيقة</h4>
+        <p>بعد سن 25 يفقد الجسم قرابة 1% من كولاجينه سنوياً، فتظهر الخطوط حول العينين والفم وتفقد البشرة امتلاءها.</p>
+        <div class="bp-fix"><b>✓</b>ببتيدات الكولاجين تدعم مرونة البشرة وتساعد على تقليل مظهر الخطوط من الداخل.</div>
+      </div>
     </div>
     <div class="ba-prob">
-      <div class="bp-ic">🥀</div>
-      <h4>جفاف البشرة وبهتانها</h4>
-      <p>قلة الترطيب والإجهاد اليومي يتركان البشرة باهتة ومتعبة المظهر مهما جرّبتِ من كريمات خارجية.</p>
-      <div class="bp-fix"><b>✓</b>الكولاجين البحري مع حمض الهيالورونيك يرطّب بشرتكِ بعمق من الداخل ويعيد إشراقتها.</div>
+      <img class="bp-bg" src="assets/collagen/prob-dryskin.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>جفاف البشرة وبهتانها</h4>
+        <p>قلة الترطيب والإجهاد اليومي يتركان البشرة باهتة ومتعبة المظهر مهما جرّبتِ من كريمات خارجية.</p>
+        <div class="bp-fix"><b>✓</b>الكولاجين البحري مع حمض الهيالورونيك يرطّب بشرتكِ بعمق من الداخل ويعيد إشراقتها.</div>
+      </div>
     </div>
     <div class="ba-prob">
-      <div class="bp-ic">💇‍♀️</div>
-      <h4>تساقط الشعر وضعفه</h4>
-      <p>التساقط بعد الولادة، نقص الفيتامينات أو الصبغات المتكررة — كلها تُضعف بصيلات الشعر وتقلل كثافته.</p>
-      <div class="bp-fix"><b>✓</b>تركيبة الكولاجين المدعمة بالبيوتين تغذّي الجذور وتساعد على تقليل التساقط.</div>
+      <img class="bp-bg" src="assets/collagen/ba-hair-before.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>تساقط الشعر وضعفه</h4>
+        <p>التساقط بعد الولادة، نقص الفيتامينات أو الصبغات المتكررة — كلها تُضعف بصيلات الشعر وتقلل كثافته.</p>
+        <div class="bp-fix"><b>✓</b>تركيبة الكولاجين المدعمة بالبيوتين تغذّي الجذور وتساعد على تقليل التساقط.</div>
+      </div>
     </div>
     <div class="ba-prob">
-      <div class="bp-ic">💅</div>
-      <h4>أظافر هشة ومتكسرة</h4>
-      <p>أظافر تتقصف من أبسط الأعمال اليومية، تنمو ببطء ولا تحتفظ بطولها مهما اعتنيتِ بها.</p>
-      <div class="bp-fix"><b>✓</b>الكولاجين مع فيتامين C يقوّي بنية الظفر ويدعم نموه بشكل صحي.</div>
+      <img class="bp-bg" src="assets/collagen/ba-nails-before.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>أظافر هشة ومتكسرة</h4>
+        <p>أظافر تتقصف من أبسط الأعمال اليومية، تنمو ببطء ولا تحتفظ بطولها مهما اعتنيتِ بها.</p>
+        <div class="bp-fix"><b>✓</b>الكولاجين مع فيتامين C يقوّي بنية الظفر ويدعم نموه بشكل صحي.</div>
+      </div>
     </div>
     <div class="ba-prob">
-      <div class="bp-ic">🦴</div>
-      <h4>آلام وتيبّس المفاصل</h4>
-      <p>ألم في الركبتين وصعوبة في الحركة بعد يوم طويل، أو تيبّس صباحي يزداد مع مرور السنوات.</p>
-      <div class="bp-fix"><b>✓</b>20غ من ببتيدات الكولاجين يومياً تدعم صحة الغضاريف ومرونة الحركة.</div>
+      <img class="bp-bg" src="assets/collagen/story-joints.jpg" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>آلام وتيبّس المفاصل</h4>
+        <p>ألم في الركبتين وصعوبة في الحركة بعد يوم طويل، أو تيبّس صباحي يزداد مع مرور السنوات.</p>
+        <div class="bp-fix"><b>✓</b>20غ من ببتيدات الكولاجين يومياً تدعم صحة الغضاريف ومرونة الحركة.</div>
+      </div>
     </div>
     <div class="ba-prob">
-      <div class="bp-ic">⏳</div>
-      <h4>فقدان مرونة البشرة</h4>
-      <p>ترهّل خفيف في الوجه والرقبة وفقدان الامتلاء الطبيعي للخدين مع التقدم في العمر.</p>
-      <div class="bp-fix"><b>✓</b>الاستخدام المنتظم يدعم كثافة الكولاجين تحت الجلد ويساعد على شدّ البشرة.</div>
+      <img class="bp-bg" src="assets/collagen/ba-skin-before.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>فقدان مرونة البشرة</h4>
+        <p>ترهّل خفيف في الوجه والرقبة وفقدان الامتلاء الطبيعي للخدين مع التقدم في العمر.</p>
+        <div class="bp-fix"><b>✓</b>الاستخدام المنتظم يدعم كثافة الكولاجين تحت الجلد ويساعد على شدّ البشرة.</div>
+      </div>
     </div>
   </div>
   <button class="btn-gold" id="baOrderBtn">🛒 ابدئي رحلة التغيير اليوم</button>
