@@ -731,6 +731,28 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     if (status && status.carrier === 'zr' && status.tracking && o.zr) o.zr.tracking = status.tracking;
   }
 
+  // After a refresh re-renders the list, bring this order's tracker into view and
+  // scroll its (horizontally scrollable) stepper to the current/last-reached step,
+  // so the latest parcel status is visible without scrolling by hand.
+  function scrollTrackerToCurrent(orderId) {
+    requestAnimationFrame(function () {
+      var btn = null;
+      document.querySelectorAll('.ptrack-refresh').forEach(function (b) {
+        if (String(b.dataset.track) === String(orderId)) btn = b;
+      });
+      var ptrack = btn && btn.closest('.ptrack');
+      if (!ptrack) return;
+      var pstep = ptrack.querySelector('.pstep');
+      var target = null;
+      if (pstep) {
+        target = pstep.querySelector('.pstep-node.cur');
+        if (!target) { var done = pstep.querySelectorAll('.pstep-node.done'); target = done[done.length - 1] || null; }
+      }
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      else ptrack.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
   function refreshTracking(orderId, btn) {
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
     var orig = btn ? btn.textContent : '';
@@ -740,6 +762,7 @@ details[open] .ptrack-log-h::before{content:'▾ '}
         var o = state.orders.find(function (x) { return String(x.id) === String(orderId); });
         if (o) applyTrackingResult(o, res.data);
         views.orders();
+        scrollTrackerToCurrent(orderId);
       })
       .catch(function (err) {
         console.error('getParcelStatus', err);
