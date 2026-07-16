@@ -195,6 +195,28 @@ body{background:#F5FAF9}
 .cl-prow .pr-mini span{display:flex;align-items:center;gap:.3rem}
 @media(max-width:860px){.cl-prow{grid-template-columns:1fr;padding:1.6rem}.cl-prow .pr-imgwrap{max-width:220px;margin:0 auto;order:-1}}
 @media(max-width:460px){.cl-prow .pr-icons{grid-template-columns:repeat(2,1fr);row-gap:.9rem}}
+/* special-offer product (glutathione — final solution) */
+.cl-prow--special{background:linear-gradient(160deg,#0E3A40 0%,#0A2A2E 100%);border-inline-start-width:0;
+  border:1px solid rgba(201,162,74,.5);box-shadow:0 18px 44px rgba(14,58,64,.28),0 0 0 1px rgba(201,162,74,.18) inset;padding-top:2.6rem}
+.cl-prow--special::before{content:'';position:absolute;inset:0;border-radius:26px;padding:1px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(232,199,154,.9),rgba(201,162,74,.15),rgba(232,199,154,.7));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.cl-prow--special:hover{box-shadow:0 28px 60px rgba(0,0,0,.4),0 0 0 1px rgba(201,162,74,.3) inset}
+.cl-prow--special .pr-brand{color:#E8C79A}
+.cl-prow--special h3{color:#fff}
+.cl-prow--special .pr-headline{color:#D9EEEB}
+.cl-prow--special .pr-icon .pi-ic{background:rgba(201,162,74,.16)}
+.cl-prow--special .pr-icon span{color:#BFEDE8}
+.cl-prow--special .pr-bullets li{color:#D9EEEB}
+.cl-prow--special .pr-bullets li b{color:#E8C79A}
+.cl-prow--special .pr-price{color:#fff}
+.cl-prow--special .pr-mini{color:rgba(191,237,232,.75)}
+.cl-prow--special .pr-num{background:linear-gradient(135deg,#E8C79A,#C9A24A);color:#3A2B12}
+.cl-prow--special .pr-btn{background:linear-gradient(135deg,#E8C79A,#C9A24A);color:#3A2B12}
+.pr-ribbon{position:absolute;top:0;inset-inline-start:0;z-index:3;font-size:.72rem;font-weight:900;color:#3A2B12;
+  background:linear-gradient(135deg,#E8C79A,#D9A86C);padding:.5rem 1.1rem;border-end-end-radius:16px;
+  box-shadow:0 6px 16px rgba(0,0,0,.25);letter-spacing:.2px}
+.pr-price .pr-offer{display:block;font-size:.62rem;font-weight:800;color:#E8C79A;margin-top:.15rem;letter-spacing:.3px}
 
 /* ───────── how it works ───────── */
 .cl-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem}
@@ -471,7 +493,7 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     <span class="cl-label">مجموعتنا المختارة</span>
     <h2 class="cl-title">اختاري الكولاجين المناسب لكِ</h2>
     <div class="cl-underline"></div>
-    <p class="cl-sub">أربع تركيبات عالمية موثوقة — بودرة بدون نكهة أو كبسولات، حسب ما يناسب روتينكِ.</p>
+    <p class="cl-sub">أربع تركيبات كولاجين عالمية موثوقة، وكخطوةٍ أخيرة: جلوتاثيون للتفتيح وتوحيد لون البشرة — عرض خاص لبشرة موحّدة ومشرقة.</p>
   </div>
   <div class="cl-products" id="clProducts"></div>
 </section>
@@ -586,6 +608,14 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
       price: 10600, image: 'assets/collagen/neocell-marine.webp', color: '#1B6FA8', soft: 'rgba(27,111,168,.12)',
       icons: [['💧', 'يدعم ترطيب البشرة بعمق'], ['✨', 'يحسّن مرونة البشرة ويقلل التجاعيد'], ['💅', 'يدعم صحة الأظافر'], ['💆‍♀️', 'يدعم نمو الشعر وكثافته']],
       bullets: ['كولاجين بحري مدعم بحمض الهيالورونيك لترطيب أعمق', '120 كبسولة سهلة الاستخدام يومياً بدون طعم', 'يدعم مرونة البشرة ويقلل من مظهر التجاعيد']
+    },
+    {
+      id: 'col-glutathione', brand: 'LIFE EXTENSION', title: 'Glutathione, Cysteine & C — جلوتاثيون للتفتيح',
+      headline: 'الحل النهائي لمشاكل البشرة — يفتّح ويوحّد لون بشرتكِ ويكمّل مفعول الكولاجين.',
+      price: 14000, image: 'assets/collagen/glutathione.webp', color: '#C9A24A', soft: 'rgba(201,162,74,.14)',
+      special: true, badge: '✨ عرض خاص — الحل النهائي', offerNote: 'لفترة محدودة',
+      icons: [['🌟', 'يفتّح ويوحّد لون البشرة'], ['🛡️', 'مضاد أكسدة قوي'], ['💧', 'يقلل التصبّغات والبقع الداكنة'], ['🧬', 'يعزّز مفعول الكولاجين']],
+      bullets: ['ثلاثية الجلوتاثيون + السيستئين + فيتامين C للتفتيح والحماية من الأكسدة', 'يعمل جنباً إلى جنب مع الكولاجين لبشرة موحّدة ومشرقة من الداخل', '100 كبسولة — خالٍ من الجلوتين ومعتمد NON-GMO']
     }
   ];
 
@@ -594,7 +624,8 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
 
   // ───────── product rows ─────────
   document.getElementById('clProducts').innerHTML = PRODUCTS.map(function (p, i) {
-    return '<div class="cl-prow" style="--pc:' + p.color + ';--pc-soft:' + p.soft + '">' +
+    return '<div class="cl-prow' + (p.special ? ' cl-prow--special' : '') + '" style="--pc:' + p.color + ';--pc-soft:' + p.soft + '">' +
+      (p.badge ? '<div class="pr-ribbon">' + esc(p.badge) + '</div>' : '') +
       '<div class="pr-body">' +
         '<div class="pr-brand">' + p.brand + '</div>' +
         '<h3>' + esc(p.title) + '</h3>' +
@@ -604,7 +635,7 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
         }).join('') + '</div>' +
         '<ul class="pr-bullets">' + p.bullets.map(function (b) { return '<li><b>✓</b>' + esc(b) + '</li>'; }).join('') + '</ul>' +
         '<div class="pr-foot">' +
-          '<span class="pr-price">' + money(p.price) + '</span>' +
+          '<span class="pr-price">' + money(p.price) + (p.offerNote ? '<small class="pr-offer">' + esc(p.offerNote) + '</small>' : '') + '</span>' +
           '<button class="pr-btn" data-pick="' + p.id + '">🛒 اطلبي الآن</button>' +
           '<div class="pr-mini"><span>💵 الدفع عند الاستلام</span><span>🚚 توصيل لكل الولايات</span></div>' +
         '</div>' +
