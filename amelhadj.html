@@ -158,7 +158,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   .sidebar{transform:translateX(100%);box-shadow:-4px 0 30px rgba(0,0,0,.5)}
   .sidebar.open{transform:translateX(0)}
   .main{margin-right:0}
-  .menu-btn{display:block}
+  /* Keep the hamburger visible while scrolling; above the sidebar so it can close it too */
+  .menu-btn{display:block;position:fixed;top:1rem;inset-inline-start:1rem;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+  .topbar{padding-inline-start:calc(42px + .9rem)}
   .grid2{grid-template-columns:1fr}
 }
 </style>
