@@ -277,6 +277,24 @@ body{background:#F5FAF9}
 .cl-opt.on .check{border-color:var(--col-teal);background:var(--col-teal)}
 .cl-opt .check svg{width:14px;height:14px;color:#fff;opacity:0;transform:scale(.5);transition:all .2s}
 .cl-opt.on .check svg{opacity:1;transform:scale(1)}
+/* special-offer option — light golden & inviting */
+.cl-opt--special{position:relative;overflow:hidden;border-color:rgba(201,162,74,.55);
+  background:linear-gradient(135deg,#FFFBF2 0%,#FBF1DA 100%);
+  box-shadow:0 6px 20px rgba(201,162,74,.18);animation:optGlow 2.6s ease-in-out infinite}
+@keyframes optGlow{0%,100%{box-shadow:0 6px 18px rgba(201,162,74,.16)}50%{box-shadow:0 8px 26px rgba(201,162,74,.34)}}
+.cl-opt--special::after{content:'';position:absolute;top:0;bottom:0;width:45%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.7),transparent);
+  transform:skewX(-18deg);animation:optShine 3.4s ease-in-out infinite}
+@keyframes optShine{0%{inset-inline-start:-60%}55%,100%{inset-inline-start:130%}}
+.cl-opt--special:hover{border-color:var(--gold,#C9A24A)}
+.cl-opt--special .co-name{color:#5A4212}
+.cl-opt--special .co-price{color:#B07E24}
+.cl-opt--special.on{border-color:var(--gold,#C9A24A);background:linear-gradient(135deg,#FFF7E6 0%,#F7E7C2 100%)}
+.cl-opt--special .check{border-color:rgba(201,162,74,.6)}
+.cl-opt--special.on .check{border-color:var(--gold,#C9A24A);background:linear-gradient(135deg,#E8C79A,#C9A24A)}
+.cl-opt--special .co-tag{display:inline-block;font-size:.6rem;font-weight:900;color:#3A2B12;
+  background:linear-gradient(135deg,#E8C79A,#D9A86C);padding:2px 9px;border-radius:100px;margin-bottom:.28rem;letter-spacing:.2px}
+@media(prefers-reduced-motion:reduce){.cl-opt--special,.cl-opt--special::after{animation:none}}
 .cl-hint{text-align:center;font-size:.76rem;color:var(--ink-3);margin-bottom:.9rem}
 .cl-total{display:flex;align-items:center;justify-content:space-between;background:var(--col-pearl);border-radius:14px;
   padding:.85rem 1rem;margin-bottom:1rem;font-weight:800;color:var(--col-deep)}
@@ -668,10 +686,13 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
       '<p class="cl-hint">يمكنكِ اختيار أكثر من منتج في نفس الطلب</p>' +
       PRODUCTS.map(function (p) {
         var on = selected.indexOf(p.id) !== -1;
-        return '<div class="cl-opt' + (on ? ' on' : '') + '" data-opt="' + p.id + '">' +
+        return '<div class="cl-opt' + (on ? ' on' : '') + (p.special ? ' cl-opt--special' : '') + '" data-opt="' + p.id + '">' +
           '<div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' +
           '<img src="' + p.image + '" alt="">' +
-          '<div class="co-info"><div class="co-name">' + esc(p.title) + '</div><div class="co-price">' + money(p.price) + '</div></div>' +
+          '<div class="co-info">' +
+            (p.special ? '<span class="co-tag">✨ عرض خاص</span>' : '') +
+            '<div class="co-name">' + esc(p.title) + '</div><div class="co-price">' + money(p.price) + '</div>' +
+          '</div>' +
         '</div>';
       }).join('') +
       '<div class="cl-fields">' +
