@@ -129,6 +129,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .order-card.byadmin{border-color:#7C5CBF;box-shadow:inset 4px 0 0 #7C5CBF}
 .order-card.confirmed .odim{opacity:.55;filter:grayscale(.6);transition:opacity .2s,filter .2s}
 .order-card.confirmed:hover .odim{opacity:.85;filter:grayscale(.25)}
+.ocard>summary.ocard-h{cursor:pointer;list-style:none;display:block}
+.ocard>summary.ocard-h::-webkit-details-marker{display:none}
+.ocard>summary.ocard-h::after{content:'▸ عرض التفاصيل';display:block;font-size:.72rem;color:var(--ink-3);font-weight:800;margin-top:.6rem}
+.ocard[open]>summary.ocard-h::after{content:'▾ إخفاء التفاصيل'}
+.order-card:has(.ocard:not([open])){opacity:.82}
 .order-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:.75rem}
 .order-items{background:var(--card-2);border-radius:11px;padding:.75rem 1rem;font-size:.84rem;color:var(--ink-2);margin:.5rem 0}
 .order-pics{display:flex;gap:.6rem;overflow-x:auto;background:var(--card-2);border-radius:11px;padding:.6rem;margin:.5rem 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
@@ -145,12 +150,34 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .pstep-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:74px}
 .pstep-dot{width:32px;height:32px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--ink-3);flex-shrink:0}
 .pstep-node.done .pstep-dot{background:var(--green);border-color:var(--green);color:#fff}
-.pstep-node.on .pstep-dot{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 0 4px rgba(91,141,239,.22)}
+.pstep-node.cur .pstep-dot{box-shadow:0 0 0 4px rgba(34,197,94,.25)}
 .pstep-lab{font-size:.66rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:.4rem;line-height:1.4}
-.pstep-node.on .pstep-lab,.pstep-node.done .pstep-lab{color:var(--ink-2)}
-.pstep-line{flex:1;height:2px;background:var(--border);margin:15px 2px 0;min-width:16px}
+.pstep-node.done .pstep-lab{color:var(--ink-2)}
+.pstep-node.cur .pstep-lab{color:var(--green)}
+.pstep-line{position:relative;flex:1;height:2px;background:var(--border);margin:15px 2px 0;min-width:16px}
 .pstep-line.done{background:var(--green)}
-.ptrack-meta{font-size:.72rem;color:var(--ink-3);margin-top:.7rem}
+.pstep-line.warn{background:#E5484D}
+.pstep-warn{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);font-size:1rem;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.ptrack-meta{font-size:.72rem;color:var(--ink-3);margin-top:.7rem;display:flex;flex-direction:column;gap:.35rem}
+.ptrack-status{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.ptrack-badge{font-size:.75rem;font-weight:800;padding:.22rem .6rem;border-radius:100px;white-space:nowrap}
+.ptrack-badge.ok{background:rgba(34,197,94,.18);color:#7CE5A0}
+.ptrack-badge.warn{background:rgba(229,72,77,.16);color:#F2A1A4}
+.ptrack-badge.bad{background:rgba(229,72,77,.2);color:#F2A1A4}
+.ptrack-raw{color:var(--ink-2);font-size:.74rem}
+.ptrack-raw b{color:var(--ink);font-weight:800}
+.ptrack-sub{color:var(--ink-3);font-size:.7rem}
+.ptrack-log{margin-top:.7rem;border-top:1px solid var(--border);padding-top:.6rem}
+.ptrack-log-h{font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.5rem;cursor:pointer;list-style:none;user-select:none}
+.ptrack-log-h::-webkit-details-marker{display:none}
+.ptrack-log-h::before{content:'▸ ';color:var(--ink-3)}
+details[open] .ptrack-log-h::before{content:'▾ '}
+.ptrack-log-item{padding:.4rem .6rem;border-right:2px solid var(--border);background:var(--card);border-radius:8px;margin-bottom:.4rem}
+.ptrack-log-top{font-size:.76rem;color:var(--ink);font-weight:800}
+.ptrack-log-top.ok{color:#7CE5A0}.ptrack-log-top.bad{color:#F2A1A4}.ptrack-log-top.warn{color:#F5CE7A}.ptrack-log-top.info{color:#9DBBF5}
+.ptrack-log-sub{font-size:.68rem;color:var(--ink-3);margin-top:.2rem;display:flex;flex-wrap:wrap;gap:.1rem}
+.ptrack-log-sub .clr{font-weight:700}
+.ptrack-log-sub .clr.ok{color:#7CE5A0}.ptrack-log-sub .clr.bad{color:#F2A1A4}.ptrack-log-sub .clr.warn{color:#F5CE7A}.ptrack-log-sub .clr.info{color:#9DBBF5}
 .toast{position:fixed;bottom:1.5rem;left:1.5rem;z-index:200;background:#13201A;color:#7CE5A0;border:1px solid #1f5137;padding:.8rem 1.3rem;border-radius:12px;font-weight:700;transform:translateY(120%);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
 .hidden{display:none!important}
@@ -622,30 +649,85 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     }
 
     var labels = ts.stageLabels || [];
-    var body;
-    if (ts.alert || ts.stage == null) {
-      body = '<div class="ptrack-alert">⚠️ ' + esc(ts.lastLabel || ts.alert || 'حالة غير معروفة') + '</div>';
-    } else {
-      body = '<div class="pstep">' + labels.map(function (lab, i) {
-        var state = i < ts.stage ? 'done' : (i === ts.stage ? 'on' : '');
-        var node = '<div class="pstep-node ' + state + '"><div class="pstep-dot">' + (state === 'done' ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
-        var line = i < labels.length - 1 ? '<div class="pstep-line' + (i < ts.stage ? ' done' : '') + '"></div>' : '';
-        return node + line;
-      }).join('') + '</div>';
-    }
+    var hasAlert = !!ts.alert;
+    var isReturn = (ts.stage == null);          // return / cancel — no forward-progress value
+    var effStage = isReturn ? -1 : ts.stage;    // -1 = nothing reached, but the steps still show
+    // A delivery-problem ⚠️ means the parcel is NOT delivered — never let the final
+    // step ("تم الاستلام") turn green while the triangle shows.
+    if (hasAlert && !isReturn) effStage = Math.min(effStage, labels.length - 2);
+    var WARN_IDX = 3;                            // ⚠️ sits between "خرج للتوصيل" and "تم الاستلام"
+    // The stepper is ALWAYS shown — an alert/return only adds a ⚠️ marker and a
+    // badge, it never replaces the tracker with a banner.
+    var body = '<div class="pstep">' + labels.map(function (lab, i) {
+      var reached = i <= effStage;              // reached steps (and every one before) turn green
+      var cls = 'pstep-node' + (reached ? ' done' : '') + (i === effStage && !hasAlert ? ' cur' : '');
+      var node = '<div class="' + cls + '"><div class="pstep-dot">' + (reached ? '✓' : (TRACK_ICONS[i] || '•')) + '</div><div class="pstep-lab">' + esc(lab) + '</div></div>';
+      var line = '';
+      if (i < labels.length - 1) {
+        var warnHere = hasAlert && i === WARN_IDX;
+        line = '<div class="pstep-line' + (i < effStage ? ' done' : '') + (warnHere ? ' warn' : '') + '">' +
+               (warnHere ? '<span class="pstep-warn" title="' + esc(ts.alert) + '">🔺</span>' : '') + '</div>';
+      }
+      return node + line;
+    }).join('') + '</div>';
 
     var lastDate = ts.lastDate ? new Date(ts.lastDate).toLocaleString('ar-DZ') : null;
     var updated = ts.updatedAt ? new Date(ts.updatedAt).toLocaleString('ar-DZ') : null;
-    // Always show the carrier's own status text (not just during an alert) so an
-    // imperfect stage-icon guess doesn't hide what Noest/Yalidine actually said.
-    var rawLabel = (!ts.alert && ts.lastLabel) ? ts.lastLabel : null;
+    var carrierName = (CO[carrier] && CO[carrier].name) || carrier;
+    // Show BOTH our Arabic stage and the carrier's own status text, so it's clear
+    // what step we display AND exactly what the delivery API reported.
+    var stageAr = (!isReturn && labels[ts.stage]) ? labels[ts.stage] : null;
+    var badge = isReturn
+      ? '<span class="ptrack-badge bad">⚠️ ' + esc(ts.alert || '—') + '</span>'
+      : (hasAlert
+          ? '<span class="ptrack-badge warn">🔺 ' + esc(ts.alert) + '</span>'
+          : (stageAr ? '<span class="ptrack-badge ok">' + esc(stageAr) + '</span>' : ''));
+    var rawLabel = ts.lastLabel ? esc(ts.lastLabel) : null;
     var meta = '<div class="ptrack-meta">' +
-      (rawLabel ? 'آخر حالة: ' + esc(rawLabel) : '') +
-      (lastDate ? (rawLabel ? ' · ' : '') + 'آخر حدث: ' + lastDate : '') + (ts.lastLocation ? ' · 📍 ' + esc(ts.lastLocation) : '') +
-      (updated ? (lastDate || rawLabel ? ' — ' : '') + 'تحديث يدوي: ' + updated : '') +
-      '</div>';
+      '<div class="ptrack-status">' + badge +
+        (rawLabel ? '<span class="ptrack-raw">حالة ' + esc(carrierName) + ': <b>' + rawLabel + '</b></span>' : '') +
+      '</div>' +
+      '<div class="ptrack-sub">' +
+        (lastDate ? '🕒 آخر حدث: ' + lastDate : '') +
+        (ts.lastLocation ? (lastDate ? ' · ' : '') + '📍 ' + esc(ts.lastLocation) : '') +
+        (updated ? ((lastDate || ts.lastLocation) ? ' · ' : '') + '🔄 تحديث: ' + updated : '') +
+      '</div>' +
+    '</div>';
 
-    return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
+    // Activity details from the carrier API — agent, hub, causer and the reason —
+    // folded by default; click "تفاصيل الشحنة" to expand. `badge-class` is used only
+    // to colour the status/reason (green=success, red=problem, blue=in-progress),
+    // never shown as raw text.
+    function badgeCls(b) {
+      b = String(b || '').toLowerCase();
+      if (/success/.test(b)) return 'ok';
+      if (/danger|error/.test(b)) return 'bad';
+      if (/warn/.test(b)) return 'warn';
+      if (/primary|info/.test(b)) return 'info';
+      return '';
+    }
+    var evs = (ts.events || []).filter(function (e) { return e && e.date; });
+    var log = '';
+    if (evs.length) {
+      log = '<details class="ptrack-log"><summary class="ptrack-log-h">📋 تفاصيل الشحنة (' + evs.length + ')</summary>' +
+        evs.slice().reverse().map(function (e) {
+          var cls = badgeCls(e.badge);
+          var d = e.date ? new Date(e.date).toLocaleString('ar-DZ') : '';
+          var bits = [];
+          if (e.by) bits.push('🚚 ' + esc(e.by));
+          if (e.center) bits.push('🏢 ' + esc(e.center));
+          if (e.location) bits.push('📍 ' + esc(e.location));
+          if (e.causer) bits.push('causer: ' + esc(e.causer));
+          if (e.content) bits.push('content: <span class="clr ' + cls + '">' + esc(e.content) + '</span>');
+          if (d) bits.push('🕒 ' + d);
+          return '<div class="ptrack-log-item"><div class="ptrack-log-top ' + cls + '">' + esc(e.label || '—') + '</div>' +
+                 (bits.length ? '<div class="ptrack-log-sub">' + bits.join(' · ') + '</div>' : '') + '</div>';
+        }).join('') + '</details>';
+    }
+
+    return '<div class="ptrack">' + body + meta +
+           '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div>' +
+           log + '</div>';
   }
 
   // Store the fresh status on the order; the function also syncs
@@ -659,6 +741,28 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     if (status && status.carrier === 'zr' && status.tracking && o.zr) o.zr.tracking = status.tracking;
   }
 
+  // After a refresh re-renders the list, bring this order's tracker into view and
+  // scroll its (horizontally scrollable) stepper to the current/last-reached step,
+  // so the latest parcel status is visible without scrolling by hand.
+  function scrollTrackerToCurrent(orderId) {
+    requestAnimationFrame(function () {
+      var btn = null;
+      document.querySelectorAll('.ptrack-refresh').forEach(function (b) {
+        if (String(b.dataset.track) === String(orderId)) btn = b;
+      });
+      var ptrack = btn && btn.closest('.ptrack');
+      if (!ptrack) return;
+      var pstep = ptrack.querySelector('.pstep');
+      var target = null;
+      if (pstep) {
+        target = pstep.querySelector('.pstep-node.cur');
+        if (!target) { var done = pstep.querySelectorAll('.pstep-node.done'); target = done[done.length - 1] || null; }
+      }
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      else ptrack.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
   function refreshTracking(orderId, btn) {
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
     var orig = btn ? btn.textContent : '';
@@ -668,6 +772,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         var o = state.orders.find(function (x) { return String(x.id) === String(orderId); });
         if (o) applyTrackingResult(o, res.data);
         views.orders();
+        scrollTrackerToCurrent(orderId);
       })
       .catch(function (err) {
         console.error('getParcelStatus', err);
@@ -725,15 +830,21 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
+      // Orders older than 7 days start folded to keep the list scannable; newer ones stay open.
+      var isOld = when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000);
+      // Customer name / phone / location — kept in the always-visible summary so a
+      // folded order still shows who and where at a glance.
+      var metaLine = '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>';
       return '<div class="order-card' + (o.source === 'admin_phone' ? ' byadmin' : '') + (o.fulfilled ? ' confirmed' : '') + '">' +
-        '<div class="odim">' +
+        '<details class="ocard"' + (isOld ? '' : ' open') + '><summary class="ocard-h">' +
         '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + oco.bg + ';color:' + oco.ink + ';border-color:transparent;font-weight:800">' + oco.icon + ' ' + oco.name + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
             (o.deliveryFee != null ? '<div style="font-size:.7rem;color:var(--ink-3);margin-top:.2rem">منتجات ' + esc(DS.priceFmt(o.subtotal)) + ' + توصيل ' + esc(DS.priceFmt(o.deliveryFee)) + '</div>' : '') +
           '</div></div>' +
+        metaLine +
+        '</summary><div class="odim">' +
         pics +
         '<div class="order-items">' + (items || '—') + '</div>' +
-        '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>' +
         (o.yalidine && o.yalidine.tracking ? '<div class="order-items" style="background:rgba(225,25,0,.12);color:#FF9A8C;margin-top:.6rem">📦 طرد Yalidine: <b class="num">' + esc(o.yalidine.tracking) + '</b>' + (o.yalidine.label ? ' · <a href="' + esc(o.yalidine.label) + '" target="_blank" style="color:#FFC9C0;text-decoration:underline">طباعة الوصل</a>' : '') + '</div>' : '') +
         (o.noest && o.noest.tracking ? '<div class="order-items" style="background:rgba(91,141,239,.12);color:#9DBBF5;margin-top:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><input type="checkbox" class="noest-sel" data-tracking="' + esc(o.noest.tracking) + '" title="تحديد للطباعة" style="width:17px;height:17px;accent-color:#1E73E8;cursor:pointer;flex-shrink:0"><span>🔵 طرد Noest:</span> <a href="#" class="num" data-nlabel="' + esc(o.noest.tracking) + '" title="فتح وصل التوصيل PDF" style="color:#9DBBF5;font-weight:800;text-decoration:underline">' + esc(o.noest.tracking) + '</a> <span>· ' + (o.noest.validated ? 'مُثبَّت ✓' : 'جاهز في «prêt à expédier» — أكّديه في Noest للشحن') + '</span></div>' : '') +
         (o.zr && o.zr.tracking ? '<div class="order-items" style="background:rgba(232,164,19,.12);color:#F5CE7A;margin-top:.6rem">🟡 طرد ZR Express: <b class="num">' + esc(o.zr.tracking) + '</b> · <span style="font-size:.78rem">الوصل يُطبع من لوحة ZR</span></div>' : '') +
@@ -754,7 +865,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           }).join('')) +
           '<button class="btn btn-gray btn-sm" data-ofull="' + esc(o.id) + '">' + (o.fulfilled ? '↩ تعليم كجديد' : '✓ تم التنفيذ') + '</button>' +
           '<button class="btn btn-danger btn-sm" data-odel="' + esc(o.id) + '">حذف</button>' +
-        '</div></div></div>';
+        '</div></div></details></div>';
     }).join('') : '<div class="empty"><div class="ic">📦</div>لا توجد طلبات بعد</div>');
 
     document.querySelectorAll('[data-ofull]').forEach(function (b) { b.onclick = function () { var o = state.orders.find(function (x) { return String(x.id) === b.dataset.ofull; }); var v = !o.fulfilled; DS.updateDoc('orders', o.id, { fulfilled: v, status: v ? 'Done' : 'New' }).then(function () { o.fulfilled = v; updateBadges(); views.orders(); }); }; });
