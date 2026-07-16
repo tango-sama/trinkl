@@ -580,16 +580,33 @@ async function fetchNoestStatus(db, o) {
 
   const entry = (body && typeof body === 'object')
     ? (body[o.noest.tracking] || body[Object.keys(body)[0]]) : null;
-  // Noest's activity events carry no geographic location field — "by" is the
-  // partner/shop name (e.g. the account owner), not a place, so it must not
-  // be used as one.
+  // Each Noest activity carries who handled it (the agent/livreur), which hub it
+  // passed through, and a free-text reason ("Client ne répond pas", etc.). Field
+  // names vary, so read them generously and keep any leftover string fields in
+  // `extra` so no detail the API returns is dropped from the panel.
   const rawEvents = (entry && (entry.activity || entry.events)) || [];
-  const events = rawEvents.map((e) => ({
-    key: e.event_key || e.key || e.status || '',
-    label: e.event || e.event_key || e.key || e.status || '',
-    date: e.date || e.created_at || e.updated_at || null,
-    location: e.location || null,
-  })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const NOEST_MAPPED = new Set([
+    'event_key', 'key', 'status', 'event', 'date', 'created_at', 'updated_at', 'location',
+    'by', 'agent', 'driver', 'livreur', 'user', 'staff',
+    'station', 'center', 'centre', 'hub', 'wilaya', 'antenne', 'warehouse', 'depot',
+    'comment', 'note', 'reason', 'motif', 'commentaire', 'commentary', 'remarque',
+  ]);
+  const events = rawEvents.map((e) => {
+    const extra = {};
+    for (const k in e) {
+      if (!NOEST_MAPPED.has(k) && e[k] != null && typeof e[k] !== 'object' && String(e[k]).trim()) extra[k] = e[k];
+    }
+    return {
+      key: e.event_key || e.key || e.status || '',
+      label: e.event || e.event_key || e.key || e.status || '',
+      date: e.date || e.created_at || e.updated_at || null,
+      location: e.location || null,
+      by: e.by || e.agent || e.driver || e.livreur || e.user || e.staff || null,
+      center: e.station || e.center || e.centre || e.hub || e.wilaya || e.antenne || e.warehouse || e.depot || null,
+      comment: e.comment || e.note || e.reason || e.motif || e.commentaire || e.commentary || e.remarque || null,
+      extra,
+    };
+  }).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const last = events[events.length - 1] || null;
   const currentText = (last && last.label) || '';
@@ -688,7 +705,11 @@ async function fetchYalidineStatus(db, o) {
       const list = Array.isArray(hBody) ? hBody : (hBody && hBody.data) || [];
       events = list.map((h) => ({
         key: h.status, label: h.status, date: h.date_status,
-        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - '),
+        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - ') || null,
+        by: h.driver_name || h.driver || null,
+        center: h.center_name || h.center || null,
+        comment: h.reason || h.raison || null,
+        extra: {},
       })).sort((a, b) => new Date(a.date) - new Date(b.date));
     }
   } catch (e) { /* history is best-effort; the parcel's own last_status already covers the stepper */ }

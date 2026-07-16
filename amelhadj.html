@@ -162,6 +162,12 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .ptrack-raw{color:var(--ink-2);font-size:.74rem}
 .ptrack-raw b{color:var(--ink);font-weight:800}
 .ptrack-sub{color:var(--ink-3);font-size:.7rem}
+.ptrack-log{margin-top:.7rem;border-top:1px solid var(--border);padding-top:.6rem}
+.ptrack-log-h{font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:.5rem}
+.ptrack-log-item{padding:.4rem .6rem;border-right:2px solid var(--border);background:var(--card);border-radius:8px;margin-bottom:.4rem}
+.ptrack-log-top{font-size:.76rem;color:var(--ink);font-weight:700}
+.ptrack-log-top b{color:#F2A1A4;font-weight:800}
+.ptrack-log-sub{font-size:.68rem;color:var(--ink-3);margin-top:.2rem;display:flex;flex-wrap:wrap;gap:.1rem}
 .toast{position:fixed;bottom:1.5rem;left:1.5rem;z-index:200;background:#13201A;color:#7CE5A0;border:1px solid #1f5137;padding:.8rem 1.3rem;border-radius:12px;font-weight:700;transform:translateY(120%);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
 .hidden{display:none!important}
@@ -673,7 +679,28 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
       '</div>' +
     '</div>';
 
-    return '<div class="ptrack">' + body + meta + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
+    // Activity details from the carrier API — hub/center, agent, and the reason
+    // (e.g. "Client ne répond pas"), newest first. Any field the API sends that we
+    // didn't name is still shown via `extra`, so no detail is lost.
+    var evs = (ts.events || []).filter(function (e) { return e && e.date; });
+    var log = '';
+    if (evs.length) {
+      log = '<div class="ptrack-log"><div class="ptrack-log-h">📋 تفاصيل الشحنة</div>' +
+        evs.slice().reverse().slice(0, 8).map(function (e) {
+          var d = e.date ? new Date(e.date).toLocaleString('ar-DZ') : '';
+          var title = esc(e.label || '—') + (e.comment ? ' — <b>' + esc(e.comment) + '</b>' : '');
+          var bits = [];
+          if (e.center) bits.push('🏢 ' + esc(e.center));
+          if (e.location) bits.push('📍 ' + esc(e.location));
+          if (e.by) bits.push('🚚 ' + esc(e.by));
+          if (e.extra) { Object.keys(e.extra).forEach(function (k) { bits.push(esc(k) + ': ' + esc(e.extra[k])); }); }
+          if (d) bits.push('🕒 ' + d);
+          return '<div class="ptrack-log-item"><div class="ptrack-log-top">' + title + '</div>' +
+                 (bits.length ? '<div class="ptrack-log-sub">' + bits.join(' · ') + '</div>' : '') + '</div>';
+        }).join('') + '</div>';
+    }
+
+    return '<div class="ptrack">' + body + meta + log + '<div class="row-actions" style="margin-top:.7rem">' + refreshBtn + '</div></div>';
   }
 
   // Store the fresh status on the order; the function also syncs
