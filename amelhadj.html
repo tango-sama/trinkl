@@ -126,7 +126,9 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 .imgs-row .ig img{width:56px;height:56px;border-radius:9px;object-fit:cover;border:1px solid var(--border)}
 .imgs-row .ig button{position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;cursor:pointer;font-size:.7rem;line-height:1}
 .order-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.25rem;margin-bottom:1rem}
-.order-card.byadmin{border-color:#7C5CBF;box-shadow:inset 4px 0 0 #7C5CBF}
+/* Neon-blue halo marks orders placed by website customers themselves;
+   staff-entered orders (admin phone / seller direct) stay plain. */
+.order-card.bycustomer{border-color:#00D1FF;box-shadow:inset 4px 0 0 #00D1FF,0 0 14px rgba(0,209,255,.30)}
 .order-card.confirmed .odim{opacity:.55;filter:grayscale(.6);transition:opacity .2s,filter .2s}
 .order-card.confirmed:hover .odim{opacity:.85;filter:grayscale(.25)}
 .ocard>summary.ocard-h{cursor:pointer;list-style:none;display:block}
@@ -880,7 +882,7 @@ details[open] .ptrack-log-h::before{content:'▾ '}
       // Customer name / phone / location — kept in the always-visible summary so a
       // folded order still shows who and where at a glance.
       var metaLine = '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>';
-      return '<div class="order-card' + (o.source === 'admin_phone' ? ' byadmin' : '') + (o.fulfilled ? ' confirmed' : '') + '">' +
+      return '<div class="order-card' + (o.source === 'admin_phone' || o.source === 'seller_direct' ? '' : ' bycustomer') + (o.fulfilled ? ' confirmed' : '') + '">' +
         '<details class="ocard"' + (isOld ? '' : ' open') + '><summary class="ocard-h">' +
         '<div class="order-head"><div><span class="tag ' + (o.fulfilled ? 'done' : 'new') + '">' + (o.fulfilled ? 'تم التنفيذ' : 'جديد') + '</span>' + (o.source === 'admin_phone' ? ' <span class="tag" style="background:rgba(167,139,250,.18);color:#C4B5FD;border-color:transparent;font-weight:800">📞 أدخلتيه بنفسك</span>' : '') + (o.source === 'seller_direct' ? ' <span class="tag" style="background:rgba(217,168,108,.18);color:var(--gold);border-color:transparent">🧾 بائع مباشر</span>' : '') + (o.source === 'landing_collagen' ? ' <span class="tag" style="background:rgba(95,201,168,.18);color:#5FC9A8;border-color:transparent;font-weight:800">🧴 صفحة الكولاجين</span>' : '') + (o.wilaya ? ' <span class="tag" style="background:' + oco.bg + ';color:' + oco.ink + ';border-color:transparent;font-weight:800">' + oco.icon + ' ' + oco.name + ' · ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + '</span>' : ' <span class="tag" style="background:rgba(229,72,77,.16);color:var(--danger);border-color:transparent;font-weight:800">📍 بانتظار تأكيد العنوان</span>') + ' <b style="margin-right:.4rem">' + esc(o.num || o.id) + '</b><div style="font-size:.78rem;color:var(--ink-3);margin-top:.3rem">' + (when ? when.toLocaleString('ar-DZ') : '') + '</div></div>' +
           '<div style="text-align:left"><div style="font-weight:900;color:var(--rose);font-size:1.1rem">' + esc(DS.priceFmt(o.total != null ? o.total : o.subtotal)) + '</div>' +
