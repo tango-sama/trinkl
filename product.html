@@ -187,6 +187,7 @@
           <div class="qdeliv" id="qCompany">
             <div class="qdo on" data-co="noest">🔵 Noest</div>
             <div class="qdo" data-co="yalidine">🔴 Yalidine</div>
+            <div class="qdo" data-co="zr">🟡 ZR Express</div>
           </div>
           <div class="qins" id="qIns"><span>🛡️ التأمين على الطرد (Assurance)</span><span class="sw"></span></div>
         </div>
@@ -222,16 +223,20 @@
   var qty = 1, product = null, catMap = {};
 
   DS.getSettings().then(function (s) { SiteUI.applySettings(s); applyCarriers(s || {}); });
-  DS.getDeliveryData('yalidine').then(function (d) { if (d) { YALIDINE.setCarrierData('yalidine', d); populateQWilayas(); } });
-  DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); populateQWilayas(); } });
+  // Load each carrier's own wilaya/commune/fee lists; refresh when ready.
+  DS.getDeliveryData('yalidine').then(function (d) { if (d) { YALIDINE.setCarrierData('yalidine', d); populateQWilayas(); updateQFee(); } });
+  DS.getDeliveryData('noest').then(function (d) { if (d) { YALIDINE.setCarrierData('noest', d); populateQWilayas(); updateQFee(); } });
+  DS.getDeliveryData('zr').then(function (d) { if (d) { YALIDINE.setCarrierData('zr', d); populateQWilayas(); updateQFee(); } });
 
   function applyCarriers(s) {
-    var customerEnabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false };
-    if (!customerEnabled.yalidine && !customerEnabled.noest) { customerEnabled.yalidine = true; customerEnabled.noest = true; }
+    // ZR is opt-in (zrEnabled must be set to true in the admin settings);
+    // the other two stay visible unless explicitly hidden.
+    var customerEnabled = { yalidine: s.yalidineEnabled !== false, noest: s.noestEnabled !== false, zr: s.zrEnabled === true };
+    if (!customerEnabled.yalidine && !customerEnabled.noest && !customerEnabled.zr) { customerEnabled.yalidine = true; customerEnabled.noest = true; }
     // Only staff (seller mode) get a carrier choice; customers never see the
     // picker and their order uses the default (first customer-enabled) carrier.
     var staff = false; try { staff = localStorage.getItem('ds_staff') === '1'; } catch (e) {}
-    var enabled = staff ? { yalidine: true, noest: true } : customerEnabled;
+    var enabled = staff ? { yalidine: true, noest: true, zr: true } : customerEnabled;
     var opts = document.querySelectorAll('#qCompany .qdo');
     var first = null;
     opts.forEach(function (o) {
@@ -247,7 +252,7 @@
     updateQIns();
     var field = document.getElementById('qCompany').closest('.qfield');
     if (field) field.style.display = staff ? '' : 'none';
-    populateQWilayas();
+    populateQWilayas(); updateQFee();
   }
 
   if (!id) { document.getElementById('pName').textContent = 'المنتج غير موجود'; return; }
@@ -358,6 +363,7 @@
     qIns.classList.toggle('on', qInsurance);
   });
   function updateQFee() {
+    if (!qw || !qc) return; // quick-order UI not initialized (missing product id)
     var w = qSelW();
     document.querySelector('[data-h]').textContent = w ? YALIDINE.feeForCarrier(qCompany, w.id, 'home').toLocaleString('en-US') + ' دج' : '—';
     document.querySelector('[data-o]').textContent = w ? YALIDINE.feeForCarrier(qCompany, w.id, 'office').toLocaleString('en-US') + ' دج' : '—';
