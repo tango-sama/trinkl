@@ -465,7 +465,11 @@ exports.createZrParcel = onCall(
    returns it. Refreshing is manual (button click) to respect each
    carrier's rate limits — status is not polled automatically.
    ─────────────────────────────────────────────────────────────── */
-const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم التسليم'];
+const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم الاستلام'];
+// stage = index of the furthest step the parcel has REACHED (that step and every
+// one before it render green in the panel). `alert` with a non-null stage = a
+// delivery problem shown as a ⚠️ between "خرج للتوصيل" and "تم الاستلام"; `stage:
+// null` = a terminal return/cancel with no meaningful step progress.
 
 // Noest's status keys are a small fixed set, so an exact-match table is safe.
 const NOEST_STAGE = {
@@ -491,20 +495,53 @@ const NOEST_ALERT = {
   pickup_picked_recu: 'تم استلام الإرجاع',
 };
 
-// Yalidine's status is free-text French, so match by keyword instead of an exact table.
+// Noest's own French status names, mapped to the 5 steps exactly as they read in
+// the Noest dashboard. This is the authoritative signal — the event_key table
+// above only backs it up — so a renamed or unmapped key can no longer pin the
+// tracker a step behind. Returns { stage:-1 } for text we don't recognize so it
+// yields to the key table instead of forcing "just created". Order matters:
+// "Livré" (delivered) is checked apart from "En livraison" (out for delivery),
+// and "Prêt à expédier" must not be mistaken for "En expédition".
+//   Prêt à expédier → 0 · En traitement → 1 · En expédition/En hub → 2
+//   En livraison → 3 · Livré → 4 · Suspendu → ⚠️ before delivery
+function noestNormalize(raw) {
+  const s = String(raw || '').toLowerCase().trim();
+  if (!s) return { stage: -1, alert: null };
+  if (/retour|annul|rembours/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
+  if (/suspend|bloqu|[ée]chou|[ée]chec|probl[èe]me|tentative|alerte/.test(s)) return { stage: 3, alert: 'معلّق — مشكلة في التوصيل' };
+  // "Livré/Livrée/Livrés" (delivered) — but NOT "livraison" (out for delivery),
+  // which has an 'a' after "livr" so `livr[ée]` can't match it. (No \b: a word
+  // boundary after the accented "é" never matches without the /u flag.)
+  if (/livr[ée]/.test(s) && !/livraison/.test(s)) return { stage: 4, alert: null };
+  if (/en\s*livraison|en cours de livraison|sortie?\s+(en|pour)\s+livraison|distribution/.test(s)) return { stage: 3, alert: null };
+  if (/exp[ée]dition|en\s*hub|\bhub\b|en\s*transit|\btransit\b|centre de tri|dispatch|redispatch/.test(s)) return { stage: 2, alert: null };
+  if (/traitement|trait[ée]|valid|confirm|ramass|collect|r[ée]ception|re[çc]u/.test(s)) return { stage: 1, alert: null };
+  if (/pr[êe]t\s*[àa]\s*exp[ée]dier|pr[êe]t|pr[ée]paration|cr[é]{2}|upload|nouveau|enregistr/.test(s)) return { stage: 0, alert: null };
+  return { stage: -1, alert: null };
+}
+
+// Yalidine's last_status is free-text French, matched by keyword. Mapped to the 5
+// steps exactly as requested:
+//   In preparation → 0 · Dispatched → 1 · To the Wilaya → 2
+//   Agency center → 3 · Delivered → 4 · On alert → ⚠️ before delivery
+// Order matters: returns/alerts first, then "Livré" (delivered) apart from
+// "En livraison"; the destination agency ("localisation"/"agence"/"sorti") counts
+// as out-for-delivery (3), while a wilaya/hub transfer is sorting (2).
 function yalidineNormalize(raw) {
   const s = String(raw || '');
-  // Pre-shipping states first — "Pas encore expédié" / "Prêt à expédier"
-  // contain "expédi" and "Pas encore ramassé" contains "ramass", so testing
-  // the shipped keywords first would wrongly show them as already shipped.
-  if (/(pas encore|pr[êe]t [àa] exp[ée]dier|en pr[ée]paration|v[ée]rifier)/i.test(s)) return { stage: 0, alert: null };
-  if (/^Livr[ée]/i.test(s)) return { stage: 4, alert: null };
   if (/(retour|[ée]change)/i.test(s)) return { stage: null, alert: 'مرتجع / قيد الإرجاع' };
   // Failures: "Tentative échouée", "En alerte", "Echèc livraison" (è!), "échoué".
-  if (/(tentative|alerte|[ée]ch[eè]c|[ée]chou)/i.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
-  if (/(sorti|attente|pr[êe]t pour livreur)/i.test(s)) return { stage: 3, alert: null };
-  if (/(centre|wilaya|localisation)/i.test(s)) return { stage: 2, alert: null };
-  if (/(ramass|bloqu|transfert|exp[ée]di)/i.test(s)) return { stage: 1, alert: null };
+  if (/(tentative|alerte|[ée]ch[eè]c|[ée]chou|bloqu|suspend)/i.test(s)) return { stage: 3, alert: 'تنبيه — مشكلة في التوصيل' };
+  if (/^livr[ée]/i.test(s)) return { stage: 4, alert: null };
+  // Pre-shipping FIRST — "Pas encore expédié" / "Prêt à expédier" contain "expédi",
+  // so the dispatched rule below would otherwise mark them already shipped.
+  if (/(pas encore|pr[êe]t [àa] exp[ée]dier|pr[ée]paration|v[ée]rifier|cr[é]{2})/i.test(s)) return { stage: 0, alert: null };
+  // Agency center / out for delivery — at destination agency, localised, out with driver.
+  if (/(agence|localisation|sorti|en\s*livraison|pr[êe]t pour livreur|en attente du client|distribution)/i.test(s)) return { stage: 3, alert: null };
+  // To the wilaya / hub transfer / sorting.
+  if (/(vers wilaya|wilaya|centre|hub|tri|transfert|en\s*transit)/i.test(s)) return { stage: 2, alert: null };
+  // Dispatched / picked up / shipped.
+  if (/(exp[ée]di|ramass|enlev|collect|pris en charge)/i.test(s)) return { stage: 1, alert: null };
   return { stage: 0, alert: null };
 }
 
@@ -543,55 +580,69 @@ async function fetchNoestStatus(db, o) {
 
   const entry = (body && typeof body === 'object')
     ? (body[o.noest.tracking] || body[Object.keys(body)[0]]) : null;
-  // Noest's activity events carry no geographic location field — "by" is the
-  // partner/shop name (e.g. the account owner), not a place, so it must not
-  // be used as one.
+  // Each Noest activity carries who handled it (the agent/livreur), which hub it
+  // passed through, and a free-text reason ("Client ne répond pas", etc.). Field
+  // names vary, so read them generously and keep any leftover string fields in
+  // `extra` so no detail the API returns is dropped from the panel.
   const rawEvents = (entry && (entry.activity || entry.events)) || [];
   const events = rawEvents.map((e) => ({
     key: e.event_key || e.key || e.status || '',
     label: e.event || e.event_key || e.key || e.status || '',
     date: e.date || e.created_at || e.updated_at || null,
     location: e.location || null,
+    by: e.by || e.agent || e.driver || e.livreur || e.user || e.staff || null,       // agent / livreur
+    content: e.content || e.comment || e.note || e.reason || e.motif || null,          // free-text reason
+    causer: e.causer || e.cause || null,                                               // NOEST / PARTENAIRE
+    badge: e['badge-class'] || e.badge_class || e.badgeClass || e.badge || null,       // colour hint only
   })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const last = events[events.length - 1] || null;
-  const alert = last ? (NOEST_ALERT[last.key] || null) : null;
+  const currentText = (last && last.label) || '';
 
-  // Stage = the highest recognized milestone reached across the WHOLE history,
-  // not just the last event. Looking only at the last event meant an
-  // intermediate event_key we don't have mapped (e.g. a hub scan) would reset
-  // the tracker back to "just created" even after real progress happened.
+  // Stage = the furthest milestone reached across the WHOLE history. Noest's own
+  // French status names (noestNormalize) are authoritative; the legacy event_key
+  // table backs them up so a renamed/unmapped key can't drag a moved parcel back.
+  // We take the max so an intermediate event we don't recognise never resets the
+  // tracker, and — crucially — never leaves it a step behind the real state.
   let stage = 0;
-  events.forEach((e) => { if (e.key in NOEST_STAGE) stage = Math.max(stage, NOEST_STAGE[e.key]); });
-  // Validated in Noest = any activity beyond the initial upload/edit. Used to
-  // sync o.noest.validated so the panel stops asking to confirm a parcel the
-  // seller already confirmed in the Noest dashboard.
+  let recognized = false;
+  events.forEach((e) => {
+    if (e.key in NOEST_STAGE) { stage = Math.max(stage, NOEST_STAGE[e.key]); recognized = true; }
+    const r = noestNormalize(e.label);
+    if (typeof r.stage === 'number' && r.stage >= 0) { stage = Math.max(stage, r.stage); recognized = true; }
+  });
+  // Alert / terminal state reflects the CURRENT (latest) status, not history — a
+  // parcel that was "Suspendu" then moved again should stop warning.
+  const cur = noestNormalize(currentText);
+  let alert = cur.alert || (last ? (NOEST_ALERT[last.key] || null) : null);
+  if (cur.stage === null) {
+    stage = null;                       // return / cancel — no meaningful progress
+  } else if (alert) {
+    // A delivery problem (Tentative/Suspendu) means the parcel is NOT delivered —
+    // pin it at "out for delivery" so the ⚠️ sits before the final step and
+    // "تم الاستلام" never turns green (a stray `livre` event must not deliver it).
+    stage = STAGE_LABELS.length - 2;
+  }
+  // Validated in Noest = any activity beyond the initial upload/edit.
   const noestValidated = events.some((e) =>
     e.key === 'customer_validation' || (NOEST_STAGE[e.key] || 0) >= 1 || (e.key in NOEST_ALERT));
-  // Our stage table only covers the event_keys we've seen so far. Log every key
-  // we don't recognize (not just when none match) so gaps in the table — which
-  // is why some orders show a stuck/blank tracker while others progress fine —
-  // are visible in the Cloud Functions logs.
+  // Log any status text we couldn't place, so a new Noest wording is visible in
+  // the Cloud Functions logs instead of silently sticking the tracker.
   events.forEach((e) => {
-    if (!(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT)) {
-      console.log('[getParcelStatus] unrecognized Noest event_key', e.key, e.label, 'tracking:', o.noest.tracking);
+    if (!(e.key in NOEST_STAGE) && noestNormalize(e.label).stage < 0 && !(e.key in NOEST_ALERT)) {
+      console.log('[getParcelStatus] unrecognized Noest status', e.key, e.label, 'tracking:', o.noest.tracking);
     }
   });
-  // An event_key we've never mapped means Noest did something beyond the
-  // known pre-shipping steps — show at least stage 1 instead of sticking at
-  // "just created". Only unmapped keys count: upload/edit/validation events
-  // are mapped to 0 on purpose and must NOT bump a fresh parcel to "shipped".
-  const hasUnmapped = events.some((e) => !(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT));
-  if (!alert && hasUnmapped && stage === 0) stage = 1;
-  if (alert) stage = null;
+  // Some activity but nothing we could place, and still at "just created" — the
+  // parcel has clearly moved, so nudge it off stage 0 rather than look stuck.
+  if (stage === 0 && !recognized && events.length) stage = 1;
 
   return {
     carrier: 'noest', tracking: o.noest.tracking,
     stage, alert, stageLabels: STAGE_LABELS,
-    // Show Noest's OWN status text (e.g. "Validé", "Tentative de livraison"),
-    // never our stage guess — the stage table is incomplete and replacing the
-    // real label with STAGE_LABELS[stage] hid what Noest actually said.
-    lastLabel: last ? (alert || last.label || STAGE_LABELS[stage]) : 'بانتظار المعالجة',
+    // Show Noest's OWN status text (e.g. "En livraison", "Suspendu") so the raw
+    // carrier state is always visible next to our step mapping.
+    lastLabel: last ? (last.label || alert || (stage != null ? STAGE_LABELS[stage] : null)) : 'بانتظار المعالجة',
     lastLocation: last ? last.location : null,
     lastDate: last ? last.date : null,
     noestValidated,
@@ -642,7 +693,11 @@ async function fetchYalidineStatus(db, o) {
       const list = Array.isArray(hBody) ? hBody : (hBody && hBody.data) || [];
       events = list.map((h) => ({
         key: h.status, label: h.status, date: h.date_status,
-        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - '),
+        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - ') || null,
+        by: h.driver_name || h.driver || null,
+        center: h.center_name || h.center || null,
+        content: h.reason || h.raison || null,
+        causer: null, badge: null,
       })).sort((a, b) => new Date(a.date) - new Date(b.date));
     }
   } catch (e) { /* history is best-effort; the parcel's own last_status already covers the stepper */ }
@@ -650,7 +705,9 @@ async function fetchYalidineStatus(db, o) {
   return {
     carrier: 'yalidine', tracking: o.yalidine.tracking,
     stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: alert || rawStatus || 'بانتظار المعالجة',
+    // Always surface Yalidine's own French status; the alert is shown via the ⚠️
+    // marker/badge in the panel, not by hiding what the carrier actually said.
+    lastLabel: rawStatus || alert || 'بانتظار المعالجة',
     lastLocation: location || null,
     lastDate: parcel.date_last_status || null,
     events, updatedAt: Date.now(),
@@ -658,17 +715,21 @@ async function fetchYalidineStatus(db, o) {
 }
 
 // ZR Express's status is a free-text state name (English, e.g. "OutForDelivery" with
-// no spaces), so match by keyword like Yalidine's. "Out for delivery" must be checked
-// before the "delivered" test — it contains "delivery", which "delivered" would
-// otherwise substring-match and misreport as fully delivered.
+// no spaces), so match by keyword like Yalidine's. Same green-step model as the
+// others: created/ready → 0, dispatched → 1, hub → 2, out for delivery → 3,
+// delivered → 4. "Out for delivery" is checked before "delivered" — it contains
+// "delivery", which "delivered" would otherwise substring-match and misreport.
 function zrNormalize(raw) {
   const s = String(raw || '').toLowerCase();
-  if (/out\s*for\s*delivery|en cours de livraison|dispatch/.test(s)) return { stage: 3, alert: null };
-  if (/^(delivered|livr[ée])/.test(s)) return { stage: 4, alert: null };
   if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
-  if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
+  if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
+  if (/out\s*for\s*delivery|en cours de livraison|en\s*livraison|dispatch/.test(s)) return { stage: 3, alert: null };
+  if (/^(delivered|livr[ée])/.test(s)) return { stage: 4, alert: null };
   if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
-  if (/(pick|ramass|creat|confirm)/.test(s)) return { stage: 1, alert: null };
+  // Dispatched / picked up / shipped.
+  if (/(pick|ramass|collect|confirm|exp[ée]di[ée]|ship)/.test(s)) return { stage: 1, alert: null };
+  // Created / registered / ready for pickup — order created (step 0), not yet shipped.
+  if (/pr[êe]t\s*[àa]\s*exp[ée]dier|ready|pending|creat|nouveau/.test(s)) return { stage: 0, alert: null };
   return { stage: 0, alert: null };
 }
 
@@ -713,7 +774,7 @@ async function fetchZrStatus(db, o) {
   return {
     carrier: 'zr', tracking: row.trackingNumber || tracking,
     stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: alert || rawStatus || 'بانتظار المعالجة',
+    lastLabel: rawStatus || alert || 'بانتظار المعالجة',
     lastLocation: null,
     lastDate: row.lastStateUpdateAt || null,
     events: [], updatedAt: Date.now(),
