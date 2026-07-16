@@ -756,6 +756,17 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     if (status && status.carrier === 'zr' && status.tracking && o.zr) o.zr.tracking = status.tracking;
   }
 
+  // Horizontally centre a stepper on its current/last-reached step by adjusting
+  // only the stepper's own scroll — never the page — so it's safe to run on many
+  // cards at once (delta-based, works in RTL too).
+  function centerStepper(pstep) {
+    var target = pstep.querySelector('.pstep-node.cur');
+    if (!target) { var done = pstep.querySelectorAll('.pstep-node.done'); target = done[done.length - 1] || null; }
+    if (!target) return;
+    var pr = pstep.getBoundingClientRect(), tr = target.getBoundingClientRect();
+    pstep.scrollLeft += (tr.left + tr.width / 2) - (pr.left + pr.width / 2);
+  }
+
   // After a refresh re-renders the list, bring this order's tracker into view and
   // scroll its (horizontally scrollable) stepper to the current/last-reached step,
   // so the latest parcel status is visible without scrolling by hand.
@@ -775,6 +786,15 @@ details[open] .ptrack-log-h::before{content:'▾ '}
       }
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       else ptrack.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
+  // After refresh-all re-renders the list, snap every visible stepper to its own
+  // current step. Unlike scrollTrackerToCurrent this never scrolls the page —
+  // each stepper just jumps to where its parcel actually is.
+  function scrollAllSteppersToCurrent() {
+    requestAnimationFrame(function () {
+      document.querySelectorAll('.ocard[open] .pstep').forEach(centerStepper);
     });
   }
 
@@ -813,6 +833,7 @@ details[open] .ptrack-log-h::before{content:'▾ '}
       if (i >= targets.length) {
         if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         views.orders();
+        scrollAllSteppersToCurrent();
         toast('تم تحديث ' + ok + ' طرد' + (fail ? ' — تعذّر تحديث ' + fail : ''));
         return;
       }
