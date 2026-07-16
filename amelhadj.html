@@ -257,8 +257,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     try {
       DS.db.collection('orders').onSnapshot(function (snap) {
         state.orders = docsOf(snap).sort(function (a, b) {
-          var ta = a.placedAt && a.placedAt.seconds ? a.placedAt.seconds : (a.createdAt || 0);
-          var tb = b.placedAt && b.placedAt.seconds ? b.placedAt.seconds : (b.createdAt || 0);
+          var ta = a.placedAt && a.placedAt.seconds ? a.placedAt.seconds * 1000 : (a.createdAt || 0);
+          var tb = b.placedAt && b.placedAt.seconds ? b.placedAt.seconds * 1000 : (b.createdAt || 0);
           return tb - ta;
         });
         updateBadges();
@@ -583,8 +583,11 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   }
 
   // ═══════════ ORDERS ═══════════
-  // Pending orders first (newest placed on top), then confirmed orders with the
-  // most recently confirmed parcel on top.
+  // Orders are listed by date placed, newest first.
+  function orderStamp(o) {
+    return o.placedAt && o.placedAt.seconds ? o.placedAt.seconds * 1000 : (o.createdAt || 0);
+  }
+  // When the parcel was handed to a carrier — the income tab uses it as the sale date.
   function confirmStamp(o) {
     if (o.noest && o.noest.tracking) return Number(o.noest.createdAt) || 1;
     if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 1;
@@ -698,12 +701,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   }
 
   views.orders = function () {
-    var list = state.orders.slice().sort(function (a, b) {
-      var ca = confirmStamp(a), cb = confirmStamp(b);
-      if (!ca !== !cb) return ca ? 1 : -1;
-      if (ca && cb) return cb - ca;
-      return 0;
-    });
+    var list = state.orders.slice().sort(function (a, b) { return orderStamp(b) - orderStamp(a); });
     var trackedCount = list.filter(function (o) { return !!orderCarrier(o); }).length;
     var refreshAllBar = trackedCount ? '<div class="toolbar"><div class="row-actions">' +
       '<button class="btn btn-blue btn-sm" id="refreshAllTrack">🔄 تحديث حالة كل الطرود (' + trackedCount + ')</button>' +
@@ -871,7 +869,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   function saleStamp(o) {
     var c = confirmStamp(o);
     if (c > 1) return c;
-    return o.placedAt && o.placedAt.seconds ? o.placedAt.seconds * 1000 : (o.createdAt || 0);
+    return orderStamp(o);
   }
   var openLedger = {}; // expanded sale rows, kept across live re-renders
   views.income = function () {
