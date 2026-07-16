@@ -636,6 +636,21 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     if (o.zr && o.zr.tracking) return 'zr';
     return null;
   }
+  // Delivered = the tracker reached the last step ("تم الاستلام") with no active
+  // alert, based on the same freshness check the stepper itself uses.
+  function isDelivered(o) {
+    var carrier = orderCarrier(o);
+    var ts = o.trackingStatus;
+    if (!carrier || !ts || ts.carrier !== carrier || ts.tracking !== (o[carrier] && o[carrier].tracking)) return false;
+    var labels = ts.stageLabels || [];
+    return !ts.alert && ts.stage != null && labels.length > 0 && ts.stage >= labels.length - 1;
+  }
+  // A card starts folded when the order is old news: placed over 7 days ago or
+  // already delivered. Used for the initial render and the refresh-all counter.
+  function startsFolded(o) {
+    var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
+    return (when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000)) || isDelivered(o);
+  }
   var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
   function renderTrackStepper(o) {
     var carrier = orderCarrier(o);
@@ -781,12 +796,16 @@ details[open] .ptrack-log-h::before{content:'▾ '}
       });
   }
 
-  // Refreshes every order that has a parcel, one at a time (not in parallel) so
-  // we don't burst past Noest/Yalidine's rate limits when there are many orders.
+  // Refreshes parcels one at a time (not in parallel) so we don't burst past
+  // Noest/Yalidine's rate limits when there are many orders. Only orders whose
+  // card is expanded on screen are refreshed — folded ones (old or already
+  // delivered) are skipped; expand a card to include it.
   function refreshAllTracking(btn) {
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
-    var targets = state.orders.filter(function (o) { return !!orderCarrier(o); });
-    if (!targets.length) { toast('لا توجد طلبات بها طرود لتحديثها'); return; }
+    var openIds = {};
+    document.querySelectorAll('.ocard[open] .ptrack-refresh').forEach(function (b) { openIds[String(b.dataset.track)] = true; });
+    var targets = state.orders.filter(function (o) { return orderCarrier(o) && openIds[String(o.id)]; });
+    if (!targets.length) { toast('لا توجد طلبات مفتوحة بها طرود لتحديثها'); return; }
     var orig = btn ? btn.innerHTML : '';
     if (btn) btn.disabled = true;
     var i = 0, ok = 0, fail = 0;
@@ -809,9 +828,13 @@ details[open] .ptrack-log-h::before{content:'▾ '}
 
   views.orders = function () {
     var list = state.orders.slice().sort(function (a, b) { return orderStamp(b) - orderStamp(a); });
-    var trackedCount = list.filter(function (o) { return !!orderCarrier(o); }).length;
-    var refreshAllBar = trackedCount ? '<div class="toolbar"><div class="row-actions">' +
-      '<button class="btn btn-blue btn-sm" id="refreshAllTrack">🔄 تحديث حالة كل الطرود (' + trackedCount + ')</button>' +
+    // The count reflects the expanded (unfolded) cards — the only ones the
+    // refresh-all button touches; the bar shows whenever any parcel exists so a
+    // manually expanded card can still be bulk-refreshed.
+    var anyTracked = list.some(function (o) { return !!orderCarrier(o); });
+    var trackedCount = list.filter(function (o) { return orderCarrier(o) && !startsFolded(o); }).length;
+    var refreshAllBar = anyTracked ? '<div class="toolbar"><div class="row-actions">' +
+      '<button class="btn btn-blue btn-sm" id="refreshAllTrack">🔄 تحديث حالة الطرود المفتوحة (' + trackedCount + ')</button>' +
       '</div></div>' : '';
     var printBar = '<div id="noestBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:300;background:#1E73E8;border-radius:100px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:.35rem .5rem">' +
       '<button class="btn btn-sm" id="printNoest" style="background:transparent;color:#fff;font-weight:800;border:none">🖨️ طباعة الوصول المحددة (<span id="noestCount">0</span>)</button></div>';
@@ -830,8 +853,9 @@ details[open] .ptrack-log-h::before{content:'▾ '}
           '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
-      // Orders older than 7 days start folded to keep the list scannable; newer ones stay open.
-      var isOld = when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000);
+      // Orders older than 7 days start folded to keep the list scannable; newer ones
+      // stay open — except successfully delivered parcels, which fold right away.
+      var isOld = startsFolded(o);
       // Customer name / phone / location — kept in the always-visible summary so a
       // folded order still shows who and where at a glance.
       var metaLine = '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>';
