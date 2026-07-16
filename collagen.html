@@ -913,8 +913,8 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     function progress() {
       var r = stage.getBoundingClientRect(), vh = window.innerHeight;
       var c = r.top + r.height / 2;
-      var pIn = (vh - c) / (vh * 0.45);                                  // entering from below
-      var pOut = c / (vh * 0.45);                                        // leaving through the top
+      var pIn = (vh - c) / (vh * 0.26);                                  // entering from below
+      var pOut = c / (vh * 0.26);                                        // leaving through the top
       return Math.max(0, Math.min(1, Math.min(pIn, pOut)));
     }
     var settled = false;
