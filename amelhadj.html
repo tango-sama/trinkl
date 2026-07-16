@@ -636,6 +636,15 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     if (o.zr && o.zr.tracking) return 'zr';
     return null;
   }
+  // Delivered = the tracker reached the last step ("تم الاستلام") with no active
+  // alert, based on the same freshness check the stepper itself uses.
+  function isDelivered(o) {
+    var carrier = orderCarrier(o);
+    var ts = o.trackingStatus;
+    if (!carrier || !ts || ts.carrier !== carrier || ts.tracking !== (o[carrier] && o[carrier].tracking)) return false;
+    var labels = ts.stageLabels || [];
+    return !ts.alert && ts.stage != null && labels.length > 0 && ts.stage >= labels.length - 1;
+  }
   var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
   function renderTrackStepper(o) {
     var carrier = orderCarrier(o);
@@ -830,8 +839,9 @@ details[open] .ptrack-log-h::before{content:'▾ '}
           '<div class="order-dots">' + new Array((o.items || []).length + 1).join('<i></i>') + '</div>'
         : '';
       var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
-      // Orders older than 7 days start folded to keep the list scannable; newer ones stay open.
-      var isOld = when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000);
+      // Orders older than 7 days start folded to keep the list scannable; newer ones
+      // stay open — except successfully delivered parcels, which fold right away.
+      var isOld = (when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000)) || isDelivered(o);
       // Customer name / phone / location — kept in the always-visible summary so a
       // folded order still shows who and where at a glance.
       var metaLine = '<div class="order-meta"><span>👤 ' + esc(o.customer) + '</span><span class="num">📱 ' + esc(o.phone) + '</span>' + (o.wilaya ? '<span>📍 ' + esc(o.wilaya) + ' - ' + esc(o.baladiya) + '</span>' + (o.address ? '<span>🏠 ' + esc(o.address) + '</span>' : '') + '<span>🚚 ' + (o.deliveryType === 'office' ? 'مكتب (Stop Desk)' : 'منزل') + (o.deliveryFee != null ? ' · ' + esc(DS.priceFmt(o.deliveryFee)) : '') + '</span>' : '') + '</div>';
