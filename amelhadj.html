@@ -653,6 +653,15 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     var when = o.placedAt && o.placedAt.seconds ? new Date(o.placedAt.seconds * 1000) : (o.createdAt ? new Date(o.createdAt) : null);
     return (when && (Date.now() - when.getTime() > 7 * 24 * 60 * 60 * 1000)) || isDelivered(o);
   }
+  // Unsuccessful delivery = the carrier reported a return/cancel: a fresh
+  // trackingStatus whose stage is null (no forward progress value). These
+  // orders are excluded from the earnings ledger.
+  function isDeliveryFailed(o) {
+    var carrier = orderCarrier(o);
+    var ts = o.trackingStatus;
+    if (!carrier || !ts || ts.carrier !== carrier || ts.tracking !== (o[carrier] && o[carrier].tracking)) return false;
+    return ts.stage == null;
+  }
   var TRACK_ICONS = ['📥', '📦', '🏭', '🚚', '✅'];
   function renderTrackStepper(o) {
     var carrier = orderCarrier(o);
@@ -1025,7 +1034,8 @@ details[open] .ptrack-log-h::before{content:'▾ '}
 
   // ═══════════ INCOME / EXPENSES ═══════════
   // Sales income = final package price (parcelPrice override or order total)
-  // minus the delivery fee, counted for fulfilled orders only.
+  // minus the delivery fee, counted for fulfilled orders only — excluding
+  // parcels whose delivery failed (returned/cancelled by the carrier).
   function saleStamp(o) {
     var c = confirmStamp(o);
     if (c > 1) return c;
@@ -1035,7 +1045,8 @@ details[open] .ptrack-log-h::before{content:'▾ '}
   views.income = function () {
     var savedAmount = $('#expAmount') ? $('#expAmount').value : '';
     var savedNote = $('#expNote') ? $('#expNote').value : '';
-    var sales = state.orders.filter(function (o) { return o.fulfilled; }).map(function (o) {
+    var failedCount = state.orders.filter(function (o) { return o.fulfilled && isDeliveryFailed(o); }).length;
+    var sales = state.orders.filter(function (o) { return o.fulfilled && !isDeliveryFailed(o); }).map(function (o) {
       var price = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
       return { type: 'in', ts: saleStamp(o), amount: price - (Number(o.deliveryFee) || 0), label: '🛍️ طلب ' + (o.num || o.id) + (o.customer ? ' — ' + o.customer : ''), order: o, price: price };
     });
@@ -1053,7 +1064,7 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     }
     $('#view').innerHTML =
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.4rem">' +
-        statCard('إجمالي الدخل', incomeTotal, '#22c55e', 'من ' + sales.length + ' طلب منفَّذ — بدون رسوم التوصيل') +
+        statCard('إجمالي الدخل', incomeTotal, '#22c55e', 'من ' + sales.length + ' طلب منفَّذ — بدون رسوم التوصيل' + (failedCount ? ' · استُبعد ' + failedCount + ' طرد مرتجع' : '')) +
         statCard('إجمالي المصاريف', expTotal, '#ef4444', exps.length + ' مصروف') +
         statCard('صافي الربح', net, net >= 0 ? '#22c55e' : '#ef4444', 'الدخل − المصاريف') +
       '</div>' +
