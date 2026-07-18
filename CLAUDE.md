@@ -7,7 +7,8 @@ Static women's beauty & wellness storefront for Algeria. Plain HTML/CSS/JS (no f
 - No build step, no bundler, no framework. Ship plain `.html`, `.css`, `.js` files that run as-is.
 - Keep each script single-purpose and wrapped in an IIFE; expose exactly one global (`window.DS`, `window.Cart`, `window.SITE`, …).
 - Fix root causes — do not layer workarounds.
-- Respect the system boundaries defined in `architecture-context.md`.
+- Respect the system boundaries defined in `context/architecture-context.md`.
+- Follow the spec-driven process in `context/development-workflow.md`; keep `context/progress-tracker.md` in sync with what is actually deployed.
 - ES5-style code in browser scripts (`var`, `function`, string concatenation) — match the existing files; modern syntax is fine only in `functions/`.
 - Read/write the EXISTING Firestore schema. Never rename fields or migrate documents; tolerate both old and new shapes (e.g. `p.title || p.name`, `images[]` else `[image]`).
 

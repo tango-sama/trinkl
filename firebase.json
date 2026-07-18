@@ -22,7 +22,16 @@
       "components/**",
       "utils/**",
       "trickle/**",
-      "app.js"
+      "app.js",
+      "context/**",
+      "**/*.md",
+      "**/*.local-backup",
+      "package.json",
+      "serve.json",
+      "vercel.json",
+      "firestore.rules",
+      "storage.rules",
+      "firestore.indexes.json"
     ],
     "headers": [
       {
