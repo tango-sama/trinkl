@@ -98,6 +98,10 @@
   function applySettings(s) {
     if (!s) return;
     if (s.waNumber) SITE.WA = String(s.waNumber).replace(/[^0-9]/g, '');
+    // WhatsApp kill switch (settings.waEnabled === false hides every WA
+    // button/link via the html.no-wa CSS rule; JS openers check SITE.waEnabled)
+    SITE.waEnabled = s.waEnabled !== false;
+    document.documentElement.classList.toggle('no-wa', !SITE.waEnabled);
     if (s.storeName) SITE.name = s.storeName;
     if (s.instagram) SITE.instagram = s.instagram;
     if (s.facebook) SITE.facebook = s.facebook;

@@ -991,6 +991,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var yalEnabled = s.yalidineEnabled !== false;
     var noEnabled = s.noestEnabled !== false;
     var zrEnabled = s.zrEnabled === true; // ZR is opt-in for customers
+    var waOn = s.waEnabled !== false;     // WhatsApp visible on the storefront
     function carriersOnCount() { return (yalEnabled ? 1 : 0) + (noEnabled ? 1 : 0) + (zrEnabled ? 1 : 0); }
     var liveHours = s.tiktokLiveHours || 2;
     var liveActive = !!s.tiktokLive && (Date.now() - (s.tiktokLiveAt || 0) < liveHours * 3600000);
@@ -1022,6 +1023,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
           '<div class="field"><label>فيسبوك</label><input class="inp" id="sFb" value="' + esc(s.facebook || '') + '" dir="ltr" placeholder="https://facebook.com/..."></div>' +
           '<div class="field"><label>تيك توك</label><input class="inp" id="sTt" value="' + esc(s.tiktok || '') + '" dir="ltr" placeholder="https://tiktok.com/@..."></div>' +
         '</div>' +
+        '<div class="row-actions" style="margin-bottom:.5rem"><button class="btn btn-sm" style="background:' + (waOn ? 'var(--green)' : 'var(--card-2)') + ';color:' + (waOn ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="sToggleWa">' + (waOn ? '💬 واتساب مفعّل في الموقع — تعطيل' : '🚫 واتساب معطّل في الموقع — تفعيل') + '</button></div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-bottom:.8rem">عند التعطيل تختفي كل أزرار وروابط واتساب من الموقع (الزر العائم، صفحة المنتج، تأكيد الطلب، الفوتر) ويبقى الطلب عبر الاستمارة فقط.</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSave">💾 حفظ الإعدادات</button></div>' +
       '</div>' +
       '<div class="card" style="max-width:680px"><h3>🔴 البث المباشر (تيك توك)</h3>' +
@@ -1141,6 +1144,10 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     };
     if ($('#sLiveHours')) $('#sLiveHours').onchange = function () {
       if (liveActive) persistSettings({ tiktokLiveHours: parseInt(this.value, 10) || 2 }, 'تم تحديث المدة ✓');
+    };
+    if ($('#sToggleWa')) $('#sToggleWa').onclick = function () {
+      var willOn = !waOn;
+      persistSettings({ waEnabled: willOn }, willOn ? 'واتساب مفعّل في الموقع ✓' : 'تم تعطيل واتساب في الموقع', function () { views.settings(); });
     };
     if ($('#sToggleYal')) $('#sToggleYal').onclick = function () {
       var willOn = !yalEnabled;

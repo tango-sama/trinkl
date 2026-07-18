@@ -374,7 +374,7 @@
     document.getElementById('successOid').textContent = order.num;
     document.getElementById('successOv').classList.add('open');
     Cart.clear();
-    if (openWa) window.open(SiteUI.waLink(buildMessage(order)), '_blank');
+    if (openWa && SITE.waEnabled !== false) window.open(SiteUI.waLink(buildMessage(order)), '_blank');
   }
 
   // ───────── seller (store owner) mode ─────────
