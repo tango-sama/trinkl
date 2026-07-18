@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
@@ -210,7 +211,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
 <script src="js/yalidine.js"></script>
 <script>
 (function () {
-  var PASSWORD = 'tango88';
+  var ADMIN_EMAIL = 'tango0es@gmail.com';
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   function toast(m) { var t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2200); }
@@ -218,15 +219,35 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
   var state = { products: [], categories: [], featured: [], orders: [], messages: [], settings: {}, expenses: [] };
   var catMap = {};
 
-  // ───────── auth ─────────
-  function showShell() { $('#login').style.display = 'none'; $('#shell').classList.add('on'); loadAll(); }
-  if (sessionStorage.getItem('ds_admin') === '1') showShell();
+  // ───────── auth (Firebase email/password — rules require this account) ─────────
+  var shellShown = false;
+  function showShell() {
+    if (shellShown) return; shellShown = true;
+    $('#login').style.display = 'none'; $('#shell').classList.add('on'); loadAll();
+  }
+  function showLogin() { $('#login').style.display = ''; $('#shell').classList.remove('on'); }
+  if (firebase.auth) {
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) { try { localStorage.setItem('ds_staff', '1'); } catch (er) {} showShell(); }
+      else showLogin();
+    });
+  }
   $('#loginForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    if ($('#pw').value === PASSWORD) { sessionStorage.setItem('ds_admin', '1'); try { localStorage.setItem('ds_staff', '1'); } catch (er) {} showShell(); }
-    else { toast('كلمة المرور غير صحيحة'); $('#pw').value = ''; }
+    var pw = $('#pw').value;
+    if (!pw || !firebase.auth) return;
+    firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL, pw).catch(function (err) {
+      console.error('[DS] login', err && err.code);
+      toast(err && err.code === 'auth/too-many-requests' ? 'محاولات كثيرة، حاول بعد قليل' : 'كلمة المرور غير صحيحة');
+      $('#pw').value = '';
+    });
   });
-  $('#logoutBtn').addEventListener('click', function () { sessionStorage.removeItem('ds_admin'); try { localStorage.removeItem('ds_staff'); } catch (er) {} location.reload(); });
+  $('#logoutBtn').addEventListener('click', function () {
+    try { localStorage.removeItem('ds_staff'); } catch (er) {}
+    sessionStorage.removeItem('ds_admin');
+    if (firebase.auth) firebase.auth().signOut().then(function () { location.reload(); });
+    else location.reload();
+  });
   $('#menuBtn').addEventListener('click', function () { $('#sidebar').classList.toggle('open'); });
   // Click outside the open sidebar closes it
   document.addEventListener('click', function (e) {
