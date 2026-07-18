@@ -327,9 +327,10 @@
     var msg = document.getElementById('cMsg').value.trim();
     if (!name || !msg) return;
     DS.saveMessage({ name: name, phone: phone, message: msg }).catch(function () {});
-    var wa = SiteUI.waLink('مرحباً، اسمي ' + name + (phone ? '\nهاتف: ' + phone : '') + '\n\n' + msg);
     Cart.toast('تم إرسال رسالتكِ ✓');
     this.reset();
+    if (window.SITE && SITE.waEnabled === false) return;
+    var wa = SiteUI.waLink('مرحباً، اسمي ' + name + (phone ? '\nهاتف: ' + phone : '') + '\n\n' + msg);
     window.open(wa, '_blank');
   });
 })();

@@ -98,6 +98,11 @@
   function applySettings(s) {
     if (!s) return;
     if (s.waNumber) SITE.WA = String(s.waNumber).replace(/[^0-9]/g, '');
+    // WhatsApp kill-switch (admin setting) — hide every WA button/link when off
+    SITE.waEnabled = s.waEnabled !== false;
+    document.querySelectorAll('[data-wa], .wa-float, .btn-whatsapp').forEach(function (el) {
+      el.style.display = SITE.waEnabled ? '' : 'none';
+    });
     if (s.storeName) SITE.name = s.storeName;
     if (s.instagram) SITE.instagram = s.instagram;
     if (s.facebook) SITE.facebook = s.facebook;

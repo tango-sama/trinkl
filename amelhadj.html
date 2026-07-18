@@ -1129,6 +1129,7 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     var noEnabled = s.noestEnabled !== false;
     var zrEnabled = s.zrEnabled === true; // ZR is opt-in for customers
     function carriersOnCount() { return (yalEnabled ? 1 : 0) + (noEnabled ? 1 : 0) + (zrEnabled ? 1 : 0); }
+    var waOn = s.waEnabled !== false;
     var liveHours = s.tiktokLiveHours || 2;
     var liveActive = !!s.tiktokLive && (Date.now() - (s.tiktokLiveAt || 0) < liveHours * 3600000);
     function toggleBtn(id, on) { return '<button class="btn btn-sm" style="background:' + (on ? 'var(--green)' : 'var(--card-2)') + ';color:' + (on ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="' + id + '">' + (on ? '👁️ ظاهرة للزبائن — إخفاء' : '🚫 مخفية عن الزبائن — إظهار') + '</button>'; }
@@ -1158,6 +1159,10 @@ details[open] .ptrack-log-h::before{content:'▾ '}
           '<div class="field"><label>إنستغرام</label><input class="inp" id="sIg" value="' + esc(s.instagram || '') + '" dir="ltr" placeholder="https://instagram.com/..."></div>' +
           '<div class="field"><label>فيسبوك</label><input class="inp" id="sFb" value="' + esc(s.facebook || '') + '" dir="ltr" placeholder="https://facebook.com/..."></div>' +
           '<div class="field"><label>تيك توك</label><input class="inp" id="sTt" value="' + esc(s.tiktok || '') + '" dir="ltr" placeholder="https://tiktok.com/@..."></div>' +
+        '</div>' +
+        '<div class="field"><label>💬 رسائل واتساب</label>' +
+          '<div style="font-size:.75rem;color:var(--ink-3);margin-bottom:.5rem">عند الإيقاف تُخفى كل أزرار وروابط واتساب من الموقع (الزر العائم، «تأكيد الطلب عبر واتساب»، نموذج التواصل) ولا تصلكِ رسائل من الزبائن عبر واتساب.</div>' +
+          '<button class="btn btn-sm" id="sToggleWa" style="background:' + (waOn ? 'var(--green)' : 'var(--card-2)') + ';color:' + (waOn ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)">' + (waOn ? '💬 رسائل واتساب مفعّلة — إيقاف' : '🚫 رسائل واتساب موقوفة — تفعيل') + '</button>' +
         '</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSave">💾 حفظ الإعدادات</button></div>' +
       '</div>' +
@@ -1269,6 +1274,10 @@ details[open] .ptrack-log-h::before{content:'▾ '}
         .catch(function (e) { console.error(e); toast('فشل الحفظ'); });
     }
     $('#sSave').onclick = function () { persistSettings({}, 'تم حفظ الإعدادات ✓'); };
+    if ($('#sToggleWa')) $('#sToggleWa').onclick = function () {
+      var willOn = !waOn;
+      persistSettings({ waEnabled: willOn }, willOn ? 'تم تفعيل رسائل واتساب ✓' : 'تم إيقاف رسائل واتساب عن الزبائن', function () { views.settings(); });
+    };
     if ($('#sToggleLive')) $('#sToggleLive').onclick = function () {
       var willLive = !liveActive;
       if (willLive && !($('#sTt').value.trim() || state.settings.tiktok)) { toast('أضيفي رابط حساب تيك توك أولاً'); return; }
