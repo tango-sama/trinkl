@@ -1149,3 +1149,256 @@ exports.sendTestEmail = onCall({ region: 'us-central1' }, async () => {
   }
   return { ok: true };
 });
+
+/* ───────────────────────────────────────────────────────────────
+   Carrier webhooks — parcels push their own status changes instead of
+   waiting for a manual 🔄 refresh.
+
+   zrWebhook / yalidineWebhook are public HTTPS endpoints registered with
+   the carriers via registerZrWebhook / registerYalidineWebhook (called
+   from the admin Settings page, admin-only). Each verifies the request
+   signature against a per-carrier secret stored in the server-only
+   `private/*` doc, maps the carrier status through the SAME normalizers
+   the manual refresh uses, and writes `trackingStatus` onto the matching
+   order — the admin panel's live orders listener then moves the tracker
+   in real time.
+   ─────────────────────────────────────────────────────────────── */
+const { onRequest } = require('firebase-functions/v2/https');
+const crypto = require('crypto');
+
+// Mirrors firestore.rules isAdmin() — onCall functions are otherwise
+// callable by anyone, and the register calls can return webhook secrets.
+function requireAdmin(req) {
+  const email = req.auth && req.auth.token && req.auth.token.email;
+  if (!email || ['tango0es@gmail.com', 'hadjajamel1988@gmail.com'].indexOf(email) === -1) {
+    throw new HttpsError('permission-denied', 'هذه العملية للمسؤول فقط — سجّلي الدخول في لوحة التحكم.');
+  }
+}
+
+async function orderByField(db, field, value) {
+  if (!value) return null;
+  const q = await db.collection('orders').where(field, '==', value).limit(1).get();
+  return q.empty ? null : q.docs[0];
+}
+
+function webhookUrlFor(name) {
+  return `https://us-central1-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/${name}`;
+}
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
+/* ───────── ZR Express (Svix-signed webhooks) ───────── */
+
+// Standard Svix scheme: secret is base64 after the whsec_ prefix; the
+// signature is HMAC-SHA256 over "<svix-id>.<svix-timestamp>.<raw body>",
+// base64-encoded, listed space-separated as "v1,<sig>" in svix-signature.
+function verifySvix(req, secret) {
+  const id = String(req.headers['svix-id'] || '');
+  const ts = String(req.headers['svix-timestamp'] || '');
+  const sigHeader = String(req.headers['svix-signature'] || '');
+  if (!id || !ts || !sigHeader) return false;
+  const t = parseInt(ts, 10);
+  if (!t || Math.abs(Math.floor(Date.now() / 1000) - t) > 300) return false; // replay guard
+  const key = Buffer.from(String(secret).replace(/^whsec_/, ''), 'base64');
+  const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
+  const expected = crypto.createHmac('sha256', key).update(`${id}.${ts}.${raw}`).digest('base64');
+  return sigHeader.split(/\s+/).some((part) => {
+    const sig = part.split(',')[1] || '';
+    try { return safeEqual(sig, expected); } catch (e) { return false; }
+  });
+}
+
+// Events: parcel.state.updated / parcel.state.situation.created /
+// parcel.isReturn.updated (see ZR's webhook integration guide).
+exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
+  try {
+    const db = admin.firestore();
+    const credSnap = await db.collection('private').doc('zrexpress').get();
+    const secret = credSnap.exists ? String(credSnap.data().webhookSecret || '') : '';
+    if (!secret || !verifySvix(req, secret)) { res.status(401).json({ error: 'invalid signature' }); return; }
+
+    const ev = req.body || {};
+    const type = String(ev.eventType || ev.type || '');
+    const data = ev.data || {};
+    // Parcels are keyed by their ZR UUID (zr.parcelId); older orders may
+    // only carry the tracking number.
+    const doc = (await orderByField(db, 'zr.parcelId', data.id)) ||
+                (await orderByField(db, 'zr.tracking', data.trackingNumber || data.id));
+    if (!doc) { res.status(200).json({ received: true, matched: false }); return; }
+    const o = doc.data();
+
+    let rawStatus = (data.state && data.state.name) || '';
+    if (/isReturn/i.test(type) && (data.isReturn === true || data.isReturn === 'true') && !rawStatus) rawStatus = 'Retour';
+    const content = (data.situation && (data.situation.name || data.situation.reason || data.situation.comment)) || data.reason || null;
+
+    const prev = (o.trackingStatus && o.trackingStatus.carrier === 'zr') ? o.trackingStatus : {};
+    const evs = Array.isArray(prev.events) ? prev.events.slice(-49) : [];
+    const eid = String(req.headers['svix-id'] || '') || null;
+    if (eid && evs.some((e) => e && e.id === eid)) { res.status(200).json({ received: true, duplicate: true }); return; }
+    evs.push({
+      id: eid, key: type, label: rawStatus || type,
+      date: ev.occurredAt || new Date().toISOString(),
+      location: null, by: null, content, causer: 'ZR WEBHOOK', badge: null,
+    });
+
+    const { stage, alert } = zrNormalize(rawStatus);
+    const update = {
+      trackingStatus: {
+        carrier: 'zr', tracking: data.trackingNumber || o.zr.tracking,
+        stage, alert, stageLabels: STAGE_LABELS,
+        lastLabel: rawStatus || alert || 'بانتظار المعالجة',
+        lastLocation: null,
+        lastDate: ev.occurredAt || new Date().toISOString(),
+        events: evs, updatedAt: Date.now(), viaWebhook: true,
+      },
+    };
+    // heal a not-yet-resolved tracking number, same as getParcelStatus
+    if (data.trackingNumber && o.zr && data.trackingNumber !== o.zr.tracking) update['zr.tracking'] = data.trackingNumber;
+    await doc.ref.update(update);
+    res.status(200).json({ received: true });
+  } catch (e) {
+    console.error('zrWebhook', e);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Registers (or reuses) the endpoint on ZR's side and stores its Svix
+// secret in private/zrexpress. Idempotent — safe to click again.
+exports.registerZrWebhook = onCall({ region: 'us-central1' }, async (req) => {
+  requireAdmin(req);
+  const db = admin.firestore();
+  const cred = await zrCreds(db);
+  const headers = zrHeaders(cred);
+  const url = webhookUrlFor('zrWebhook');
+
+  let ep = null;
+  const list = await zrFetch(ZR_BASE + '/webhooks/endpoints', { method: 'GET', headers });
+  if (list.res.ok) {
+    const rows = (list.body && (list.body.items || list.body.data || list.body.results)) ||
+      (Array.isArray(list.body) ? list.body : []);
+    ep = rows.find((r) => r && r.url === url) || null;
+  }
+  if (!ep) {
+    const { res, body } = await zrFetch(ZR_BASE + '/webhooks/endpoints', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        url,
+        description: 'Desert Shop — تتبع تلقائي',
+        eventTypes: ['parcel.state.updated', 'parcel.state.situation.created', 'parcel.isReturn.updated'],
+      }),
+    });
+    if (!(res.ok || res.status === 201) || !body || !body.id) {
+      throw new HttpsError('internal', 'رفضت ZR Express تسجيل الـ Webhook: ' + zrErrMsg(body, res.status));
+    }
+    ep = body;
+  }
+  const { res: sRes, body: sBody } = await zrFetch(ZR_BASE + '/webhooks/endpoints/' + ep.id + '/secret', { method: 'GET', headers });
+  const secret = sBody && (sBody.secret || sBody.key);
+  if (!sRes.ok || !secret) throw new HttpsError('internal', 'تعذّر جلب سر التحقق من ZR: ' + zrErrMsg(sBody, sRes.status));
+  await db.collection('private').doc('zrexpress').set(
+    { webhookSecret: String(secret), webhookEndpointId: ep.id, webhookUrl: url, webhookAt: Date.now() },
+    { merge: true }
+  );
+  return { ok: true, url };
+});
+
+/* ───────── Yalidine (crc_token handshake + HMAC signature) ───────── */
+
+exports.yalidineWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
+  // Subscription handshake: Yalidine sends GET ?crc_token=... and expects
+  // the token echoed back.
+  if (req.method === 'GET') { res.status(200).send(String(req.query.crc_token || 'ok')); return; }
+  if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
+  try {
+    const db = admin.firestore();
+    const credSnap = await db.collection('private').doc('yalidine').get();
+    const secret = credSnap.exists ? String(credSnap.data().webhookSecret || '') : '';
+    if (!secret) { res.status(401).json({ error: 'webhook not configured' }); return; }
+    const raw = req.rawBody ? req.rawBody : Buffer.from(JSON.stringify(req.body || {}));
+    const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+    const sig = String(req.headers['x-yalidine-signature'] || req.headers['x_yalidine_signature'] || '');
+    let okSig = false;
+    try { okSig = safeEqual(sig, expected); } catch (e) { okSig = false; }
+    if (!okSig) { res.status(401).json({ error: 'invalid signature' }); return; }
+
+    const body = req.body || {};
+    const events = Array.isArray(body.events) ? body.events : [];
+    for (const ev of events) {
+      const d = (ev && ev.data) || {};
+      const tracking = String(d.tracking || '').trim();
+      if (!tracking) continue;
+      const doc = await orderByField(db, 'yalidine.tracking', tracking);
+      if (!doc) continue;
+      const o = doc.data();
+      const rawStatus = String(d.status || '');
+      const { stage, alert } = yalidineNormalize(rawStatus);
+      const prev = (o.trackingStatus && o.trackingStatus.carrier === 'yalidine') ? o.trackingStatus : {};
+      const evs = Array.isArray(prev.events) ? prev.events.slice(-49) : [];
+      const eid = ev.event_id ? String(ev.event_id) : null;
+      if (eid && evs.some((e) => e && e.id === eid)) continue; // duplicate delivery
+      evs.push({
+        id: eid, key: rawStatus, label: rawStatus,
+        date: ev.occurred_at || new Date().toISOString(),
+        location: null, by: null, content: d.reason || null, causer: 'YALIDINE WEBHOOK', badge: null,
+      });
+      await doc.ref.update({
+        trackingStatus: {
+          carrier: 'yalidine', tracking, stage, alert, stageLabels: STAGE_LABELS,
+          lastLabel: rawStatus || alert || 'بانتظار المعالجة',
+          lastLocation: prev.lastLocation || null,
+          lastDate: ev.occurred_at || new Date().toISOString(),
+          events: evs, updatedAt: Date.now(), viaWebhook: true,
+        },
+      });
+    }
+    res.status(200).json({ received: true });
+  } catch (e) {
+    console.error('yalidineWebhook', e);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Creates the webhook subscription on Yalidine's side. Their webhook API
+// isn't publicly documented, so if the API call is refused this returns
+// { manual: true } with the endpoint URL + secret for the owner to paste
+// into the Yalidine dashboard (admin-gated, so returning the secret to
+// the caller is fine).
+exports.registerYalidineWebhook = onCall({ region: 'us-central1' }, async (req) => {
+  requireAdmin(req);
+  const db = admin.firestore();
+  const ref = db.collection('private').doc('yalidine');
+  const credSnap = await ref.get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  if (!cred.apiId || !cred.apiToken) {
+    throw new HttpsError('failed-precondition', 'احفظي مفاتيح Yalidine (API ID و Token) أولاً.');
+  }
+  let secret = String(cred.webhookSecret || '').trim();
+  if (!secret) {
+    secret = crypto.randomBytes(24).toString('hex');
+    await ref.set({ webhookSecret: secret }, { merge: true });
+  }
+  const url = webhookUrlFor('yalidineWebhook');
+  const headers = { 'X-API-ID': String(cred.apiId), 'X-API-TOKEN': String(cred.apiToken), 'Content-Type': 'application/json' };
+  try {
+    const res = await fetch(API_BASE + '/webhooks/', {
+      method: 'POST', headers,
+      body: JSON.stringify([{ url, events: ['parcel_status_updated'], secret }]),
+    });
+    const text = await res.text();
+    let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    if (res.ok) {
+      await ref.set({ webhookUrl: url, webhookAt: Date.now() }, { merge: true });
+      return { ok: true, url };
+    }
+    console.log('registerYalidineWebhook API refused', res.status, typeof body === 'string' ? body.slice(0, 300) : JSON.stringify(body || {}).slice(0, 300));
+    return { ok: false, manual: true, url, secret };
+  } catch (e) {
+    console.error('registerYalidineWebhook', e);
+    return { ok: false, manual: true, url, secret };
+  }
+});
