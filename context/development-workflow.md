@@ -4,8 +4,10 @@
 
 Build this project incrementally using a spec-driven workflow. The context files define what to build, how to build it, and what the current state of progress is:
 
-- `CLAUDE.md` (repo root) — code standards and conventions.
+- `CLAUDE.md` (repo root) — code standards, conventions, and the reading order.
+- `context/project-overview.md` — product definition, goals, and scope.
 - `context/architecture-context.md` — stack, boundaries, data model, invariants.
+- `context/ui-context.md` — theme tokens, typography, component and motion patterns.
 - `context/progress-tracker.md` — what is done, in progress, and undecided.
 
 Always implement against these files — do not infer or invent behavior from scratch. The store owner decides product behavior; the context files record those decisions.
@@ -33,7 +35,7 @@ Split an implementation step if it combines:
 - If a requirement is ambiguous, ask the store owner and record the answer in the relevant context file before implementing.
 - If a requirement is missing and the owner is unavailable, add it as an open question in `context/progress-tracker.md` and stop rather than guess.
 
-## Protected Foundation Pieces
+## Protected Foundation Components
 
 Do not modify these unless explicitly instructed:
 

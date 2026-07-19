@@ -1,5 +1,28 @@
 # Desert Shop — Code Standards
 
+<!-- BEGIN:desert-shop-agent-rules -->
+
+# This is NOT a typical modern web project
+
+No framework, no bundler, no build step, no TypeScript, no npm outside `functions/`. Browser code is deliberate ES5 (IIFEs, `var`, string concatenation) on the Firebase **compat** SDK — do not modernize it, add tooling, or introduce module syntax. Files ship exactly as written.
+
+<!-- END:desert-shop-agent-rules -->
+
+## Application Building Context
+
+Read the relevant files before implementing or making any architectural decision:
+
+1. `context/project-overview.md` — product definition, goals, features, and scope
+2. `context/architecture-context.md` — system structure, boundaries, storage model, and invariants
+3. `context/ui-context.md` — theme, colors, typography, and component conventions
+4. this file — implementation rules and conventions
+5. `context/development-workflow.md` — workflow, scoping rules, and delivery approach
+6. `context/progress-tracker.md` — current phase, completed work, open questions, and next steps
+
+Update `context/progress-tracker.md` after each meaningful implementation change. If implementation changes the architecture, scope, or standards documented in the context files, update the relevant file before continuing.
+
+---
+
 Static women's beauty & wellness storefront for Algeria. Plain HTML/CSS/JS (no framework, no build step) on Firebase: Firestore for data, Hosting for the site, Cloud Functions for delivery-carrier calls. All storefront pages are RTL Arabic.
 
 ## General
@@ -32,6 +55,7 @@ Static women's beauty & wellness storefront for Algeria. Plain HTML/CSS/JS (no f
 - Use the CSS custom properties from `:root` (`--rose`, `--rose-deep`, `--gold`, `--bg`, `--ink`, `--line`, `--shadow`, …). No new hardcoded hex values for anything that has a token.
 - Design language is "Blush Rose & Gold": soft shadows tinted with the rose color, `--ease` cubic-bezier for transitions, gradient accents from `--gold` to `--rose`.
 - Everything must work RTL-first. Position with `right`/`left` deliberately; test that underlines, badges and drawers animate from the correct side.
+- Full token tables, typography, radius scale, and component/motion patterns: `context/ui-context.md`.
 
 ## Firestore
 
