@@ -34,7 +34,7 @@
 ## Auth Model
 
 - Customers browse and order anonymously — no customer accounts.
-- The admin is a single Firebase Auth email/password account (`tango0es@gmail.com`). `amelhadj.html` gates the panel behind `signInWithEmailAndPassword` (email hardcoded, password-only form), and `firestore.rules` defines `isAdmin()` as a signed-in user with that exact email.
+- The admin is a single Firebase Auth email/password account (`tango0es@gmail.com`). `amelhadj.html` gates the panel behind `signInWithEmailAndPassword` (email + password form; the last-used email is remembered in localStorage, and the admin email never appears in page source), and `firestore.rules` defines `isAdmin()` as a signed-in user with that exact email — signing in with any other account leaves the panel empty.
 - Everything sensitive requires `isAdmin()`: reading orders/messages, all of `expenses`, catalog and settings writes, and writes to `private/*` / `push_subs`. `private/*` is never client-readable — only the Admin SDK inside Cloud Functions reads it.
 - On sign-in the panel sets the `ds_staff` localStorage flag, which product/checkout pages use for staff-only UI (convenience, not security).
 - Any change to `firestore.rules` must preserve these asymmetries: secrets stay in `private/*`, order/message reads stay admin-only, and `delivery_fees` / `delivery_data` stay function-written.
