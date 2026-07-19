@@ -2,12 +2,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Yalidine API credentials (apiId, apiToken). Never readable by any
-    // client — only the Cloud Function reads them via the Admin SDK, which
-    // bypasses these rules. Writable so the admin panel can set them.
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in ['tango0es@gmail.com', 'hadjajamel1988@gmail.com'];
+    }
+
+    // Yalidine/Noest/ZR API credentials. Never readable by any client — only
+    // the Cloud Function reads them via the Admin SDK, which bypasses these
+    // rules. Writable only by the signed-in admin panel.
     match /private/{document=**} {
       allow read: if false;
-      allow write: if true;
+      allow write: if isAdmin();
     }
 
     // Synced carrier fee grids — readable by the storefront, written only by
@@ -16,17 +21,22 @@ service cloud.firestore {
     // Synced per-carrier wilaya/commune/fee lists (function-written, public read).
     match /delivery_data/{document=**}      { allow read: if true; allow write: if false; }
 
-    // Admin web-push subscriptions. Devices register themselves from the
-    // admin panel; only the Cloud Function reads them (Admin SDK).
-    match /push_subs/{document=**} { allow read: if false; allow write: if true; }
+    // Admin web-push subscriptions — only registered from inside the signed-in
+    // admin panel; the Cloud Function reads them via the Admin SDK.
+    match /push_subs/{document=**} { allow read, write: if isAdmin(); }
 
-    // Public storefront + admin collections (open, as before).
-    match /products/{document=**}         { allow read, write: if true; }
-    match /categories/{document=**}        { allow read, write: if true; }
-    match /featured_products/{document=**} { allow read, write: if true; }
-    match /site_settings/{document=**}     { allow read, write: if true; }
-    match /orders/{document=**}            { allow read, write: if true; }
-    match /messages/{document=**}          { allow read, write: if true; }
-    match /expenses/{document=**}          { allow read, write: if true; }
+    // Public catalog — anyone can read, only the admin can write.
+    match /products/{document=**}         { allow read: if true; allow write: if isAdmin(); }
+    match /categories/{document=**}        { allow read: if true; allow write: if isAdmin(); }
+    match /featured_products/{document=**} { allow read: if true; allow write: if isAdmin(); }
+    match /site_settings/{document=**}     { allow read: if true; allow write: if isAdmin(); }
+
+    // Customer data — anyone can create (checkout/contact), only the admin
+    // can read or modify it afterward.
+    match /orders/{document=**}   { allow create: if true; allow read, update, delete: if isAdmin(); }
+    match /messages/{document=**} { allow create: if true; allow read, update, delete: if isAdmin(); }
+
+    // Financial ledger — admin only.
+    match /expenses/{document=**} { allow read, write: if isAdmin(); }
   }
 }
