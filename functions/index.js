@@ -980,6 +980,32 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable) {
   return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0) };
 }
 
+// Noest exposes the partner's real per-wilaya grid at /api/public/fees
+// (tarifs.delivery[wilaya] = { tarif: home, tarif_stopdesk: desk }). Use it so
+// delivery_data/noest (what the storefront reads) is priced from real fees
+// instead of the NOEST_FEES placeholder. Returns {} on failure so the caller
+// falls back to NOEST_FEES rather than writing empty fees. `headers` carries the
+// Noest bearer token.
+async function noestFeeTable(headers) {
+  try {
+    const res = await fetch(NOEST_BASE + '/api/public/fees', { headers });
+    if (!res.ok) return {};
+    const body = await res.json();
+    const delivery = (body && body.tarifs && body.tarifs.delivery) || {};
+    const table = {};
+    for (const k in delivery) {
+      const d = delivery[k] || {};
+      const code = Number(d.wilaya_id || k);
+      const home = parseInt(d.tarif, 10);
+      const desk = parseInt(d.tarif_stopdesk, 10);
+      if (code && !isNaN(home) && !isNaN(desk)) table[code] = [home, desk];
+    }
+    return table;
+  } catch (e) {
+    return {};
+  }
+}
+
 exports.syncCarriers = onCall(
   { region: 'us-central1', timeoutSeconds: 120 },
   async () => {
@@ -1014,7 +1040,8 @@ exports.syncCarriers = onCall(
       const cArr = Array.isArray(cRaw) ? cRaw : Object.values(cRaw);
       const byW = {};
       cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
-      out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, NOEST_FEES);
+      const noestFees = await noestFeeTable(h);
+      out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, Object.keys(noestFees).length ? noestFees : NOEST_FEES);
     }
 
     // ZR EXPRESS — its wilaya/commune list is keyed by UUID territory, not the
