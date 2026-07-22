@@ -337,6 +337,51 @@ async function zrAllTerritories(headers) {
   return rows;
 }
 
+// ZR Express DOES expose real prices via GET /delivery-pricing/rates
+// (deliveryType 'home' | 'pickup-point'; priority logic already applied by ZR).
+// Rates are per-territory (mostly commune-level); collapse them to one
+// [home, desk] per wilaya so the storefront's per-wilaya fee lookups get ZR's
+// true prices instead of a borrowed grid. `rows` is ZR's territory list, used to
+// map each priced territory back to its wilaya `code`. Returns {} on any failure
+// so the caller can fall back to the old placeholder grid rather than zero fees.
+async function zrFeeTable(headers, rows) {
+  const wCodeById = {};
+  rows.forEach((t) => { if (t.level === 'wilaya' && Number(t.code)) wCodeById[t.id] = Number(t.code); });
+  rows.forEach((t) => { if (t.level === 'commune' && t.parentId && wCodeById[t.parentId] != null) wCodeById[t.id] = wCodeById[t.parentId]; });
+
+  const { res, body } = await zrFetch(ZR_BASE + '/delivery-pricing/rates', { method: 'GET', headers });
+  if (!res.ok) return {};
+
+  const agg = {}; // wilaya code -> { home: {price:count}, desk: {price:count} }
+  ((body && body.rates) || []).forEach((r) => {
+    const code = wCodeById[r.toTerritoryId];
+    if (!code) return;
+    (agg[code] = agg[code] || { home: {}, desk: {} });
+    (r.deliveryPrices || []).forEach((d) => {
+      const p = d.discountedPrice != null ? d.discountedPrice : d.price;
+      if (typeof p !== 'number' || p <= 0) return; // ignore 0 / missing prices
+      if (d.deliveryType === 'home') agg[code].home[p] = (agg[code].home[p] || 0) + 1;
+      else if (d.deliveryType === 'pickup-point') agg[code].desk[p] = (agg[code].desk[p] || 0) + 1;
+    });
+  });
+
+  // Most common price per wilaya (communes are uniform in practice); ties -> higher.
+  const mode = (m) => {
+    const e = Object.entries(m);
+    if (!e.length) return null;
+    e.sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+    return Number(e[0][0]);
+  };
+  const table = {};
+  Object.keys(agg).forEach((code) => {
+    const home = mode(agg[code].home), desk = mode(agg[code].desk);
+    const h = home != null ? home : desk; // if one side is missing, reuse the other
+    const d = desk != null ? desk : home; // so no delivery type is ever free
+    if (h != null && d != null) table[code] = [h, d];
+  });
+  return table;
+}
+
 // Destination wilaya/commune territory UUIDs, resolved live from ZR Express's own
 // territory list (mirrors the Yalidine-center / Noest-desk lookups above).
 async function zrResolveTerritory(headers, wilayaCode, communeName) {
@@ -973,9 +1018,10 @@ exports.syncCarriers = onCall(
     }
 
     // ZR EXPRESS — its wilaya/commune list is keyed by UUID territory, not the
-    // standard 1-58 numbering, and it exposes no fee grid — normalise it to the
-    // same shape as Yalidine/Noest (by wilaya `code`, priced with YAL_FEES) so
-    // the storefront's carrier lookups stay carrier-agnostic.
+    // standard 1-58 numbering. Normalise the list to the same shape as
+    // Yalidine/Noest (by wilaya `code`), and price it from ZR's own live rates
+    // (zrFeeTable) so the storefront shows ZR's real fees — falling back to the
+    // YAL_FEES placeholder only if the rates call fails.
     const zrSnap = await db.collection('private').doc('zrexpress').get();
     const zr = zrSnap.exists ? zrSnap.data() : {};
     if (zr.tenantId && zr.secretKey) {
@@ -998,7 +1044,8 @@ exports.syncCarriers = onCall(
         if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
         (byW[codeById[t.parentId]] = byW[codeById[t.parentId]] || []).push(t.name);
       });
-      out.zr = await writeCarrierData(db, 'zr', wilayaIds, byW, YAL_FEES);
+      const zrFees = await zrFeeTable(zrHeaders(zr), rows);
+      out.zr = await writeCarrierData(db, 'zr', wilayaIds, byW, Object.keys(zrFees).length ? zrFees : YAL_FEES);
     }
     return { ok: true, result: out };
   }
