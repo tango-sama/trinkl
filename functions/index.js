@@ -1087,72 +1087,32 @@ async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
   return table;
 }
 
-// Yalidine's stop-desk (center) list, per destination wilaya — the same
-// `/centers/?wilaya_id=` call createYalidineParcel already makes per-order,
-// just run once per wilaya here and cached instead of live per parcel.
-//
-// This runs right after yalidineFeeTable, which already made ~58 requests to
-// the same API in the same invocation — back-to-back with another 58 for
-// centers, that's ~116 requests in a couple minutes, and Yalidine's abuse
-// protection has tripped on exactly this pattern before (see yalidineFeeTable's
-// comment). So: a cooldown pause before starting, single-file pacing (no
-// concurrency) with a longer gap between requests, and one retry-with-backoff
-// per wilaya for a bare connection failure (which is the specific symptom of
-// a transient rate-limit, as opposed to a real HTTP error response).
-async function yalidineCenters(headers, wilayaIds) {
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Yalidine's stop-desk (center) list. GET /v1/centers returns EVERY center
+// nationwide in one paginated call (~99 total, per Yalidine's own docs) — the
+// same has_more/page pagination already used for communes above — so this is
+// one or two requests, not one per wilaya. (An earlier version called
+// `/centers/?wilaya_id=` once per wilaya — 58 extra requests stacked right
+// after yalidineFeeTable's own 58 — which is what tripped Yalidine's abuse
+// protection and made every one of those calls fail.)
+async function yalidineCenters(headers) {
   const byW = {};
-  const REQUEST_DELAY_MS = 1000;
-  const COOLDOWN_MS = 5000;
-  // Diagnostics only (not stored) — every wilaya ends up in exactly one of
-  // these buckets, logged once at the end so a run that comes back with zero
-  // centers everywhere can be told apart from "Yalidine genuinely has no
-  // stop desks in these wilayas" vs. requests failing/erroring silently.
-  let okWithData = 0, okEmpty = 0, notOk = 0, threw = 0;
-  let loggedSample = false;
-
-  await sleep(COOLDOWN_MS);
-
-  for (const wid of wilayaIds) {
-    let attempt = 0;
-    let done = false;
-    while (!done && attempt < 2) {
-      attempt++;
-      try {
-        const res = await fetch(`${API_BASE}/centers/?wilaya_id=${wid}`, { headers });
-        if (!res.ok) {
-          notOk++;
-          if (!loggedSample) { loggedSample = true; console.error('yalidineCenters non-OK', wid, res.status, await res.text().catch(() => '')); }
-          done = true;
-          break;
-        }
-        const body = await res.json();
-        const list = (body && body.data) || [];
-        if (!loggedSample) { loggedSample = true; console.log('yalidineCenters sample', wid, JSON.stringify(body).slice(0, 500)); }
-        if (list.length) {
-          okWithData++;
-          byW[String(wid)] = list.map((c) => ({
-            id: c.center_id,
-            name: c.name || c.center_name || c.commune_name || '',
-            address: c.address || '',
-          }));
-        } else {
-          okEmpty++;
-        }
-        done = true;
-      } catch (e) {
-        if (attempt < 2) {
-          await sleep(2000); // likely a transient rate-limit blip — brief backoff, then one retry
-          continue;
-        }
-        threw++;
-        if (!loggedSample) { loggedSample = true; console.error('yalidineCenters threw', wid, (e && e.message) || String(e)); }
-        done = true;
-      }
-    }
-    await sleep(REQUEST_DELAY_MS);
+  let page = 1, more = true;
+  while (more && page <= 4) {
+    const res = await fetch(`${API_BASE}/centers/?page_size=1000&page=${page}`, { headers });
+    if (!res.ok) break;
+    const body = await res.json();
+    (body.data || []).forEach((c) => {
+      if (c.wilaya_id == null) return;
+      const wid = String(c.wilaya_id);
+      (byW[wid] = byW[wid] || []).push({
+        id: c.center_id,
+        name: c.name || c.commune_name || '',
+        address: c.address || '',
+      });
+    });
+    more = !!body.has_more;
+    page++;
   }
-  console.log('yalidineCenters summary', { wilayas: wilayaIds.length, okWithData, okEmpty, notOk, threw });
   return byW;
 }
 
@@ -1237,9 +1197,9 @@ exports.syncCarriers = onCall(
           (cj.data || []).forEach((c) => { if (c.is_deliverable) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.name); } });
           more = !!cj.has_more; page++;
         }
+        const yalCenters = await yalidineCenters(h);
         const fromWilayaId = wilayaIdByName(settings.originWilaya);
         const yalFees = await yalidineFeeTable(h, fromWilayaId, wIds);
-        const yalCenters = await yalidineCenters(h, wIds);
         out.yalidine = await writeCarrierData(db, 'yalidine', wIds, byW, Object.keys(yalFees).length ? yalFees : YAL_FEES, yalCenters);
       } catch (e) {
         out.yalidine = { error: (e && e.message) || String(e) };
