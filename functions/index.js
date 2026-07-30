@@ -337,6 +337,51 @@ async function zrAllTerritories(headers) {
   return rows;
 }
 
+// ZR Express DOES expose real prices via GET /delivery-pricing/rates
+// (deliveryType 'home' | 'pickup-point'; priority logic already applied by ZR).
+// Rates are per-territory (mostly commune-level); collapse them to one
+// [home, desk] per wilaya so the storefront's per-wilaya fee lookups get ZR's
+// true prices instead of a borrowed grid. `rows` is ZR's territory list, used to
+// map each priced territory back to its wilaya `code`. Returns {} on any failure
+// so the caller can fall back to the old placeholder grid rather than zero fees.
+async function zrFeeTable(headers, rows) {
+  const wCodeById = {};
+  rows.forEach((t) => { if (t.level === 'wilaya' && Number(t.code)) wCodeById[t.id] = Number(t.code); });
+  rows.forEach((t) => { if (t.level === 'commune' && t.parentId && wCodeById[t.parentId] != null) wCodeById[t.id] = wCodeById[t.parentId]; });
+
+  const { res, body } = await zrFetch(ZR_BASE + '/delivery-pricing/rates', { method: 'GET', headers });
+  if (!res.ok) return {};
+
+  const agg = {}; // wilaya code -> { home: {price:count}, desk: {price:count} }
+  ((body && body.rates) || []).forEach((r) => {
+    const code = wCodeById[r.toTerritoryId];
+    if (!code) return;
+    (agg[code] = agg[code] || { home: {}, desk: {} });
+    (r.deliveryPrices || []).forEach((d) => {
+      const p = d.discountedPrice != null ? d.discountedPrice : d.price;
+      if (typeof p !== 'number' || p <= 0) return; // ignore 0 / missing prices
+      if (d.deliveryType === 'home') agg[code].home[p] = (agg[code].home[p] || 0) + 1;
+      else if (d.deliveryType === 'pickup-point') agg[code].desk[p] = (agg[code].desk[p] || 0) + 1;
+    });
+  });
+
+  // Most common price per wilaya (communes are uniform in practice); ties -> higher.
+  const mode = (m) => {
+    const e = Object.entries(m);
+    if (!e.length) return null;
+    e.sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+    return Number(e[0][0]);
+  };
+  const table = {};
+  Object.keys(agg).forEach((code) => {
+    const home = mode(agg[code].home), desk = mode(agg[code].desk);
+    const h = home != null ? home : desk; // if one side is missing, reuse the other
+    const d = desk != null ? desk : home; // so no delivery type is ever free
+    if (h != null && d != null) table[code] = [h, d];
+  });
+  return table;
+}
+
 // Destination wilaya/commune territory UUIDs, resolved live from ZR Express's own
 // territory list (mirrors the Yalidine-center / Noest-desk lookups above).
 async function zrResolveTerritory(headers, wilayaCode, communeName) {
@@ -911,15 +956,29 @@ exports.syncNoestFees = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
-   syncCarriers: pulls each carrier's real wilaya + commune lists from
-   its API and caches them (with per-wilaya fees) to delivery_data/<carrier>,
-   which the storefront reads to populate the right lists per carrier.
+   syncCarriers: pulls each carrier's real wilaya + commune + stop-desk
+   (agency office) lists from its API and caches them (with per-wilaya
+   fees) to delivery_data/<carrier>, which the storefront reads to
+   populate the right lists per carrier — including the Stop Desk
+   dropdown, which must show only that carrier's real desks in the
+   selected wilaya, never the commune list.
    ─────────────────────────────────────────────────────────────── */
 const WILAYA_NAMES = {"1":["أدرار","Adrar"],"2":["الشلف","Chlef"],"3":["الأغواط","Laghouat"],"4":["أم البواقي","Oum El Bouaghi"],"5":["باتنة","Batna"],"6":["بجاية","Béjaïa"],"7":["بسكرة","Biskra"],"8":["بشار","Béchar"],"9":["البليدة","Blida"],"10":["البويرة","Bouira"],"11":["تمنراست","Tamanrasset"],"12":["تبسة","Tébessa"],"13":["تلمسان","Tlemcen"],"14":["تيارت","Tiaret"],"15":["تيزي وزو","Tizi Ouzou"],"16":["الجزائر","Alger"],"17":["الجلفة","Djelfa"],"18":["جيجل","Jijel"],"19":["سطيف","Sétif"],"20":["سعيدة","Saïda"],"21":["سكيكدة","Skikda"],"22":["سيدي بلعباس","Sidi Bel Abbès"],"23":["عنابة","Annaba"],"24":["قالمة","Guelma"],"25":["قسنطينة","Constantine"],"26":["المدية","Médéa"],"27":["مستغانم","Mostaganem"],"28":["المسيلة","M'Sila"],"29":["معسكر","Mascara"],"30":["ورقلة","Ouargla"],"31":["وهران","Oran"],"32":["البيض","El Bayadh"],"33":["إليزي","Illizi"],"34":["برج بوعريريج","Bordj Bou Arréridj"],"35":["بومرداس","Boumerdès"],"36":["الطارف","El Tarf"],"37":["تندوف","Tindouf"],"38":["تيسمسيلت","Tissemsilt"],"39":["الوادي","El Oued"],"40":["خنشلة","Khenchela"],"41":["سوق أهراس","Souk Ahras"],"42":["تيبازة","Tipaza"],"43":["ميلة","Mila"],"44":["عين الدفلى","Aïn Defla"],"45":["النعامة","Naâma"],"46":["عين تموشنت","Aïn Témouchent"],"47":["غرداية","Ghardaïa"],"48":["غليزان","Relizane"],"49":["تيميمون","Timimoun"],"50":["برج باجي مختار","Bordj Badji Mokhtar"],"51":["أولاد جلال","Ouled Djellal"],"52":["بني عباس","Béni Abbès"],"53":["عين صالح","In Salah"],"54":["عين قزام","In Guezzam"],"55":["تقرت","Touggourt"],"56":["جانت","Djanet"],"57":["المغير","El M'Ghair"],"58":["المنيعة","El Meniaa"]};
 const YAL_FEES = {"1":[1400,1200],"2":[900,400],"3":[1050,600],"4":[900,400],"5":[900,400],"6":[900,400],"7":[1050,600],"8":[1400,800],"9":[750,350],"10":[900,400],"11":[1600,1200],"12":[1050,600],"13":[900,400],"14":[900,400],"15":[900,400],"16":[500,300],"17":[1050,600],"18":[900,400],"19":[900,400],"20":[900,400],"21":[900,400],"22":[900,400],"23":[900,400],"24":[900,400],"25":[900,400],"26":[900,400],"27":[900,400],"28":[900,400],"29":[900,400],"30":[1050,600],"31":[900,400],"32":[1050,600],"33":[1800,1200],"34":[900,400],"35":[750,350],"36":[900,400],"37":[1800,1200],"38":[900,400],"39":[1050,600],"40":[900,400],"41":[900,400],"42":[750,350],"43":[900,400],"44":[900,400],"45":[1050,600],"46":[900,400],"47":[1050,600],"48":[900,400],"49":[1400,800],"50":[1800,1200],"51":[1050,600],"52":[1400,800],"53":[1600,1200],"54":[1800,1200],"55":[1050,600],"56":[1800,1200],"57":[1050,600],"58":[1050,600]};
 const NOEST_FEES = {"1":[1500,700],"2":[950,450],"3":[850,400],"4":[850,400],"5":[850,400],"6":[900,400],"7":[950,450],"8":[1300,650],"9":[800,350],"10":[800,350],"11":[2000,1000],"12":[850,400],"13":[950,450],"14":[950,450],"15":[800,350],"16":[800,350],"17":[950,450],"18":[900,400],"19":[850,400],"20":[950,450],"21":[900,400],"22":[950,450],"23":[800,350],"24":[900,400],"25":[900,400],"26":[800,350],"27":[950,450],"28":[850,400],"29":[950,450],"30":[800,350],"31":[800,350],"32":[1000,500],"33":[1950,950],"34":[850,400],"35":[800,350],"36":[950,450],"37":[1750,850],"38":[950,450],"39":[800,350],"40":[850,400],"41":[900,400],"42":[800,350],"43":[900,400],"44":[950,450],"45":[1100,550],"46":[950,450],"47":[950,450],"48":[950,450],"49":[1200,600],"50":[1800,1200],"51":[950,450],"52":[1450,650],"53":[1650,850],"54":[1800,1200],"55":[700,300],"56":[2200,1600],"57":[850,300],"58":[1000,500]};
 
-async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable) {
+// Reverse-lookup for site_settings.originWilaya (stored as a French name, e.g.
+// "Touggourt") into the numeric wilaya id the Yalidine fees endpoint requires.
+function wilayaIdByName(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return null;
+  for (const id in WILAYA_NAMES) {
+    if (WILAYA_NAMES[id][1].toLowerCase() === n) return Number(id);
+  }
+  return null;
+}
+
+async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, centersByW) {
   const ids = wilayaIds.map(Number).filter((id) => WILAYA_NAMES[id]).sort((a, b) => a - b);
   const wilayas = ids.map((id) => ({ id, ar: WILAYA_NAMES[id][0], fr: WILAYA_NAMES[id][1] }));
   const communes = {};
@@ -931,74 +990,314 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable) {
   });
   const fees = {};
   ids.forEach((id) => { const f = feeTable[id]; if (f) fees[String(id)] = { home: f[0], desk: f[1] }; });
-  await db.collection('delivery_data').doc(name).set({ wilayas, communes, fees, updatedAt: Date.now() });
-  return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0) };
+  // Stop desks (agency offices) — same shape as `communes` above (keyed by
+  // wilaya id) but each entry is a {id, name, address} object instead of a
+  // plain string, since desk names alone aren't guaranteed unique within a
+  // wilaya and the checkout dropdown needs a stable value to select by.
+  const centers = {};
+  let centerCount = 0;
+  Object.keys(centersByW || {}).forEach((wid) => {
+    const seen = new Set(); const out = [];
+    (centersByW[wid] || []).forEach((c) => {
+      const id = c && c.id != null ? String(c.id) : '';
+      const cname = c && String(c.name || '').trim();
+      if (!id || !cname || seen.has(id)) return;
+      seen.add(id);
+      out.push({ id, name: cname, address: (c.address && String(c.address).trim()) || '' });
+    });
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    if (out.length) { centers[String(wid)] = out; centerCount += out.length; }
+  });
+  await db.collection('delivery_data').doc(name).set({ wilayas, communes, centers, fees, updatedAt: Date.now() });
+  return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0), centers: centerCount };
+}
+
+// Noest exposes the partner's real per-wilaya grid at /api/public/fees
+// (tarifs.delivery[wilaya] = { tarif: home, tarif_stopdesk: desk }). Use it so
+// delivery_data/noest (what the storefront reads) is priced from real fees
+// instead of the NOEST_FEES placeholder. Returns {} on failure so the caller
+// falls back to NOEST_FEES rather than writing empty fees. `headers` carries the
+// Noest bearer token.
+async function noestFeeTable(headers) {
+  try {
+    const res = await fetch(NOEST_BASE + '/api/public/fees', { headers });
+    if (!res.ok) return {};
+    const body = await res.json();
+    const delivery = (body && body.tarifs && body.tarifs.delivery) || {};
+    const table = {};
+    for (const k in delivery) {
+      const d = delivery[k] || {};
+      const code = Number(d.wilaya_id || k);
+      const home = parseInt(d.tarif, 10);
+      const desk = parseInt(d.tarif_stopdesk, 10);
+      if (code && !isNaN(home) && !isNaN(desk)) table[code] = [home, desk];
+    }
+    return table;
+  } catch (e) {
+    return {};
+  }
+}
+
+// Yalidine's /v1/fees endpoint is per (from_wilaya_id, to_wilaya_id) route —
+// unlike Noest/ZR it exposes no single "all routes" call, so build the table
+// with one request per destination wilaya, using the account's origin wilaya as
+// the fixed `from_wilaya_id`. Each response's per_commune breakdown is collapsed
+// to one [home, desk] per wilaya via mode (mirrors zrFeeTable — communes are
+// uniform in practice). Kept deliberately gentle (low concurrency + a pause
+// between batches) — an earlier version fired 8-at-a-time and appears to have
+// tripped Yalidine's abuse protection, which then connect-timed-out every
+// request (even the unrelated wilaya/commune list calls) for a while after.
+// Returns {} if the origin can't be resolved or every request fails, so the
+// caller falls back to the YAL_FEES placeholder; individual wilaya failures are
+// skipped rather than aborting the whole sync.
+async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
+  if (!fromWilayaId) return {};
+  const mode = (m) => {
+    const e = Object.entries(m);
+    if (!e.length) return null;
+    e.sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+    return Number(e[0][0]);
+  };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const table = {};
+  const CONCURRENCY = 2;
+  const BATCH_DELAY_MS = 400;
+  for (let i = 0; i < wilayaIds.length; i += CONCURRENCY) {
+    const batch = wilayaIds.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (toId) => {
+      try {
+        const url = `${API_BASE}/fees/?from_wilaya_id=${fromWilayaId}&to_wilaya_id=${toId}`;
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const body = await res.json();
+        const perCommune = (body && body.per_commune) || {};
+        const home = {}, desk = {};
+        Object.values(perCommune).forEach((c) => {
+          if (typeof c.express_home === 'number') home[c.express_home] = (home[c.express_home] || 0) + 1;
+          if (typeof c.express_desk === 'number') desk[c.express_desk] = (desk[c.express_desk] || 0) + 1;
+        });
+        const h0 = mode(home), d0 = mode(desk);
+        const h = h0 != null ? h0 : d0; // if one side is missing, reuse the other
+        const d = d0 != null ? d0 : h0; // so no delivery type is ever free
+        if (h != null && d != null) table[String(toId)] = [h, d];
+      } catch (e) { /* skip this wilaya, keep the rest */ }
+    }));
+    if (i + CONCURRENCY < wilayaIds.length) await sleep(BATCH_DELAY_MS);
+  }
+  return table;
+}
+
+// Yalidine's stop-desk (center) list, per destination wilaya — the same
+// `/centers/?wilaya_id=` call createYalidineParcel already makes per-order,
+// just run once per wilaya here and cached instead of live per parcel.
+//
+// This runs right after yalidineFeeTable, which already made ~58 requests to
+// the same API in the same invocation — back-to-back with another 58 for
+// centers, that's ~116 requests in a couple minutes, and Yalidine's abuse
+// protection has tripped on exactly this pattern before (see yalidineFeeTable's
+// comment). So: a cooldown pause before starting, single-file pacing (no
+// concurrency) with a longer gap between requests, and one retry-with-backoff
+// per wilaya for a bare connection failure (which is the specific symptom of
+// a transient rate-limit, as opposed to a real HTTP error response).
+async function yalidineCenters(headers, wilayaIds) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const byW = {};
+  const REQUEST_DELAY_MS = 1000;
+  const COOLDOWN_MS = 5000;
+  // Diagnostics only (not stored) — every wilaya ends up in exactly one of
+  // these buckets, logged once at the end so a run that comes back with zero
+  // centers everywhere can be told apart from "Yalidine genuinely has no
+  // stop desks in these wilayas" vs. requests failing/erroring silently.
+  let okWithData = 0, okEmpty = 0, notOk = 0, threw = 0;
+  let loggedSample = false;
+
+  await sleep(COOLDOWN_MS);
+
+  for (const wid of wilayaIds) {
+    let attempt = 0;
+    let done = false;
+    while (!done && attempt < 2) {
+      attempt++;
+      try {
+        const res = await fetch(`${API_BASE}/centers/?wilaya_id=${wid}`, { headers });
+        if (!res.ok) {
+          notOk++;
+          if (!loggedSample) { loggedSample = true; console.error('yalidineCenters non-OK', wid, res.status, await res.text().catch(() => '')); }
+          done = true;
+          break;
+        }
+        const body = await res.json();
+        const list = (body && body.data) || [];
+        if (!loggedSample) { loggedSample = true; console.log('yalidineCenters sample', wid, JSON.stringify(body).slice(0, 500)); }
+        if (list.length) {
+          okWithData++;
+          byW[String(wid)] = list.map((c) => ({
+            id: c.center_id,
+            name: c.name || c.center_name || c.commune_name || '',
+            address: c.address || '',
+          }));
+        } else {
+          okEmpty++;
+        }
+        done = true;
+      } catch (e) {
+        if (attempt < 2) {
+          await sleep(2000); // likely a transient rate-limit blip — brief backoff, then one retry
+          continue;
+        }
+        threw++;
+        if (!loggedSample) { loggedSample = true; console.error('yalidineCenters threw', wid, (e && e.message) || String(e)); }
+        done = true;
+      }
+    }
+    await sleep(REQUEST_DELAY_MS);
+  }
+  console.log('yalidineCenters summary', { wilayas: wilayaIds.length, okWithData, okEmpty, notOk, threw });
+  return byW;
+}
+
+// Noest's stop-desk list — a single call returns every desk nationwide (same
+// endpoint createNoestParcel already uses per-order); group by the wilaya id
+// encoded as the leading digits of each desk's `code`.
+async function noestCenters(headers) {
+  const byW = {};
+  try {
+    const res = await fetch(NOEST_BASE + '/api/public/desks', { headers });
+    if (!res.ok) return byW;
+    const raw = await res.json();
+    const arr = Array.isArray(raw) ? raw : Object.values(raw);
+    arr.forEach((d) => {
+      const code = String((d && d.code) || '');
+      const m = code.match(/^(\d+)/);
+      if (!m || !code) return;
+      const wid = String(parseInt(m[1], 10));
+      const name = d.name || d.station_name || d.commune_name || d.commune || code;
+      const address = d.address || d.adresse || '';
+      (byW[wid] = byW[wid] || []).push({ id: code, name, address });
+    });
+  } catch (e) { /* return whatever was collected before the failure */ }
+  return byW;
+}
+
+// ZR Express's stop-desk (hub) list — same `/hubs/search` call zrFindHub
+// already makes per-order, fetched once here and grouped by wilaya `code`
+// via the territory rows already fetched for the commune sync above.
+async function zrCenters(headers, rows) {
+  const wCodeById = {};
+  rows.forEach((t) => { if (t.level === 'wilaya' && Number(t.code)) wCodeById[t.id] = Number(t.code); });
+
+  const byW = {};
+  try {
+    const { res, body } = await zrFetch(ZR_BASE + '/hubs/search', {
+      method: 'POST', headers, body: JSON.stringify({ pageNumber: 1, pageSize: 1000 }),
+    });
+    if (!res.ok) return byW;
+    const hubs = (body && (body.items || body.data || body.results)) || [];
+    hubs.forEach((hub) => {
+      if (!hub || !hub.isPickupPoint) return;
+      const cityId = hub.address && hub.address.cityTerritoryId;
+      const code = cityId != null ? wCodeById[cityId] : null;
+      if (!code) return;
+      const name = hub.name || hub.label || (hub.address && (hub.address.street || hub.address.name)) || 'مكتب';
+      const address = (hub.address && hub.address.street) || '';
+      (byW[String(code)] = byW[String(code)] || []).push({ id: hub.id, name, address });
+    });
+  } catch (e) { /* return whatever was collected before the failure */ }
+  return byW;
 }
 
 exports.syncCarriers = onCall(
-  { region: 'us-central1', timeoutSeconds: 120 },
+  { region: 'us-central1', timeoutSeconds: 480 },
   async () => {
     const db = admin.firestore();
     const yalSnap = await db.collection('private').doc('yalidine').get();
     const noSnap = await db.collection('private').doc('noest').get();
+    const setSnap = await db.collection('site_settings').limit(1).get();
+    const settings = setSnap.empty ? {} : setSnap.docs[0].data();
     const yal = yalSnap.exists ? yalSnap.data() : {};
     const no = noSnap.exists ? noSnap.data() : {};
     const out = {};
 
+    // Each carrier is an independent, unrelated API — a timeout or outage on
+    // one (Yalidine's has intermittently connect-timed-out — see comment on
+    // yalidineFeeTable) must not prevent the other two from syncing. Every
+    // carrier block is wrapped so a failure is recorded per-carrier and the
+    // function still returns partial success instead of erroring out whole.
+
     // YALIDINE
     if (yal.apiId && yal.apiToken) {
-      const h = { 'X-API-ID': String(yal.apiId), 'X-API-TOKEN': String(yal.apiToken) };
-      const wj = await (await fetch('https://api.yalidine.app/v1/wilayas/?page_size=100', { headers: h })).json();
-      const wIds = (wj.data || []).map((w) => w.id);
-      const byW = {};
-      let page = 1, more = true;
-      while (more && page <= 4) {
-        const cj = await (await fetch('https://api.yalidine.app/v1/communes/?page_size=1000&page=' + page, { headers: h })).json();
-        (cj.data || []).forEach((c) => { if (c.is_deliverable) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.name); } });
-        more = !!cj.has_more; page++;
+      try {
+        const h = { 'X-API-ID': String(yal.apiId), 'X-API-TOKEN': String(yal.apiToken) };
+        const wj = await (await fetch('https://api.yalidine.app/v1/wilayas/?page_size=100', { headers: h })).json();
+        const wIds = (wj.data || []).map((w) => w.id);
+        const byW = {};
+        let page = 1, more = true;
+        while (more && page <= 4) {
+          const cj = await (await fetch('https://api.yalidine.app/v1/communes/?page_size=1000&page=' + page, { headers: h })).json();
+          (cj.data || []).forEach((c) => { if (c.is_deliverable) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.name); } });
+          more = !!cj.has_more; page++;
+        }
+        const fromWilayaId = wilayaIdByName(settings.originWilaya);
+        const yalFees = await yalidineFeeTable(h, fromWilayaId, wIds);
+        const yalCenters = await yalidineCenters(h, wIds);
+        out.yalidine = await writeCarrierData(db, 'yalidine', wIds, byW, Object.keys(yalFees).length ? yalFees : YAL_FEES, yalCenters);
+      } catch (e) {
+        out.yalidine = { error: (e && e.message) || String(e) };
       }
-      out.yalidine = await writeCarrierData(db, 'yalidine', wIds, byW, YAL_FEES);
     }
 
     // NOEST
     if (no.apiToken) {
-      const h = { Authorization: 'Bearer ' + String(no.apiToken), Accept: 'application/json' };
-      const wRaw = await (await fetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
-      const wArr = (Array.isArray(wRaw) ? wRaw : Object.values(wRaw)).filter((w) => w.is_active != 0);
-      const cRaw = await (await fetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
-      const cArr = Array.isArray(cRaw) ? cRaw : Object.values(cRaw);
-      const byW = {};
-      cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
-      out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, NOEST_FEES);
+      try {
+        const h = { Authorization: 'Bearer ' + String(no.apiToken), Accept: 'application/json' };
+        const wRaw = await (await fetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
+        const wArr = (Array.isArray(wRaw) ? wRaw : Object.values(wRaw)).filter((w) => w.is_active != 0);
+        const cRaw = await (await fetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
+        const cArr = Array.isArray(cRaw) ? cRaw : Object.values(cRaw);
+        const byW = {};
+        cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
+        const noestFees = await noestFeeTable(h);
+        const noestCntrs = await noestCenters(h);
+        out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, Object.keys(noestFees).length ? noestFees : NOEST_FEES, noestCntrs);
+      } catch (e) {
+        out.noest = { error: (e && e.message) || String(e) };
+      }
     }
 
     // ZR EXPRESS — its wilaya/commune list is keyed by UUID territory, not the
-    // standard 1-58 numbering, and it exposes no fee grid — normalise it to the
-    // same shape as Yalidine/Noest (by wilaya `code`, priced with YAL_FEES) so
-    // the storefront's carrier lookups stay carrier-agnostic.
+    // standard 1-58 numbering. Normalise the list to the same shape as
+    // Yalidine/Noest (by wilaya `code`), and price it from ZR's own live rates
+    // (zrFeeTable) so the storefront shows ZR's real fees — falling back to the
+    // YAL_FEES placeholder only if the rates call fails.
     const zrSnap = await db.collection('private').doc('zrexpress').get();
     const zr = zrSnap.exists ? zrSnap.data() : {};
     if (zr.tenantId && zr.secretKey) {
-      const rows = await zrAllTerritories(zrHeaders(zr));
+      try {
+        const rows = await zrAllTerritories(zrHeaders(zr));
 
-      const wilayaIds = [];
-      const codeById = {}; // wilaya UUID -> numeric wilaya code
-      rows.forEach((t) => {
-        if (t.level !== 'wilaya') return;
-        const del = t.delivery || {};
-        if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
-        const code = Number(t.code);
-        if (!code) return;
-        wilayaIds.push(code); codeById[t.id] = code;
-      });
-      const byW = {};
-      rows.forEach((t) => {
-        if (t.level !== 'commune' || !t.parentId || codeById[t.parentId] == null) return;
-        const del = t.delivery || {};
-        if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
-        (byW[codeById[t.parentId]] = byW[codeById[t.parentId]] || []).push(t.name);
-      });
-      out.zr = await writeCarrierData(db, 'zr', wilayaIds, byW, YAL_FEES);
+        const wilayaIds = [];
+        const codeById = {}; // wilaya UUID -> numeric wilaya code
+        rows.forEach((t) => {
+          if (t.level !== 'wilaya') return;
+          const del = t.delivery || {};
+          if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
+          const code = Number(t.code);
+          if (!code) return;
+          wilayaIds.push(code); codeById[t.id] = code;
+        });
+        const byW = {};
+        rows.forEach((t) => {
+          if (t.level !== 'commune' || !t.parentId || codeById[t.parentId] == null) return;
+          const del = t.delivery || {};
+          if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
+          (byW[codeById[t.parentId]] = byW[codeById[t.parentId]] || []).push(t.name);
+        });
+        const zrFees = await zrFeeTable(zrHeaders(zr), rows);
+        const zrCntrs = await zrCenters(zrHeaders(zr), rows);
+        out.zr = await writeCarrierData(db, 'zr', wilayaIds, byW, Object.keys(zrFees).length ? zrFees : YAL_FEES, zrCntrs);
+      } catch (e) {
+        out.zr = { error: (e && e.message) || String(e) };
+      }
     }
     return { ok: true, result: out };
   }
