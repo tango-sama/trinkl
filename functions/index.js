@@ -973,13 +973,22 @@ function zrNormalize(raw) {
   if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
   if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
   if (/out\s*for\s*delivery|en cours de livraison|en\s*livraison|dispatch/.test(s)) return { stage: 3, alert: null };
-  if (/^(delivered|livr[ée])/.test(s)) return { stage: 4, alert: null };
+  // "Encaissé"/"encaisse" = COD payment collected, which only happens once the
+  // parcel has actually been delivered — same terminal step as "delivered"/"livré".
+  if (/^(delivered|livr[ée])|encaiss/.test(s)) return { stage: 4, alert: null };
   if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
-  // Dispatched / picked up / shipped.
-  if (/(pick|ramass|collect|confirm|exp[ée]di[ée]|ship)/.test(s)) return { stage: 1, alert: null };
+  // Pre-shipping FIRST — "Prêt à expédier" contains "expédie", so the dispatched
+  // rule below would otherwise mark it as already shipped (same class of bug
+  // yalidineNormalize already guards against for the identical French phrasing).
   // Created / registered / ready for pickup — order created (step 0), not yet shipped.
   if (/pr[êe]t\s*[àa]\s*exp[ée]dier|ready|pending|creat|nouveau/.test(s)) return { stage: 0, alert: null };
-  return { stage: 0, alert: null };
+  // Dispatched / picked up / shipped.
+  if (/(pick|ramass|collect|confirm|exp[ée]di[ée]|ship)/.test(s)) return { stage: 1, alert: null };
+  // Unrecognized — signal -1 (not 0) so callers fall back to whatever stage was
+  // already known instead of visibly regressing an in-progress parcel back to
+  // "just created". Logged by the caller so a real gap in this mapping (like the
+  // missing "encaisse" case above) shows up instead of silently misreporting.
+  return { stage: -1, alert: null };
 }
 
 async function fetchZrStatus(db, o) {
@@ -1022,11 +1031,18 @@ async function fetchZrStatus(db, o) {
   }
 
   const rawStatus = (row.state && row.state.name) || '';
-  const { stage, alert } = zrNormalize(rawStatus);
+  const norm = zrNormalize(rawStatus);
+  let stage = norm.stage;
+  if (stage === -1) {
+    console.log('[getParcelStatus] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', tracking);
+    const prevTs = o.trackingStatus;
+    stage = (prevTs && prevTs.carrier === 'zr' && prevTs.tracking === o.zr.tracking && typeof prevTs.stage === 'number')
+      ? prevTs.stage : 0;
+  }
   return {
     carrier: 'zr', tracking: row.trackingNumber || tracking,
-    stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: rawStatus || alert || 'بانتظار المعالجة',
+    stage, alert: norm.alert, stageLabels: STAGE_LABELS,
+    lastLabel: rawStatus || norm.alert || 'بانتظار المعالجة',
     lastLocation: null,
     lastDate: row.lastStateUpdateAt || null,
     events: [], updatedAt: Date.now(),
@@ -1712,7 +1728,13 @@ exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
       location: null, by: null, content, causer: 'ZR WEBHOOK', badge: null,
     });
 
-    const { stage, alert } = zrNormalize(rawStatus);
+    const norm = zrNormalize(rawStatus);
+    let stage = norm.stage;
+    const alert = norm.alert;
+    if (stage === -1) {
+      console.log('[zrWebhook] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', o.zr && o.zr.tracking);
+      stage = (typeof prev.stage === 'number') ? prev.stage : 0;
+    }
     const update = {
       trackingStatus: {
         carrier: 'zr', tracking: data.trackingNumber || o.zr.tracking,
