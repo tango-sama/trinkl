@@ -394,16 +394,20 @@ function zrUuid() {
   });
 }
 
-// Parse a ZR error body into a readable message (error.detail / error.errors[] / title / raw).
+// Parse a ZR error body into a readable message (error.errors[] / detail / title / raw).
+// `errors` (their per-field validation details, e.g. "phone: invalid format") is checked
+// FIRST — `detail` on a 400 is just the generic wrapper text ("One or more validation
+// errors occurred") and hides exactly what was wrong if returned instead.
 function zrErrMsg(body, status) {
   if (!body) return 'HTTP ' + status;
   if (typeof body === 'string') return body || ('HTTP ' + status);
-  if (body.detail) return String(body.detail);
   if (body.errors) {
-    if (Array.isArray(body.errors)) return body.errors.map((e) => (e && (e.message || e.description)) || JSON.stringify(e)).join('; ');
-    try { return Object.values(body.errors).reduce((a, b) => a.concat(b), []).join('; '); } catch (e) { /* fall through */ }
-    return JSON.stringify(body.errors);
+    let msg = '';
+    if (Array.isArray(body.errors)) msg = body.errors.map((e) => (e && (e.message || e.description)) || JSON.stringify(e)).join('; ');
+    else { try { msg = Object.entries(body.errors).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v.join(', ') : v)).join('; '); } catch (e) { /* fall through */ } }
+    if (msg) return msg;
   }
+  if (body.detail) return String(body.detail);
   return String(body.title || ('HTTP ' + status));
 }
 
