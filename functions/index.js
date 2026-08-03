@@ -142,6 +142,62 @@ exports.createYalidineParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   cancelYalidineParcel: called from the admin panel's "تعليم كجديد"
+   (mark as new) flow before it resets the order locally, so a
+   cancelled order doesn't keep shipping behind the admin's back.
+   Yalidine only allows deleting a parcel while it's still "En
+   préparation" (not yet picked up) — past that point the API refuses
+   and it has to be cancelled from Yalidine's own dashboard instead.
+   ─────────────────────────────────────────────────────────────── */
+exports.cancelYalidineParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    const tracking = o.yalidine && o.yalidine.tracking;
+    if (!tracking) return { ok: true, skipped: true };
+
+    const credSnap = await db.collection('private').doc('yalidine').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const apiId = String(cred.apiId || '').trim();
+    const apiToken = String(cred.apiToken || '').trim();
+    if (!apiId || !apiToken) {
+      throw new HttpsError('failed-precondition', 'أدخلي API ID و API Token الخاصين بـ Yalidine في إعدادات لوحة التحكم أولاً.');
+    }
+    const headers = { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken, 'Content-Type': 'application/json' };
+
+    let res, text;
+    try {
+      res = await fetch(`${API_BASE}/parcels/${encodeURIComponent(tracking)}`, { method: 'DELETE', headers });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
+    }
+    let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    // Response is an array with a single { tracking, deleted } result.
+    const entry = Array.isArray(body) ? body[0] : body;
+    const deleted = !!(entry && entry.deleted);
+    if (!res.ok || !deleted) {
+      throw new HttpsError(
+        'failed-precondition',
+        'تعذّر إلغاء طرد Yalidine — على الأرجح بدأ الشحن بالفعل. يمكن إلغاؤه يدوياً من لوحة تحكم Yalidine: ' +
+          (typeof body === 'string' ? body : JSON.stringify(body || {}))
+      );
+    }
+
+    await ref.update({ yalidine: admin.firestore.FieldValue.delete() });
+    return { ok: true, tracking };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    createNoestParcel: same flow for Noest (app.noest-dz.com).
    Credentials live in private/noest ({ apiToken, userGuid }). Noest's
    account already knows the origin, so no origin wilaya is needed.
@@ -254,6 +310,58 @@ exports.createNoestParcel = onCall(
     });
 
     return { ok: true, tracking, validated: false };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
+   cancelNoestParcel: POST /api/public/delete/order with
+   { tracking, user_guid }, same auth as createNoestParcel.
+   ─────────────────────────────────────────────────────────────── */
+exports.cancelNoestParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    const tracking = o.noest && o.noest.tracking;
+    if (!tracking) return { ok: true, skipped: true };
+
+    const credSnap = await db.collection('private').doc('noest').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const token = String(cred.apiToken || '').trim();
+    const guid = String(cred.userGuid || '').trim();
+    if (!token || !guid) {
+      throw new HttpsError('failed-precondition', 'أدخلي API Token و user_guid الخاصين بـ Noest في إعدادات لوحة التحكم أولاً.');
+    }
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
+
+    let res, text;
+    try {
+      res = await fetch(NOEST_BASE + '/api/public/delete/order', {
+        method: 'POST', headers,
+        body: JSON.stringify({ tracking, user_guid: guid }),
+      });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+    }
+    let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    if (!res.ok || (body && body.success === false)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'تعذّر إلغاء طرد Noest — تحققي من حالته في لوحة Noest: ' +
+          (typeof body === 'string' ? body : JSON.stringify(body || {}))
+      );
+    }
+
+    await ref.update({ noest: admin.firestore.FieldValue.delete() });
+    return { ok: true, tracking };
   }
 );
 
@@ -496,6 +604,45 @@ exports.createZrParcel = onCall(
     });
 
     return { ok: true, tracking: tracking || parcelId };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
+   cancelZrParcel: DELETE /parcels/{id} using ZR Express's OWN internal
+   parcel id (stored as o.zr.parcelId at creation — NOT the tracking
+   number). ZR refuses to delete exchange/return parcels, and 404s on
+   an unknown/already-deleted id.
+   ─────────────────────────────────────────────────────────────── */
+exports.cancelZrParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    const parcelId = o.zr && (o.zr.parcelId || o.zr.tracking);
+    if (!parcelId) return { ok: true, skipped: true };
+
+    const cred = await zrCreds(db);
+    const headers = zrHeaders(cred);
+
+    const { res, body } = await zrFetch(ZR_BASE + '/parcels/' + encodeURIComponent(parcelId), {
+      method: 'DELETE', headers,
+    });
+    if (!res.ok) {
+      throw new HttpsError(
+        'failed-precondition',
+        'تعذّر إلغاء طرد ZR Express — قد يكون طرد تبديل/إرجاع لا يمكن حذفه، أو بدأ الشحن بالفعل: ' + zrErrMsg(body, res.status)
+      );
+    }
+
+    await ref.update({ zr: admin.firestore.FieldValue.delete() });
+    return { ok: true, tracking: parcelId };
   }
 );
 
