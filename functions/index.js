@@ -705,7 +705,7 @@ function deletedAtCarrierStatus(carrier, carrierName, tracking) {
   return {
     carrier, tracking,
     stage: null,
-    alert: `تم حذف هذا الطرد من ${carrierName} ولم يعد موجوداً لديهم — اضغطي "تعليم كجديد" لإعادة الطلب لحالته الأولية والمتابعة بأي شركة أخرى.`,
+    alert: 'تم حذف هذا الطرد',
     stageLabels: STAGE_LABELS,
     lastLabel: `محذوف لدى ${carrierName}`,
     lastLocation: null, lastDate: null,
