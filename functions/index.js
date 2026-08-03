@@ -181,6 +181,12 @@ exports.cancelYalidineParcel = onCall(
       throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
     }
     let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    // Already gone (e.g. deleted directly from Yalidine's own dashboard) is the
+    // end state we want anyway — treat it as success, not a failure to report.
+    if (res.status === 404) {
+      await ref.update({ yalidine: admin.firestore.FieldValue.delete() });
+      return { ok: true, tracking, alreadyGone: true };
+    }
     // Response is an array with a single { tracking, deleted } result.
     const entry = Array.isArray(body) ? body[0] : body;
     const deleted = !!(entry && entry.deleted);
@@ -352,6 +358,16 @@ exports.cancelNoestParcel = onCall(
       throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
     }
     let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    // Already gone (e.g. deleted directly from Noest's own dashboard) is the end
+    // state we want anyway — treat it as success. Noest's tracking-info endpoint
+    // answers "not found" as a 200 with a French message rather than a real HTTP
+    // 404 (see fetchNoestStatus above), so check both shapes defensively.
+    const notFound = res.status === 404 ||
+      (body && typeof body === 'object' && /trouv|not\s*found/i.test(String(body.message || '')));
+    if (notFound) {
+      await ref.update({ noest: admin.firestore.FieldValue.delete() });
+      return { ok: true, tracking, alreadyGone: true };
+    }
     if (!res.ok || (body && body.success === false)) {
       throw new HttpsError(
         'failed-precondition',
@@ -638,6 +654,12 @@ exports.cancelZrParcel = onCall(
     const { res, body } = await zrFetch(ZR_BASE + '/parcels/' + encodeURIComponent(parcelId), {
       method: 'DELETE', headers,
     });
+    // Already gone (e.g. deleted directly from ZR's own dashboard — their API
+    // returns 404 "Parcels.NotFound" for this) is the end state we want anyway.
+    if (res.status === 404) {
+      await ref.update({ zr: admin.firestore.FieldValue.delete() });
+      return { ok: true, tracking: parcelId, alreadyGone: true };
+    }
     if (!res.ok) {
       throw new HttpsError(
         'failed-precondition',
@@ -666,6 +688,31 @@ const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد وال�
 // one before it render green in the panel). `alert` with a non-null stage = a
 // delivery problem shown as a ⚠️ between "خرج للتوصيل" and "تم الاستلام"; `stage:
 // null` = a terminal return/cancel with no meaningful step progress.
+
+// A carrier not having the parcel yet is ambiguous: it usually just means it was
+// created seconds ago and hasn't been indexed on their side yet (normal, resolves
+// on the next refresh) — but it can also mean the parcel was deleted directly from
+// the carrier's own dashboard, outside this app entirely. The only signal that
+// tells these apart is age: a parcel still missing long after creation is gone for
+// good, not "still propagating". `notFoundAtCarrier(o, carrier)` below gates on
+// this so genuinely-new parcels aren't misreported as deleted.
+const NOT_FOUND_GRACE_MS = 15 * 60 * 1000; // 15 minutes
+function parcelIsStale(o, carrier) {
+  const createdAt = Number(o[carrier] && o[carrier].createdAt) || 0;
+  return Date.now() - createdAt > NOT_FOUND_GRACE_MS;
+}
+function deletedAtCarrierStatus(carrier, carrierName, tracking) {
+  return {
+    carrier, tracking,
+    stage: null,
+    alert: `تم حذف هذا الطرد من ${carrierName} ولم يعد موجوداً لديهم — اضغطي "تعليم كجديد" لإعادة الطلب لحالته الأولية والمتابعة بأي شركة أخرى.`,
+    stageLabels: STAGE_LABELS,
+    lastLabel: `محذوف لدى ${carrierName}`,
+    lastLocation: null, lastDate: null,
+    notFoundAtCarrier: true,
+    events: [], updatedAt: Date.now(),
+  };
+}
 
 // Noest's status keys are a small fixed set, so an exact-match table is safe.
 const NOEST_STAGE = {
@@ -764,7 +811,10 @@ async function fetchNoestStatus(db, o) {
   }
   // Noest returns this (not an HTTP error) for parcels still sitting unvalidated
   // in "prêt à expédier" — very common right after creation, not a real failure.
+  // BUT this is also exactly what a parcel deleted from Noest's own dashboard
+  // would return forever after, so only treat it as "still pending" while fresh.
   if (body && body.message === 'Trackings non trouvés') {
+    if (parcelIsStale(o, 'noest')) return deletedAtCarrierStatus('noest', 'Noest', o.noest.tracking);
     return {
       carrier: 'noest', tracking: o.noest.tracking,
       stage: 0, alert: null, stageLabels: STAGE_LABELS,
@@ -867,8 +917,11 @@ async function fetchYalidineStatus(db, o) {
   const parcel = list.find((p) => p && p.tracking === o.yalidine.tracking)
     || (body && !body.data && body.tracking === o.yalidine.tracking ? body : null);
   // No parcel record yet (just created, not picked up by Yalidine's system) — same
-  // "still pending" case as Noest's unvalidated parcels, not a real failure.
+  // "still pending" case as Noest's unvalidated parcels, not a real failure. BUT
+  // it's also exactly what a parcel deleted from Yalidine's own dashboard would
+  // return forever after, so only treat it as "still pending" while fresh.
   if (!parcel) {
+    if (parcelIsStale(o, 'yalidine')) return deletedAtCarrierStatus('yalidine', 'Yalidine', o.yalidine.tracking);
     return {
       carrier: 'yalidine', tracking: o.yalidine.tracking,
       stage: 0, alert: null, stageLabels: STAGE_LABELS,
@@ -956,7 +1009,10 @@ async function fetchZrStatus(db, o) {
     if (!res.ok) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
     row = ((body && (body.items || body.data || body.results)) || [])[0];
   }
+  // Not found yet is ambiguous the same way as Yalidine/Noest above — could be
+  // "just created, not indexed yet" or "deleted from ZR's own dashboard".
   if (!row) {
+    if (parcelIsStale(o, 'zr')) return deletedAtCarrierStatus('zr', 'ZR Express', tracking);
     return {
       carrier: 'zr', tracking,
       stage: 0, alert: null, stageLabels: STAGE_LABELS,
