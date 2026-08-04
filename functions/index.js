@@ -1050,18 +1050,30 @@ async function fetchZrStatus(db, o) {
       { method: 'GET', headers }
     );
     if (hRes.ok && Array.isArray(hBody)) {
-      events = hBody.map((h) => ({
-        key: (h.newState && h.newState.id) || null,
-        label: (h.newState && (h.newState.name || h.newState.description)) || '',
-        date: h.createdAt || null,
-        location: (h.location && [h.location.hubName, h.location.hubCity].filter(Boolean).join(' - ')) || null,
-        by: (h.modifiedBy && h.modifiedBy.fullName) || null,
-        center: (h.location && h.location.hubName) || null,
-        content: h.comment ||
-          (Array.isArray(h.situations) ? h.situations.map((s) => s.comment).filter(Boolean).join(' · ') : '') ||
-          null,
-        causer: null, badge: null,
-      })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+      events = hBody.map((h) => {
+        const stateName = (h.newState && (h.newState.name || h.newState.description)) || '';
+        // Colour-code each entry the same way the top-level stepper already
+        // does — reuse zrNormalize instead of ZR's own per-state `color`
+        // (a tenant-configurable hex, not a stable ok/bad/warn signal) so an
+        // event's colour always agrees with what the stepper says about it.
+        const enorm = zrNormalize(stateName);
+        const badge = enorm.alert ? 'badge-danger'
+          : enorm.stage === STAGE_LABELS.length - 1 ? 'badge-success'
+          : enorm.stage >= 0 ? 'badge-primary'
+          : null;
+        return {
+          key: (h.newState && h.newState.id) || null,
+          label: stateName,
+          date: h.createdAt || null,
+          location: (h.location && [h.location.hubName, h.location.hubCity].filter(Boolean).join(' - ')) || null,
+          by: (h.modifiedBy && h.modifiedBy.fullName) || null,
+          center: (h.location && h.location.hubName) || null,
+          content: h.comment ||
+            (Array.isArray(h.situations) ? h.situations.map((s) => s.comment).filter(Boolean).join(' · ') : '') ||
+            null,
+          causer: null, badge,
+        };
+      }).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
     }
   } catch (e) { /* history is best-effort; row.state already covers the stepper */ }
 
