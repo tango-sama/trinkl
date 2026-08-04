@@ -1039,13 +1039,39 @@ async function fetchZrStatus(db, o) {
     stage = (prevTs && prevTs.carrier === 'zr' && prevTs.tracking === o.zr.tracking && typeof prevTs.stage === 'number')
       ? prevTs.stage : 0;
   }
+
+  // Full state-transition timeline for the "تفاصيل الشحنة" panel, same role as
+  // Yalidine's /histories call — best-effort, a failure here must never break
+  // the stepper itself, which already has everything it needs from `row`.
+  let events = [];
+  try {
+    const { res: hRes, body: hBody } = await zrFetch(
+      ZR_BASE + '/parcels/' + (row.id || parcelId) + '/state-history',
+      { method: 'GET', headers }
+    );
+    if (hRes.ok && Array.isArray(hBody)) {
+      events = hBody.map((h) => ({
+        key: (h.newState && h.newState.id) || null,
+        label: (h.newState && (h.newState.name || h.newState.description)) || '',
+        date: h.createdAt || null,
+        location: (h.location && [h.location.hubName, h.location.hubCity].filter(Boolean).join(' - ')) || null,
+        by: (h.modifiedBy && h.modifiedBy.fullName) || null,
+        center: (h.location && h.location.hubName) || null,
+        content: h.comment ||
+          (Array.isArray(h.situations) ? h.situations.map((s) => s.comment).filter(Boolean).join(' · ') : '') ||
+          null,
+        causer: null, badge: null,
+      })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+  } catch (e) { /* history is best-effort; row.state already covers the stepper */ }
+
   return {
     carrier: 'zr', tracking: row.trackingNumber || tracking,
     stage, alert: norm.alert, stageLabels: STAGE_LABELS,
     lastLabel: rawStatus || norm.alert || 'بانتظار المعالجة',
     lastLocation: null,
     lastDate: row.lastStateUpdateAt || null,
-    events: [], updatedAt: Date.now(),
+    events, updatedAt: Date.now(),
   };
 }
 
