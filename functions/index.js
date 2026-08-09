@@ -1192,14 +1192,18 @@ async function lookupYalidine(db, tracking) {
   const parcelInfo = {
     customer: [parcel.firstname, parcel.familyname].filter(Boolean).join(' ').trim() || undefined,
     phone: String(parcel.contact_phone || '').trim() || undefined,
-    wilaya: parcel.to_wilaya_name || undefined,
+    // Yalidine returns the numeric to_wilaya_id (matches the app's own
+    // Yalidine wilaya list) — prefer it, keep the name for display.
+    wilaya: parcel.to_wilaya_id != null ? String(parcel.to_wilaya_id) : (parcel.to_wilaya_name || undefined),
     wilayaFr: parcel.to_wilaya_name || undefined,
     commune: parcel.to_commune_name || undefined,
     address: String(parcel.address || '').trim() || undefined,
     productLabel: String(parcel.product_list || '').trim() || undefined,
     price: isFinite(cod) && cod > 0 ? cod : null,
     createdAt: parcel.created_at || parcel.date_creation || null,
-    deliveryType: parcel.is_stopdesk ? 'office' : 'home',
+    // A stop-desk parcel is flagged by stopdesk_id/stopdesk_name (the API has
+    // no is_stopdesk field) — null for home delivery, a code for Stop Desk.
+    deliveryType: (parcel.stopdesk_id || parcel.stopdesk_name || parcel.is_stopdesk) ? 'office' : 'home',
     raw: parcel,
   };
   return { status, package: parcelInfo };
@@ -1292,22 +1296,32 @@ async function lookupZr(db, tracking) {
       if (!districtName) districtName = (district && (district.name || district.nameAr)) || null;
     } catch (e) { /* display-only — leave the raw ids as-is */ }
   }
+  // ZR's deliveryAddress.cityTerritoryCode is the numeric wilaya code the
+  // app's own ZR wilaya list uses — prefer it over the territory's display
+  // name (which can differ from the synced list, e.g. "El Menia" territory
+  // vs "El Meniaa" in the app), same idea as Noest's wilaya_id.
+  const wilayaCode = da.cityTerritoryCode != null ? String(da.cityTerritoryCode) : null;
   const cust = row.customer || {};
   const productList = (row.orderedProducts || [])
     .map((p) => p && `${p.productName || ''}${p.quantity && p.quantity > 1 ? ' x' + p.quantity : ''}`)
     .filter(Boolean).join(', ') || row.description || '';
   const cod = Number(row.amount);
+  const isOffice = row.deliveryType === 'pickup-point';
+  // For pickup-point parcels, deliveryAddress.hubName is the desk name the
+  // app's synced ZR centers use — pass it as the commune so the link modal
+  // can select the exact desk (home delivery keeps the district/commune).
+  const commune = String(isOffice ? (da.hubName || districtName) : (districtName || da.districtName || '')).trim();
   const parcelInfo = {
     customer: String(cust.name || '').trim() || undefined,
     phone: String((cust.phone && (cust.phone.number1 || cust.phone.number)) || '').trim() || undefined,
-    wilaya: cityName || undefined,
+    wilaya: wilayaCode || cityName || undefined,
     wilayaFr: cityName || undefined,
-    commune: districtName || undefined,
+    commune: commune || undefined,
     address: String(da.street || '').trim() || undefined,
     productLabel: String(productList || '').trim() || undefined,
     price: isFinite(cod) && cod > 0 ? cod : null,
     createdAt: row.createdAt || row.created_at || null,
-    deliveryType: row.deliveryType === 'pickup-point' ? 'office' : 'home',
+    deliveryType: isOffice ? 'office' : 'home',
     raw: row,
   };
   return { status, package: parcelInfo };
