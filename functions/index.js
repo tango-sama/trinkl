@@ -985,27 +985,46 @@ async function fetchYalidineStatus(db, o) {
   };
 }
 
-// ZR Express's status is a free-text state name (English, e.g. "OutForDelivery" with
-// no spaces), so match by keyword like Yalidine's. Same green-step model as the
-// others: created/ready → 0, dispatched → 1, hub → 2, out for delivery → 3,
-// delivered → 4. "Out for delivery" is checked before "delivered" — it contains
-// "delivery", which "delivered" would otherwise substring-match and misreport.
+// ZR Express's state names are snake_case French ("vers_wilaya",
+// "pret_a_expedier", "confirme_au_bureau", "commande_recue"), and the event
+// history can also surface the accented description ("Commande reçue",
+// "Prêt à expédier"). Normalize both to one lowercase space-separated form so
+// a single set of keyword rules covers them — an unrecognized snake_case name
+// (e.g. "vers_wilaya") used to fall through every rule and then keep the
+// parcel's PREVIOUS stage, which misreported an in-transit parcel as still
+// "تم التأكيد والشحن". Same green-step model as the others: created/ready → 0,
+// dispatched → 1, hub/wilaya transit → 2, out for delivery → 3, delivered → 4.
+// "Out for delivery" is checked before "delivered" — it contains "delivery",
+// which "delivered" would otherwise substring-match and misreport.
 function zrNormalize(raw) {
-  const s = String(raw || '').toLowerCase();
-  if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
-  if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
-  if (/out\s*for\s*delivery|en cours de livraison|en\s*livraison|dispatch/.test(s)) return { stage: 3, alert: null };
-  // "Encaissé"/"encaisse" = COD payment collected, which only happens once the
-  // parcel has actually been delivered — same terminal step as "delivered"/"livré".
-  if (/^(delivered|livr[ée])|encaiss/.test(s)) return { stage: 4, alert: null };
-  if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
-  // Pre-shipping FIRST — "Prêt à expédier" contains "expédie", so the dispatched
+  // Split camelCase boundaries FIRST (EnLivraison → "En Livraison") so the
+  // snake_case French names, their accented descriptions, and the older
+  // English/camelCase names all land on the same lowercase word list.
+  const s = String(raw || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents: é→e, à→a, ê→e…
+    .replace(/[_\-\s]+/g, ' ').trim();
+  if (!s) return { stage: -1, alert: null };
+  if (/(retour|retourne|return|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
+  if (/(fail|echec|problem|probleme|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
+  if (/out for delivery|en cours de livraison|en livraison|chez livreur|dispatch/.test(s)) return { stage: 3, alert: null };
+  // "Encaisse" = COD collected, which only happens once the parcel has been
+  // delivered — same terminal step as "delivered"/"livré". Anchored + word
+  // boundary so "livré" (delivered) never matches "livraison"/"livreur".
+  if (/^(delivered|livre\b)|encaiss/.test(s)) return { stage: 4, alert: null };
+  // Hub / sorting / transfer — incl. the "vers wilaya"/"vers centre" transfers
+  // that take a parcel from the origin office toward the destination wilaya.
+  // Deliberately NOT a generic "arrive" match: "arrivée chez le client" means
+  // delivered, and the -1 fallback below keeps unknown states on their known
+  // stage rather than guessing.
+  if (/(hub|center|centre|sort|tri|transit|vers wilaya|vers centre|vers bureau)/.test(s)) return { stage: 2, alert: null };
+  // Pre-shipping FIRST — "Prêt à expédier" contains "expédi", so the dispatched
   // rule below would otherwise mark it as already shipped (same class of bug
   // yalidineNormalize already guards against for the identical French phrasing).
-  // Created / registered / ready for pickup — order created (step 0), not yet shipped.
-  if (/pr[êe]t\s*[àa]\s*exp[ée]dier|ready|pending|creat|nouveau/.test(s)) return { stage: 0, alert: null };
-  // Dispatched / picked up / shipped.
-  if (/(pick|ramass|collect|confirm|exp[ée]di[ée]|ship)/.test(s)) return { stage: 1, alert: null };
+  if (/pret a expedier|ready|pending|commande recue|commande|creat|nouveau/.test(s)) return { stage: 0, alert: null };
+  // Dispatched / picked up / confirmed / shipped.
+  if (/(pick|ramass|collect|confirme|confirm|expedie|expedition|ship)/.test(s)) return { stage: 1, alert: null };
   // Unrecognized — signal -1 (not 0) so callers fall back to whatever stage was
   // already known instead of visibly regressing an in-progress parcel back to
   // "just created". Logged by the caller so a real gap in this mapping (like the
