@@ -1233,18 +1233,26 @@ async function lookupNoest(db, tracking) {
   if (!entry) return null;
 
   const status = await fetchNoestStatus(db, { noest: { tracking } });
-  const cod = Number(entry.parcel_price != null ? entry.parcel_price : entry.to_pay);
+  // Noest nests the recipient/COD fields under `OrderInfo` (the outer object
+  // also carries a top-level `recipientName`). All the old direct field reads
+  // (receiver_name/parcel_price/wilaya_name/...) silently came back empty for
+  // real parcels, so a linked order prefilled blank — read from OrderInfo.
+  const oi = entry.OrderInfo || {};
+  const cod = Number(oi.montant != null ? oi.montant : (entry.parcel_price != null ? entry.parcel_price : entry.to_pay));
   const parcelInfo = {
-    customer: String(entry.receiver_name || entry.client_name || entry.name || '').trim() || undefined,
-    phone: String(entry.receiver_phone || entry.phone || '').trim() || undefined,
-    wilaya: entry.wilaya_name || entry.wilaya || undefined,
-    wilayaFr: entry.wilaya_fr || undefined,
-    commune: entry.commune_name || entry.commune || undefined,
-    address: String(entry.address || entry.adresse || '').trim() || undefined,
-    productLabel: String(entry.product || entry.produit || entry.products || '').trim() || undefined,
+    customer: String(entry.recipientName || oi.client || '').trim() || undefined,
+    phone: String(oi.phone || entry.phone || '').trim() || undefined,
+    // Noest's wilaya_id is the numeric wilaya code (1-58) the app's own
+    // Noest wilaya list uses — send it as the id string so the link modal
+    // matches by id (it also tries name matching for the other carriers).
+    wilaya: oi.wilaya_id != null ? String(oi.wilaya_id) : (entry.wilaya_name || oi.wilaya || undefined),
+    wilayaFr: entry.wilaya_fr || oi.wilaya_name || undefined,
+    commune: String(oi.commune || entry.commune_name || entry.commune || '').trim() || undefined,
+    address: String(oi.adresse || entry.adresse || entry.address || '').trim() || undefined,
+    productLabel: String(oi.produit || entry.product || entry.produit || entry.products || '').trim() || undefined,
     price: isFinite(cod) && cod > 0 ? cod : null,
-    createdAt: entry.created_at || entry.createdAt || entry.date_creation || null,
-    deliveryType: entry.stop_desk ? 'office' : 'home',
+    createdAt: oi.created_at || entry.created_at || entry.createdAt || entry.date_creation || null,
+    deliveryType: oi.stop_desk ? 'office' : 'home',
     raw: entry,
   };
   return { status, package: parcelInfo };
