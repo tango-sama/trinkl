@@ -1123,6 +1123,190 @@ exports.getParcelStatus = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   lookupParcel: admin-only «ربط طلب» (link order) flow. Given a carrier
+   and a tracking number for a parcel that was created OUTSIDE this app
+   (already shipped at the carrier), fetches that parcel's live info from
+   the carrier API WITHOUT creating anything — the admin confirms it's the
+   right parcel, then a new order doc is written referencing that tracking
+   number directly (never via a create*Parcel call).
+
+   Admin-gated via requireAdmin: the response carries customer PII
+   (name/phone/address/COD amount), unlike the pre-existing open callables.
+   Returns { carrier, tracking, status, package } where `status` is the same
+   normalized TrackingStatus shape the admin tracker already renders, and
+   `package` holds the recipient/parcel details used to prefill the order.
+   `raw` keeps the untouched carrier object for reference-only display.
+   ─────────────────────────────────────────────────────────────── */
+const LOOKUP_CARRIERS = {
+  yalidine: { name: 'Yalidine' },
+  noest: { name: 'Noest' },
+  zr: { name: 'ZR Express' },
+};
+
+async function lookupYalidine(db, tracking) {
+  const credSnap = await db.collection('private').doc('yalidine').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const apiId = String(cred.apiId || '').trim(), apiToken = String(cred.apiToken || '').trim();
+  if (!apiId || !apiToken) throw new HttpsError('failed-precondition', 'أدخلي بيانات Yalidine أولاً.');
+  const headers = { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken };
+
+  let res, body;
+  try {
+    res = await fetch(`${API_BASE}/parcels/?tracking=${encodeURIComponent(tracking)}`, { headers });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
+  }
+  if (!res.ok) throw new HttpsError('internal', 'Yalidine tracking error: ' + JSON.stringify(body));
+  // Only accept the parcel whose tracking actually matches (same guard as
+  // fetchYalidineStatus) — a not-found here is a wrong number, not "pending".
+  const list = (body && Array.isArray(body.data)) ? body.data : [];
+  const parcel = list.find((p) => p && p.tracking === tracking)
+    || (body && !body.data && body.tracking === tracking ? body : null);
+  if (!parcel) return null;
+
+  const status = await fetchYalidineStatus(db, { yalidine: { tracking } });
+  const cod = Number(parcel.price != null ? parcel.price : parcel.to_pay);
+  const parcelInfo = {
+    customer: [parcel.firstname, parcel.familyname].filter(Boolean).join(' ').trim() || undefined,
+    phone: String(parcel.contact_phone || '').trim() || undefined,
+    wilaya: parcel.to_wilaya_name || undefined,
+    wilayaFr: parcel.to_wilaya_name || undefined,
+    commune: parcel.to_commune_name || undefined,
+    address: String(parcel.address || '').trim() || undefined,
+    productLabel: String(parcel.product_list || '').trim() || undefined,
+    price: isFinite(cod) && cod > 0 ? cod : null,
+    createdAt: parcel.created_at || parcel.date_creation || null,
+    deliveryType: parcel.is_stopdesk ? 'office' : 'home',
+    raw: parcel,
+  };
+  return { status, package: parcelInfo };
+}
+
+async function lookupNoest(db, tracking) {
+  const credSnap = await db.collection('private').doc('noest').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const token = String(cred.apiToken || '').trim();
+  const guid = String(cred.userGuid || '').trim();
+  if (!token) throw new HttpsError('failed-precondition', 'أدخلي بيانات Noest أولاً.');
+  const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
+
+  let res, body;
+  try {
+    res = await fetch(NOEST_BASE + '/api/public/get/trackings/info', {
+      method: 'POST', headers,
+      body: JSON.stringify({ api_token: token, user_guid: guid, trackings: [tracking] }),
+    });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+  }
+  // Noest's "not found" is a body message, not an HTTP error (same as
+  // fetchNoestStatus) — for a LOOKUP this means the number is wrong, not
+  // that a parcel is still pending confirmation.
+  if (body && body.message === 'Trackings non trouvés') return null;
+  if (!res.ok) throw new HttpsError('internal', 'Noest tracking error: ' + JSON.stringify(body));
+  const entry = (body && typeof body === 'object')
+    ? (body[tracking] || body[Object.keys(body)[0]]) : null;
+  if (!entry) return null;
+
+  const status = await fetchNoestStatus(db, { noest: { tracking } });
+  const cod = Number(entry.parcel_price != null ? entry.parcel_price : entry.to_pay);
+  const parcelInfo = {
+    customer: String(entry.receiver_name || entry.client_name || entry.name || '').trim() || undefined,
+    phone: String(entry.receiver_phone || entry.phone || '').trim() || undefined,
+    wilaya: entry.wilaya_name || entry.wilaya || undefined,
+    wilayaFr: entry.wilaya_fr || undefined,
+    commune: entry.commune_name || entry.commune || undefined,
+    address: String(entry.address || entry.adresse || '').trim() || undefined,
+    productLabel: String(entry.product || entry.produit || entry.products || '').trim() || undefined,
+    price: isFinite(cod) && cod > 0 ? cod : null,
+    createdAt: entry.created_at || entry.createdAt || entry.date_creation || null,
+    deliveryType: entry.stop_desk ? 'office' : 'home',
+    raw: entry,
+  };
+  return { status, package: parcelInfo };
+}
+
+async function lookupZr(db, tracking) {
+  const cred = await zrCreds(db);
+  const headers = zrHeaders(cred);
+
+  const { res, body } = await zrFetch(ZR_BASE + '/parcels/search', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      pageNumber: 1, pageSize: 1,
+      advancedFilter: { logic: 'and', filters: [{ field: 'trackingNumber', operator: 'eq', value: tracking }] },
+    }),
+  });
+  if (!res.ok) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
+  const row = ((body && (body.items || body.data || body.results)) || [])[0];
+  if (!row) return null;
+
+  const status = await fetchZrStatus(db, { zr: { tracking } });
+
+  // ZR stores territory ids (UUIDs), not names — resolve the wilaya/commune
+  // display names from the territory table best-effort (display-only; the
+  // admin can still correct them by hand in the link form).
+  const da = row.deliveryAddress || row.address || {};
+  let cityName = da.cityName || null;
+  let districtName = da.districtName || null;
+  if (!cityName || !districtName) {
+    try {
+      const byId = {};
+      const trows = await zrAllTerritories(headers);
+      trows.forEach((t) => { byId[t.id] = t; });
+      const city = byId[da.cityTerritoryId || da.cityId];
+      const district = byId[da.districtTerritoryId || da.districtId];
+      if (!cityName) cityName = (city && (city.name || city.nameAr)) || null;
+      if (!districtName) districtName = (district && (district.name || district.nameAr)) || null;
+    } catch (e) { /* display-only — leave the raw ids as-is */ }
+  }
+  const cust = row.customer || {};
+  const productList = (row.orderedProducts || [])
+    .map((p) => p && `${p.productName || ''}${p.quantity && p.quantity > 1 ? ' x' + p.quantity : ''}`)
+    .filter(Boolean).join(', ') || row.description || '';
+  const cod = Number(row.amount);
+  const parcelInfo = {
+    customer: String(cust.name || '').trim() || undefined,
+    phone: String((cust.phone && (cust.phone.number1 || cust.phone.number)) || '').trim() || undefined,
+    wilaya: cityName || undefined,
+    wilayaFr: cityName || undefined,
+    commune: districtName || undefined,
+    address: String(da.street || '').trim() || undefined,
+    productLabel: String(productList || '').trim() || undefined,
+    price: isFinite(cod) && cod > 0 ? cod : null,
+    createdAt: row.createdAt || row.created_at || null,
+    deliveryType: row.deliveryType === 'pickup-point' ? 'office' : 'home',
+    raw: row,
+  };
+  return { status, package: parcelInfo };
+}
+
+exports.lookupParcel = onCall(
+  { region: 'us-central1', timeoutSeconds: 60 },
+  async (req) => {
+    requireAdmin(req);
+    const carrier = String(req.data && req.data.carrier || '').toLowerCase().trim();
+    const tracking = String(req.data && req.data.tracking || '').trim();
+    const meta = LOOKUP_CARRIERS[carrier];
+    if (!meta) throw new HttpsError('invalid-argument', 'شركة التوصيل غير صالحة.');
+    if (!tracking) throw new HttpsError('invalid-argument', 'أدخلي رقم التتبع أولاً.');
+
+    const db = admin.firestore();
+    let res;
+    if (carrier === 'yalidine') res = await lookupYalidine(db, tracking);
+    else if (carrier === 'noest') res = await lookupNoest(db, tracking);
+    else res = await lookupZr(db, tracking);
+
+    if (!res) {
+      throw new HttpsError('not-found', `لم يتم العثور على طرد بالرقم «${tracking}» لدى ${meta.name}. تأكدي من الرقم وشركة التوصيل.`);
+    }
+    return { carrier, tracking, status: res.status, package: res.package };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    getNoestLabels: fetches the shipping-label PDF for one or more
    Noest trackings (the label endpoint needs the API token, so the
    admin panel can't link to it directly). Multiple labels are merged
