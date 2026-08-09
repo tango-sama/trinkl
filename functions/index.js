@@ -719,7 +719,9 @@ const NOEST_STAGE = {
   upload: 0, edited_informations: 0, customer_validation: 0,
   validation_collect_colis: 1, validation_reception_admin: 1, validation_reception: 1,
   sent_to_redispatch: 2, fdr_activated: 3, mise_a_jour: 3,
-  livre: 4, livred: 4,
+  // `livre` = "Enlevé par le livreur" (handed to the courier = out for delivery);
+  // only `livred` means the parcel reached the recipient.
+  livre: 3, livred: 4,
 };
 const NOEST_ALERT = {
   colis_suspendu: 'معلّق ⚠️',
@@ -752,10 +754,15 @@ function noestNormalize(raw) {
   if (!s) return { stage: -1, alert: null };
   if (/retour|annul|rembours/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
   if (/suspend|bloqu|[ée]chou|[ée]chec|probl[èe]me|tentative|alerte/.test(s)) return { stage: 3, alert: 'معلّق — مشكلة في التوصيل' };
-  // "Livré/Livrée/Livrés" (delivered) — but NOT "livraison" (out for delivery),
-  // which has an 'a' after "livr" so `livr[ée]` can't match it. (No \b: a word
-  // boundary after the accented "é" never matches without the /u flag.)
-  if (/livr[ée]/.test(s) && !/livraison/.test(s)) return { stage: 4, alert: null };
+  // "Enlevé/Remis/Affecté par le livreur" = the parcel left the hub with the
+  // courier for delivery — OUT for delivery, not delivered. The "livreur"
+  // substring contains "livre", so it must be caught BEFORE the delivered rule.
+  if (/enlev[ée] par le livreur|remis au livreur|affect[ée] au livreur|pris(?:e)? en charge par le livreur/.test(s)) return { stage: 3, alert: null };
+  // "Livré/Livrée/Livrés" (delivered) — but NOT "livraison" (out for delivery)
+  // and NOT "livreur" (courier): a driver-pickup label must never count as
+  // delivered. (No \b: a word boundary after the accented "é" never matches
+  // without the /u flag.)
+  if (/livr[ée]/.test(s) && !/livraison|livreur/.test(s)) return { stage: 4, alert: null };
   if (/en\s*livraison|en cours de livraison|sortie?\s+(en|pour)\s+livraison|distribution/.test(s)) return { stage: 3, alert: null };
   if (/exp[ée]dition|en\s*hub|\bhub\b|en\s*transit|\btransit\b|centre de tri|dispatch|redispatch/.test(s)) return { stage: 2, alert: null };
   if (/traitement|trait[ée]|valid|confirm|ramass|collect|r[ée]ception|re[çc]u/.test(s)) return { stage: 1, alert: null };
@@ -860,6 +867,21 @@ async function fetchNoestStatus(db, o) {
   // Alert / terminal state reflects the CURRENT (latest) status, not history — a
   // parcel that was "Suspendu" then moved again should stop warning.
   const cur = noestNormalize(currentText);
+  // "Delivered" is terminal and must be confirmed by the CURRENT event. If the
+  // latest activity is no longer a delivery (e.g. a returned parcel re-dispatched
+  // for re-delivery, or a `livre`/livreur pickup record in mid-history), a
+  // historical delivered-looking event must not keep the tracker pinned at
+  // "تم الاستلام" — downgrade to the current event's step, never above "خرج للتوصيل".
+  if (stage === STAGE_LABELS.length - 1) {
+    const lastKeyStage = (last && last.key in NOEST_STAGE) ? NOEST_STAGE[last.key] : -1;
+    const lastLabelStage = (typeof cur.stage === 'number') ? cur.stage : -1;
+    if (lastKeyStage < 4 && lastLabelStage < 4) {
+      stage = Math.max(0, lastKeyStage, lastLabelStage);
+      if (stage > STAGE_LABELS.length - 2) stage = STAGE_LABELS.length - 2;
+      console.log('[getParcelStatus] Noest delivered downgraded', o.noest.tracking,
+        'lastKey:', last && last.key, 'lastLabel:', currentText);
+    }
+  }
   let alert = cur.alert || (last ? (NOEST_ALERT[last.key] || null) : null);
   if (cur.stage === null) {
     stage = null;                       // return / cancel — no meaningful progress
