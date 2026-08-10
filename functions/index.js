@@ -843,7 +843,8 @@ async function fetchNoestStatus(db, o) {
     label: e.event || e.event_key || e.key || e.status || '',
     date: e.date || e.created_at || e.updated_at || null,
     location: e.location || null,
-    by: e.by || e.agent || e.driver || e.livreur || e.user || e.staff || null,       // agent / livreur
+    by: e.by || e.agent || e.user || e.staff || null,                                  // who performed the action
+    driver: e.driver || e.livreur || null,                                             // livreur holding the parcel
     content: e.content || e.comment || e.note || e.reason || e.motif || null,          // free-text reason
     causer: e.causer || e.cause || null,                                               // NOEST / PARTENAIRE
     badge: e['badge-class'] || e.badge_class || e.badgeClass || e.badge || null,       // colour hint only
@@ -905,9 +906,24 @@ async function fetchNoestStatus(db, o) {
   // parcel has clearly moved, so nudge it off stage 0 rather than look stuck.
   if (stage === 0 && !recognized && events.length) stage = 1;
 
+  // The livreur who CURRENTLY holds the parcel: Noest reports the assigned
+  // driver top-level (OrderInfo.driver_name / driver_phone) — that's the one
+  // piece of info missing from the tracker. Fall back to the most recent
+  // activity that names a driver when the top-level fields are empty.
+  const orderInfo = (entry && entry.OrderInfo) || {};
+  let livreur = null;
+  const driverName = String(orderInfo.driver_name || '').trim();
+  const driverPhone = String(orderInfo.driver_phone || '').trim();
+  if (driverName || driverPhone) {
+    livreur = { name: driverName || null, phone: driverPhone || null };
+  } else {
+    const lastWithDriver = events.reduce((acc, e) => (e.driver ? e : acc), null);
+    if (lastWithDriver) livreur = { name: lastWithDriver.driver, phone: null };
+  }
+
   return {
     carrier: 'noest', tracking: o.noest.tracking,
-    stage, alert, stageLabels: STAGE_LABELS,
+    stage, alert, stageLabels: STAGE_LABELS, livreur,
     // Show Noest's OWN status text (e.g. "En livraison", "Suspendu") so the raw
     // carrier state is always visible next to our step mapping.
     lastLabel: last ? (last.label || alert || (stage != null ? STAGE_LABELS[stage] : null)) : 'بانتظار المعالجة',
