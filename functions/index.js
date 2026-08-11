@@ -1024,6 +1024,14 @@ function zrNormalize(raw) {
   if (!s) return { stage: -1, alert: null };
   if (/(retour|retourne|return|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
   if (/(fail|echec|problem|probleme|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
+  // Client not reachable — ZR's tenant-specific states for failed delivery
+  // attempts ("No Answer 1", "No Answer 2", "Client ne répond pas"... ). The
+  // parcel is still out for delivery but the delivery keeps failing, so the
+  // admin must call the client — flag it as a delivery-problem alert (same
+  // step, but with the alert so the panel surfaces it on the whole card).
+  // Placed BEFORE the plain out-for-delivery rule so an alerting "no answer"
+  // state is never masked by a bare "en livraison" match.
+  if (/(no answer|sans reponse|ne repond|injoignable|absent)/.test(s)) return { stage: 3, alert: 'الزبون لا يرد — اتصل به لتسوية التوصيل' };
   if (/out for delivery|en cours de livraison|en livraison|chez livreur|dispatch/.test(s)) return { stage: 3, alert: null };
   // "Encaisse" = COD collected, which only happens once the parcel has been
   // delivered — same terminal step as "delivered"/"livré". Anchored + word
@@ -1109,6 +1117,14 @@ async function fetchZrStatus(db, o) {
     if (hRes.ok && Array.isArray(hBody)) {
       events = hBody.map((h) => {
         const stateName = (h.newState && (h.newState.name || h.newState.description)) || '';
+        // ZR attaches a per-state SITUATION to some events (e.g. «مجددا» = the
+        // parcel went out for delivery a second time) — surface its name
+        // alongside the state name so the panel shows the real situation, not
+        // just the raw state. The situation comment (reason) still goes to
+        // `content` below.
+        const sitNames = Array.isArray(h.situations)
+          ? h.situations.map((s) => s.name).filter(Boolean)
+          : [];
         // Colour-code each entry the same way the top-level stepper already
         // does — reuse zrNormalize instead of ZR's own per-state `color`
         // (a tenant-configurable hex, not a stable ok/bad/warn signal) so an
@@ -1120,7 +1136,7 @@ async function fetchZrStatus(db, o) {
           : null;
         return {
           key: (h.newState && h.newState.id) || null,
-          label: stateName,
+          label: [stateName, ...sitNames].join(' ') || stateName,
           date: h.createdAt || null,
           location: (h.location && [h.location.hubName, h.location.hubCity].filter(Boolean).join(' - ')) || null,
           by: (h.modifiedBy && h.modifiedBy.fullName) || null,
