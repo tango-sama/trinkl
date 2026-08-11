@@ -963,25 +963,39 @@ async function fetchYalidineStatus(db, o) {
   };
 }
 
-// ZR Express's status is a free-text state name (English, e.g. "OutForDelivery" with
-// no spaces), so match by keyword like Yalidine's. Same green-step model as the
-// others: created/ready → 0, dispatched → 1, hub → 2, out for delivery → 3,
-// delivered → 4. "Out for delivery" is checked before "delivered" — it contains
-// "delivery", which "delivered" would otherwise substring-match and misreport.
-function zrNormalize(raw) {
-  const s = String(raw || '').toLowerCase();
-  if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
+// ZR Express's status is a free-text snake_case state name (e.g. "OutForDelivery",
+// "confirme_au_bureau", "vers_wilaya"), so normalize underscores to spaces and
+// match by keyword like Yalidine's. Same green-step model as the others:
+// created/ready → 0, dispatched → 1, hub → 2, out for delivery → 3, delivered → 4.
+// "Out for delivery" is checked before "delivered" — it contains "delivery", which
+// "delivered" would otherwise substring-match and misreport.
+//
+// ZR reuses «confirme_au_bureau» at EVERY hub — origin bag creation, transit and
+// destination validation — so the state name alone cannot place the parcel. When
+// the event's `content` is available it tells them apart (confirmed_in_bag_creation
+// = origin confirmation, step 1; confirmed_in_validation = sitting at a sorting
+// center, step 2).
+function zrNormalize(raw, content) {
+  const s = String(raw || '').toLowerCase().replace(/_/g, ' ');
+  const c = String(content || '').toLowerCase();
+  if (/(return|retour|cancel|annul|rembours)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
   if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
-  if (/out\s*for\s*delivery|en cours de livraison|en\s*livraison|dispatch/.test(s)) return { stage: 3, alert: null };
+  if (/out[_\s-]*for[_\s-]*delivery|en cours de livraison|en[_\s-]*livraison|sorti[ée]?|dispatch|distribution/.test(s)) return { stage: 3, alert: null };
   // "Encaissé"/"encaisse" = COD payment collected, which only happens once the
   // parcel has actually been delivered — same terminal step as "delivered"/"livré".
   if (/^(delivered|livr[ée])|encaiss/.test(s)) return { stage: 4, alert: null };
-  if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
+  if (/confirme[_\s-]*au[_\s-]*bureau/.test(s)) {
+    if (/bag|creation|cr[ée]ation/.test(c)) return { stage: 1, alert: null };
+    if (/validation|retour|transfert|hub|centre|center/.test(c)) return { stage: 2, alert: null };
+    return { stage: 2, alert: null };
+  }
+  // Heading to / arrived at a sorting center or the destination wilaya.
+  if (/vers[_\s-]*wilaya|hub|center|centre|sort|tri|transit|agence|localisation/.test(s)) return { stage: 2, alert: null };
   // Pre-shipping FIRST — "Prêt à expédier" contains "expédie", so the dispatched
   // rule below would otherwise mark it as already shipped (same class of bug
   // yalidineNormalize already guards against for the identical French phrasing).
   // Created / registered / ready for pickup — order created (step 0), not yet shipped.
-  if (/pr[êe]t\s*[àa]\s*exp[ée]dier|ready|pending|creat|nouveau/.test(s)) return { stage: 0, alert: null };
+  if (/commande[_\s-]*recue|pr[êe]t[_\s-]*[àa][_\s-]*exp[ée]dier|ready|pending|creat|nouveau/.test(s)) return { stage: 0, alert: null };
   // Dispatched / picked up / shipped.
   if (/(pick|ramass|collect|confirm|exp[ée]di[ée]|ship)/.test(s)) return { stage: 1, alert: null };
   // Unrecognized — signal -1 (not 0) so callers fall back to whatever stage was
@@ -989,6 +1003,26 @@ function zrNormalize(raw) {
   // "just created". Logged by the caller so a real gap in this mapping (like the
   // missing "encaisse" case above) shows up instead of silently misreporting.
   return { stage: -1, alert: null };
+}
+
+// Highest forward milestone reached across a parcel's whole state timeline (the
+// same model the Noest path uses). ZR reuses state names at every hub, so the
+// current state alone under-reports: a parcel sitting at the destination sorting
+// center must not still read as "confirmed & shipped". `current` is the
+// normalization of the CURRENT state — its alert still decides returns/problems.
+function zrStageAcrossHistory(current, events) {
+  if (current.alert) {
+    return current.stage === null ? null : 3;
+  }
+  let stage = typeof current.stage === 'number' ? current.stage : -1;
+  (events || []).forEach((e) => {
+    if (!e || !e.label) return;
+    const n = zrNormalize(e.label, e.content);
+    if (n.alert == null && typeof n.stage === 'number' && n.stage >= 0) {
+      stage = Math.max(stage, n.stage);
+    }
+  });
+  return stage;
 }
 
 async function fetchZrStatus(db, o) {
@@ -1033,12 +1067,6 @@ async function fetchZrStatus(db, o) {
   const rawStatus = (row.state && row.state.name) || '';
   const norm = zrNormalize(rawStatus);
   let stage = norm.stage;
-  if (stage === -1) {
-    console.log('[getParcelStatus] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', tracking);
-    const prevTs = o.trackingStatus;
-    stage = (prevTs && prevTs.carrier === 'zr' && prevTs.tracking === o.zr.tracking && typeof prevTs.stage === 'number')
-      ? prevTs.stage : 0;
-  }
 
   // Full state-transition timeline for the "تفاصيل الشحنة" panel, same role as
   // Yalidine's /histories call — best-effort, a failure here must never break
@@ -1076,6 +1104,33 @@ async function fetchZrStatus(db, o) {
       }).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
     }
   } catch (e) { /* history is best-effort; row.state already covers the stepper */ }
+
+  // Stage = the highest milestone reached across the WHOLE timeline (same model
+  // as the Noest path). ZR reuses «confirme_au_bureau» at every hub, so the
+  // current state name alone under-reports: a parcel sitting at the destination
+  // sorting center would still read as "confirmed & shipped". Each event's
+  // content (confirmed_in_bag_creation = origin, confirmed_in_validation =
+  // sorting center) disambiguates. The current state's own normalization only
+  // fills in a lagging/empty timeline or a terminal delivered/returned state.
+  if (events.length) {
+    let maxStage = -1;
+    events.forEach((e) => {
+      if (!e || !e.label) return;
+      const n = zrNormalize(e.label, e.content);
+      if (n.alert == null && typeof n.stage === 'number' && n.stage >= 0) maxStage = Math.max(maxStage, n.stage);
+    });
+    if (maxStage >= 0) {
+      stage = maxStage;
+      if (norm.alert) stage = norm.stage === null ? null : 3;
+      else if (typeof norm.stage === 'number' && norm.stage > stage && !/confirme/.test(String(rawStatus).toLowerCase())) stage = norm.stage;
+    }
+  }
+  if (stage === -1) {
+    console.log('[getParcelStatus] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', tracking);
+    const prevTs = o.trackingStatus;
+    stage = (prevTs && prevTs.carrier === 'zr' && prevTs.tracking === o.zr.tracking && typeof prevTs.stage === 'number')
+      ? prevTs.stage : 0;
+  }
 
   return {
     carrier: 'zr', tracking: row.trackingNumber || tracking,
@@ -1950,9 +2005,22 @@ exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
       location: null, by: null, content, causer: 'ZR WEBHOOK', badge: null,
     });
 
-    const norm = zrNormalize(rawStatus);
+    const norm = zrNormalize(rawStatus, content);
     let stage = norm.stage;
     const alert = norm.alert;
+    // Same timeline model as getParcelStatus: ZR reuses state names at every
+    // hub, so advance the stage to the highest recognized milestone seen so far
+    // instead of trusting the single event name (which would otherwise keep a
+    // parcel stuck at "confirmed & shipped" once it reaches a sorting center).
+    if (!alert) {
+      let maxStage = -1;
+      evs.forEach((e) => {
+        if (!e || !e.label) return;
+        const n = zrNormalize(e.label, e.content);
+        if (n.alert == null && typeof n.stage === 'number' && n.stage >= 0) maxStage = Math.max(maxStage, n.stage);
+      });
+      if (maxStage >= 0) stage = maxStage;
+    }
     if (stage === -1) {
       console.log('[zrWebhook] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', o.zr && o.zr.tracking);
       stage = (typeof prev.stage === 'number') ? prev.stage : 0;
