@@ -1067,6 +1067,16 @@ async function fetchZrStatus(db, o) {
   const rawStatus = (row.state && row.state.name) || '';
   const norm = zrNormalize(rawStatus);
   let stage = norm.stage;
+  // The parcel's CURRENT situation ("Ne répond pas 1", "Appel sans réponse"...) —
+  // ZR reports it on the parcel, not as a state event, so it never made it into
+  // the timeline above. Surface it and raise the SAME call-the-client alert the
+  // Noest path raises on "Tentative de livraison", so any customer who doesn't
+  // answer shows the red card banner (not just ZR problem states).
+  const situationName = (row.situation && (row.situation.name || row.situation.description)) || null;
+  let alert = norm.alert;
+  if (!alert && situationName && /ne r[ée]pond|sans r[ée]ponse|injoignable|absent|raccroch/i.test(situationName)) {
+    alert = 'معلّق — مشكلة في التوصيل';
+  }
 
   // Full state-transition timeline for the "تفاصيل الشحنة" panel, same role as
   // Yalidine's /histories call — best-effort, a failure here must never break
@@ -1134,11 +1144,12 @@ async function fetchZrStatus(db, o) {
 
   return {
     carrier: 'zr', tracking: row.trackingNumber || tracking,
-    stage, alert: norm.alert, stageLabels: STAGE_LABELS,
-    lastLabel: rawStatus || norm.alert || 'بانتظار المعالجة',
+    stage, alert, stageLabels: STAGE_LABELS,
+    lastLabel: rawStatus || alert || 'بانتظار المعالجة',
     lastLocation: null,
     lastDate: row.lastStateUpdateAt || null,
     events, updatedAt: Date.now(),
+    zrSituationName: situationName,
   };
 }
 
@@ -2007,7 +2018,14 @@ exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
 
     const norm = zrNormalize(rawStatus, content);
     let stage = norm.stage;
-    const alert = norm.alert;
+    let alert = norm.alert;
+    // Same rule as fetchZrStatus: a "Ne répond pas 1/2" situation means the
+    // customer isn't answering — surface it and raise the call-the-client
+    // alert even though the STATE itself looks fine.
+    const situationName = (data.situation && (data.situation.name || data.situation.reason || data.situation.comment)) || null;
+    if (!alert && situationName && /ne r[ée]pond|sans r[ée]ponse|injoignable|absent|raccroch/i.test(situationName)) {
+      alert = 'معلّق — مشكلة في التوصيل';
+    }
     // Same timeline model as getParcelStatus: ZR reuses state names at every
     // hub, so advance the stage to the highest recognized milestone seen so far
     // instead of trusting the single event name (which would otherwise keep a
@@ -2033,6 +2051,7 @@ exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
         lastLocation: null,
         lastDate: ev.occurredAt || new Date().toISOString(),
         events: evs, updatedAt: Date.now(), viaWebhook: true,
+        zrSituationName: situationName,
       },
     };
     // heal a not-yet-resolved tracking number, same as getParcelStatus
