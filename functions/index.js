@@ -1518,7 +1518,7 @@ function wilayaIdByName(name) {
   return null;
 }
 
-async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, centersByW) {
+async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, centersByW, communeFeesByW) {
   const ids = wilayaIds.map(Number).filter((id) => WILAYA_NAMES[id]).sort((a, b) => a - b);
   const wilayas = ids.map((id) => ({ id, ar: WILAYA_NAMES[id][0], fr: WILAYA_NAMES[id][1] }));
   const communes = {};
@@ -1548,8 +1548,34 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, cent
     out.sort((a, b) => a.name.localeCompare(b.name));
     if (out.length) { centers[String(wid)] = out; centerCount += out.length; }
   });
-  await db.collection('delivery_data').doc(name).set({ wilayas, communes, centers, fees, updatedAt: Date.now() });
-  return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0), centers: centerCount };
+  // Per-commune fee overrides (currently only Yalidine — see
+  // yalidineFeeTable's per_commune capture). Same {home, desk} shape as
+  // `fees`, one extra level keyed by the exact commune name from `communes`
+  // above. Omitted from the doc entirely when the caller has none, so
+  // Noest/ZR docs stay exactly as they were (schema stays append-only).
+  const communeFees = {};
+  let communeFeeCount = 0;
+  Object.keys(communeFeesByW || {}).forEach((wid) => {
+    const raw = communeFeesByW[wid] || {};
+    const out = {};
+    Object.keys(raw).forEach((cname) => {
+      const f = raw[cname];
+      if (Array.isArray(f) && f.length === 2 && !isNaN(f[0]) && !isNaN(f[1])) {
+        out[cname] = { home: f[0], desk: f[1] };
+        communeFeeCount++;
+      }
+    });
+    if (Object.keys(out).length) communeFees[String(wid)] = out;
+  });
+  const doc = { wilayas, communes, centers, fees, updatedAt: Date.now() };
+  if (communeFeeCount) doc.communeFees = communeFees;
+  await db.collection('delivery_data').doc(name).set(doc);
+  return {
+    wilayas: wilayas.length,
+    communes: Object.values(communes).reduce((a, b) => a + b.length, 0),
+    centers: centerCount,
+    communeFees: communeFeeCount,
+  };
 }
 
 // Noest exposes the partner's real per-wilaya grid at /api/public/fees
@@ -1581,17 +1607,22 @@ async function noestFeeTable(headers) {
 // Yalidine's /v1/fees endpoint is per (from_wilaya_id, to_wilaya_id) route —
 // unlike Noest/ZR it exposes no single "all routes" call, so build the table
 // with one request per destination wilaya, using the account's origin wilaya as
-// the fixed `from_wilaya_id`. Each response's per_commune breakdown is collapsed
-// to one [home, desk] per wilaya via mode (mirrors zrFeeTable — communes are
-// uniform in practice). Kept deliberately gentle (low concurrency + a pause
-// between batches) — an earlier version fired 8-at-a-time and appears to have
-// tripped Yalidine's abuse protection, which then connect-timed-out every
+// the fixed `from_wilaya_id`. Each response's per_commune breakdown gives BOTH
+// a per-wilaya summary (the mode — most common [home, desk], mirrors
+// zrFeeTable's per-wilaya shape, used as the fallback/preview before a commune
+// is picked) AND the real per-commune fees themselves (Yalidine's own
+// "Supplément commune" — real destinations inside the same wilaya can bill
+// differently, e.g. Adrar 1400 vs Akabli 1450 home). No extra API calls versus
+// the old mode-only version — the per-commune data was already in every
+// response, just discarded. Kept deliberately gentle (low concurrency + a
+// pause between batches) — an earlier version fired 8-at-a-time and appears to
+// have tripped Yalidine's abuse protection, which then connect-timed-out every
 // request (even the unrelated wilaya/commune list calls) for a while after.
-// Returns {} if the origin can't be resolved or every request fails, so the
-// caller falls back to the YAL_FEES placeholder; individual wilaya failures are
-// skipped rather than aborting the whole sync.
+// Returns empty tables if the origin can't be resolved or every request
+// fails, so the caller falls back to the YAL_FEES placeholder; individual
+// wilaya failures are skipped rather than aborting the whole sync.
 async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
-  if (!fromWilayaId) return {};
+  if (!fromWilayaId) return { table: {}, communeFees: {} };
   const mode = (m) => {
     const e = Object.entries(m);
     if (!e.length) return null;
@@ -1600,6 +1631,7 @@ async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
   };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const table = {};
+  const communeFees = {};
   const CONCURRENCY = 2;
   const BATCH_DELAY_MS = 400;
   for (let i = 0; i < wilayaIds.length; i += CONCURRENCY) {
@@ -1612,19 +1644,36 @@ async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
         const body = await res.json();
         const perCommune = (body && body.per_commune) || {};
         const home = {}, desk = {};
-        Object.values(perCommune).forEach((c) => {
-          if (typeof c.express_home === 'number') home[c.express_home] = (home[c.express_home] || 0) + 1;
-          if (typeof c.express_desk === 'number') desk[c.express_desk] = (desk[c.express_desk] || 0) + 1;
+        const cf = {};
+        // per_commune is a dict keyed by commune name, each value carrying
+        // its own express_home/express_desk (Yalidine's real
+        // commune-specific price) plus a commune_name field that should
+        // match the key — fall back to the key itself if that field is
+        // ever absent, so a shape surprise degrades to "commune fee
+        // missing", never a crash.
+        Object.entries(perCommune).forEach(([key, c]) => {
+          if (!c) return;
+          const name = String((c.commune_name || key) || '').trim();
+          const h = typeof c.express_home === 'number' ? c.express_home : null;
+          const d = typeof c.express_desk === 'number' ? c.express_desk : null;
+          if (h != null) home[h] = (home[h] || 0) + 1;
+          if (d != null) desk[d] = (desk[d] || 0) + 1;
+          if (name && (h != null || d != null)) {
+            // if one side is missing for this commune, reuse the other so
+            // no delivery type is ever free.
+            cf[name] = [h != null ? h : d, d != null ? d : h];
+          }
         });
         const h0 = mode(home), d0 = mode(desk);
         const h = h0 != null ? h0 : d0; // if one side is missing, reuse the other
         const d = d0 != null ? d0 : h0; // so no delivery type is ever free
         if (h != null && d != null) table[String(toId)] = [h, d];
+        if (Object.keys(cf).length) communeFees[String(toId)] = cf;
       } catch (e) { /* skip this wilaya, keep the rest */ }
     }));
     if (i + CONCURRENCY < wilayaIds.length) await sleep(BATCH_DELAY_MS);
   }
-  return table;
+  return { table, communeFees };
 }
 
 // Yalidine's stop-desk (center) list. GET /v1/centers returns EVERY center
@@ -1739,8 +1788,12 @@ exports.syncCarriers = onCall(
         }
         const yalCenters = await yalidineCenters(h);
         const fromWilayaId = wilayaIdByName(settings.originWilaya);
-        const yalFees = await yalidineFeeTable(h, fromWilayaId, wIds);
-        out.yalidine = await writeCarrierData(db, 'yalidine', wIds, byW, Object.keys(yalFees).length ? yalFees : YAL_FEES, yalCenters);
+        const { table: yalFees, communeFees: yalCommuneFees } = await yalidineFeeTable(h, fromWilayaId, wIds);
+        out.yalidine = await writeCarrierData(
+          db, 'yalidine', wIds, byW,
+          Object.keys(yalFees).length ? yalFees : YAL_FEES,
+          yalCenters, yalCommuneFees
+        );
       } catch (e) {
         out.yalidine = { error: (e && e.message) || String(e) };
       }
