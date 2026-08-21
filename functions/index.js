@@ -82,9 +82,15 @@ exports.createYalidineParcel = onCall(
     const firstname = parts.shift() || fullName || '—';
     const familyname = parts.join(' ') || firstname;
 
+    // The admin's "📝 اسم المنتج على وصل التوصيل" field exists so the
+    // REAL product name never has to appear on the carrier's label/manifest
+    // (its own placeholder promises "لن يظهر الاسم الحقيقي"). Falling back
+    // to the real o.items titles here when it's left empty broke that
+    // promise silently — 'cosm' is now the safe default product name sent
+    // to the carrier whenever the admin hasn't set one.
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
-      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+      : 'cosm';
     // Yalidine's `price` is the PRODUCT value only ("Prix colis" on their own
     // fee breakdown) — it independently computes its own freight (frais de
     // livraison + Supplément commune, from destination/weight) and ADDS it
@@ -288,9 +294,15 @@ exports.createNoestParcel = onCall(
     }
     const useStopdesk = isStopdesk && !!stationCode;
 
+    // The admin's "📝 اسم المنتج على وصل التوصيل" field exists so the
+    // REAL product name never has to appear on the carrier's label/manifest
+    // (its own placeholder promises "لن يظهر الاسم الحقيقي"). Falling back
+    // to the real o.items titles here when it's left empty broke that
+    // promise silently — 'cosm' is now the safe default product name sent
+    // to the carrier whenever the admin hasn't set one.
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
-      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+      : 'cosm';
     const montant = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
 
     const payload = {
@@ -591,9 +603,15 @@ exports.createZrParcel = onCall(
     }
     const useStopdesk = deliveryType === 'pickup-point';
 
+    // The admin's "📝 اسم المنتج على وصل التوصيل" field exists so the
+    // REAL product name never has to appear on the carrier's label/manifest
+    // (its own placeholder promises "لن يظهر الاسم الحقيقي"). Falling back
+    // to the real o.items titles here when it's left empty broke that
+    // promise silently — 'cosm' is now the safe default product name sent
+    // to the carrier whenever the admin hasn't set one.
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
-      : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
+      : 'cosm';
     const amount = Math.max(0, Math.min(150000, Math.round(Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0)));
 
     const payload = {
