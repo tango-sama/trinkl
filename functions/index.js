@@ -85,7 +85,23 @@ exports.createYalidineParcel = onCall(
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
       : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
-    const codPrice = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
+    // Yalidine's `price` is the PRODUCT value only ("Prix colis" on their own
+    // fee breakdown) — it independently computes its own freight (frais de
+    // livraison + Supplément commune, from destination/weight) and ADDS it
+    // on top to get what the driver actually collects ("Total à ramasser").
+    // o.total (and an admin's o.parcelPrice override, which replaces the
+    // full total — see its "بدلاً من {origTotal}" label in orders-view.tsx)
+    // both already include OUR delivery-fee estimate (o.deliveryFee, from
+    // feeForCarrier at checkout) — sending either straight through here
+    // makes Yalidine add its own freight on top of a price that already had
+    // ours baked in, double-charging the customer at the door. Confirmed
+    // against a real created parcel that collected delivery twice
+    // (2026-08-21). Only o.total/o.parcelPrice carry that baked-in delivery
+    // fee — the bare o.subtotal fallback (very old orders missing o.total)
+    // never did, so nothing is subtracted from it.
+    const desiredTotal = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
+    const totalIncludesDelivery = o.parcelPrice != null || o.total != null;
+    const codPrice = Math.max(0, desiredTotal - (totalIncludesDelivery ? (Number(o.deliveryFee) || 0) : 0));
     const useStopdesk = isStopdesk && !!stopdeskCenter;
 
     const parcel = {
