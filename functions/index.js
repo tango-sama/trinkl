@@ -142,6 +142,68 @@ exports.createYalidineParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   cancelYalidineParcel: called from the admin panel's "تعليم كجديد"
+   (mark as new) flow before it resets the order locally, so a
+   cancelled order doesn't keep shipping behind the admin's back.
+   Yalidine only allows deleting a parcel while it's still "En
+   préparation" (not yet picked up) — past that point the API refuses
+   and it has to be cancelled from Yalidine's own dashboard instead.
+   ─────────────────────────────────────────────────────────────── */
+exports.cancelYalidineParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    const tracking = o.yalidine && o.yalidine.tracking;
+    if (!tracking) return { ok: true, skipped: true };
+
+    const credSnap = await db.collection('private').doc('yalidine').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const apiId = String(cred.apiId || '').trim();
+    const apiToken = String(cred.apiToken || '').trim();
+    if (!apiId || !apiToken) {
+      throw new HttpsError('failed-precondition', 'أدخلي API ID و API Token الخاصين بـ Yalidine في إعدادات لوحة التحكم أولاً.');
+    }
+    const headers = { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken, 'Content-Type': 'application/json' };
+
+    let res, text;
+    try {
+      res = await fetch(`${API_BASE}/parcels/${encodeURIComponent(tracking)}`, { method: 'DELETE', headers });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
+    }
+    let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    // Already gone (e.g. deleted directly from Yalidine's own dashboard) is the
+    // end state we want anyway — treat it as success, not a failure to report.
+    if (res.status === 404) {
+      await ref.update({ yalidine: admin.firestore.FieldValue.delete() });
+      return { ok: true, tracking, alreadyGone: true };
+    }
+    // Response is an array with a single { tracking, deleted } result.
+    const entry = Array.isArray(body) ? body[0] : body;
+    const deleted = !!(entry && entry.deleted);
+    if (!res.ok || !deleted) {
+      throw new HttpsError(
+        'failed-precondition',
+        'تعذّر إلغاء طرد Yalidine — على الأرجح بدأ الشحن بالفعل. يمكن إلغاؤه يدوياً من لوحة تحكم Yalidine: ' +
+          (typeof body === 'string' ? body : JSON.stringify(body || {}))
+      );
+    }
+
+    await ref.update({ yalidine: admin.firestore.FieldValue.delete() });
+    return { ok: true, tracking };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    createNoestParcel: same flow for Noest (app.noest-dz.com).
    Credentials live in private/noest ({ apiToken, userGuid }). Noest's
    account already knows the origin, so no origin wilaya is needed.
@@ -182,7 +244,6 @@ exports.createNoestParcel = onCall(
     // in the customer's commune; fall back to the wilaya's first desk.
     const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
     let stationCode = null;
-    let stationDesk = null;
     if (isStopdesk) {
       try {
         const dRes = await fetch(NOEST_BASE + '/api/public/desks', { headers });
@@ -202,27 +263,14 @@ exports.createNoestParcel = onCall(
             if (wantCommune) {
               const hay = norm([d.commune, d.commune_name, d.name, d.station_name, d.address, d.adresse]
                 .filter(Boolean).join(' '));
-              if (hay && (hay.includes(wantCommune) || wantCommune.includes(hay))) {
-                stationCode = code;
-                stationDesk = d;
-                break;
-              }
+              if (hay && (hay.includes(wantCommune) || wantCommune.includes(hay))) { stationCode = code; break; }
             }
           }
-          if (!stationCode) {
-            stationCode = first;
-            stationDesk = Object.values(desks).find((d) => String((d || {}).code || '') === first) || null;
-          }
+          if (!stationCode) stationCode = first;
         }
       } catch (e) { /* fall back to home delivery */ }
     }
     const useStopdesk = isStopdesk && !!stationCode;
-    // A Stop Desk's display name is not necessarily a valid Noest commune.
-    // Submit the selected desk's own underlying commune with its station code;
-    // otherwise Noest rejects the request with "commune sélectionné invalide".
-    const noestCommune = useStopdesk
-      ? (stationDesk && (stationDesk.commune || stationDesk.commune_name)) || o.communeFr || o.baladiya || ''
-      : o.communeFr || o.baladiya || '';
 
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
@@ -236,7 +284,7 @@ exports.createNoestParcel = onCall(
       phone: String(o.phone || '').replace(/\s/g, ''),
       adresse: [String(o.address || '').trim(), `${o.baladiya || ''} - ${o.wilaya || ''}`.trim()].filter(Boolean).join(' - ').slice(0, 255) || String(o.wilaya || '—'),
       wilaya_id: Number(o.wilayaId),
-      commune: noestCommune,
+      commune: o.communeFr || o.baladiya || '',
       montant: montant,
       produit: productList,
       type_id: 1,
@@ -272,6 +320,68 @@ exports.createNoestParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   cancelNoestParcel: POST /api/public/delete/order with
+   { tracking, user_guid }, same auth as createNoestParcel.
+   ─────────────────────────────────────────────────────────────── */
+exports.cancelNoestParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    const tracking = o.noest && o.noest.tracking;
+    if (!tracking) return { ok: true, skipped: true };
+
+    const credSnap = await db.collection('private').doc('noest').get();
+    const cred = credSnap.exists ? credSnap.data() : {};
+    const token = String(cred.apiToken || '').trim();
+    const guid = String(cred.userGuid || '').trim();
+    if (!token || !guid) {
+      throw new HttpsError('failed-precondition', 'أدخلي API Token و user_guid الخاصين بـ Noest في إعدادات لوحة التحكم أولاً.');
+    }
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
+
+    let res, text;
+    try {
+      res = await fetch(NOEST_BASE + '/api/public/delete/order', {
+        method: 'POST', headers,
+        body: JSON.stringify({ tracking, user_guid: guid }),
+      });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+    }
+    let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    // Already gone (e.g. deleted directly from Noest's own dashboard) is the end
+    // state we want anyway — treat it as success. Noest's tracking-info endpoint
+    // answers "not found" as a 200 with a French message rather than a real HTTP
+    // 404 (see fetchNoestStatus above), so check both shapes defensively.
+    const notFound = res.status === 404 ||
+      (body && typeof body === 'object' && /trouv|not\s*found/i.test(String(body.message || '')));
+    if (notFound) {
+      await ref.update({ noest: admin.firestore.FieldValue.delete() });
+      return { ok: true, tracking, alreadyGone: true };
+    }
+    if (!res.ok || (body && body.success === false)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'تعذّر إلغاء طرد Noest — تحققي من حالته في لوحة Noest: ' +
+          (typeof body === 'string' ? body : JSON.stringify(body || {}))
+      );
+    }
+
+    await ref.update({ noest: admin.firestore.FieldValue.delete() });
+    return { ok: true, tracking };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    createZrParcel: same flow for ZR Express (api.zrexpress.app — their
    current tenant-based platform, generated via the portal's "API Rest
    → Token API"). Credentials live in private/zrexpress ({ tenantId,
@@ -300,16 +410,20 @@ function zrUuid() {
   });
 }
 
-// Parse a ZR error body into a readable message (error.detail / error.errors[] / title / raw).
+// Parse a ZR error body into a readable message (error.errors[] / detail / title / raw).
+// `errors` (their per-field validation details, e.g. "phone: invalid format") is checked
+// FIRST — `detail` on a 400 is just the generic wrapper text ("One or more validation
+// errors occurred") and hides exactly what was wrong if returned instead.
 function zrErrMsg(body, status) {
   if (!body) return 'HTTP ' + status;
   if (typeof body === 'string') return body || ('HTTP ' + status);
-  if (body.detail) return String(body.detail);
   if (body.errors) {
-    if (Array.isArray(body.errors)) return body.errors.map((e) => (e && (e.message || e.description)) || JSON.stringify(e)).join('; ');
-    try { return Object.values(body.errors).reduce((a, b) => a.concat(b), []).join('; '); } catch (e) { /* fall through */ }
-    return JSON.stringify(body.errors);
+    let msg = '';
+    if (Array.isArray(body.errors)) msg = body.errors.map((e) => (e && (e.message || e.description)) || JSON.stringify(e)).join('; ');
+    else { try { msg = Object.entries(body.errors).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v.join(', ') : v)).join('; '); } catch (e) { /* fall through */ } }
+    if (msg) return msg;
   }
+  if (body.detail) return String(body.detail);
   return String(body.title || ('HTTP ' + status));
 }
 
@@ -514,6 +628,51 @@ exports.createZrParcel = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
+   cancelZrParcel: DELETE /parcels/{id} using ZR Express's OWN internal
+   parcel id (stored as o.zr.parcelId at creation — NOT the tracking
+   number). ZR refuses to delete exchange/return parcels, and 404s on
+   an unknown/already-deleted id.
+   ─────────────────────────────────────────────────────────────── */
+exports.cancelZrParcel = onCall(
+  { region: 'us-central1' },
+  async (req) => {
+    const orderId = req.data && req.data.orderId;
+    if (!orderId) throw new HttpsError('invalid-argument', 'orderId is required');
+
+    const db = admin.firestore();
+    const ref = db.collection('orders').doc(String(orderId));
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
+    const o = snap.data();
+
+    const parcelId = o.zr && (o.zr.parcelId || o.zr.tracking);
+    if (!parcelId) return { ok: true, skipped: true };
+
+    const cred = await zrCreds(db);
+    const headers = zrHeaders(cred);
+
+    const { res, body } = await zrFetch(ZR_BASE + '/parcels/' + encodeURIComponent(parcelId), {
+      method: 'DELETE', headers,
+    });
+    // Already gone (e.g. deleted directly from ZR's own dashboard — their API
+    // returns 404 "Parcels.NotFound" for this) is the end state we want anyway.
+    if (res.status === 404) {
+      await ref.update({ zr: admin.firestore.FieldValue.delete() });
+      return { ok: true, tracking: parcelId, alreadyGone: true };
+    }
+    if (!res.ok) {
+      throw new HttpsError(
+        'failed-precondition',
+        'تعذّر إلغاء طرد ZR Express — قد يكون طرد تبديل/إرجاع لا يمكن حذفه، أو بدأ الشحن بالفعل: ' + zrErrMsg(body, res.status)
+      );
+    }
+
+    await ref.update({ zr: admin.firestore.FieldValue.delete() });
+    return { ok: true, tracking: parcelId };
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
    getParcelStatus: called from the admin panel's "🔄 تحديث" button on
    a confirmed order. Fetches the LIVE status from whichever carrier
    shipped the order (o.noest.tracking or o.yalidine.tracking),
@@ -524,14 +683,45 @@ exports.createZrParcel = onCall(
    returns it. Refreshing is manual (button click) to respect each
    carrier's rate limits — status is not polled automatically.
    ─────────────────────────────────────────────────────────────── */
-const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم التسليم'];
+const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم الاستلام'];
+// stage = index of the furthest step the parcel has REACHED (that step and every
+// one before it render green in the panel). `alert` with a non-null stage = a
+// delivery problem shown as a ⚠️ between "خرج للتوصيل" and "تم الاستلام"; `stage:
+// null` = a terminal return/cancel with no meaningful step progress.
+
+// A carrier not having the parcel yet is ambiguous: it usually just means it was
+// created seconds ago and hasn't been indexed on their side yet (normal, resolves
+// on the next refresh) — but it can also mean the parcel was deleted directly from
+// the carrier's own dashboard, outside this app entirely. The only signal that
+// tells these apart is age: a parcel still missing long after creation is gone for
+// good, not "still propagating". `notFoundAtCarrier(o, carrier)` below gates on
+// this so genuinely-new parcels aren't misreported as deleted.
+const NOT_FOUND_GRACE_MS = 15 * 60 * 1000; // 15 minutes
+function parcelIsStale(o, carrier) {
+  const createdAt = Number(o[carrier] && o[carrier].createdAt) || 0;
+  return Date.now() - createdAt > NOT_FOUND_GRACE_MS;
+}
+function deletedAtCarrierStatus(carrier, carrierName, tracking) {
+  return {
+    carrier, tracking,
+    stage: null,
+    alert: 'تم حذف هذا الطرد',
+    stageLabels: STAGE_LABELS,
+    lastLabel: `محذوف لدى ${carrierName}`,
+    lastLocation: null, lastDate: null,
+    notFoundAtCarrier: true,
+    events: [], updatedAt: Date.now(),
+  };
+}
 
 // Noest's status keys are a small fixed set, so an exact-match table is safe.
 const NOEST_STAGE = {
   upload: 0, edited_informations: 0, customer_validation: 0,
   validation_collect_colis: 1, validation_reception_admin: 1, validation_reception: 1,
   sent_to_redispatch: 2, fdr_activated: 3, mise_a_jour: 3,
-  livre: 4, livred: 4,
+  // `livre` = "Enlevé par le livreur" (handed to the courier = out for delivery);
+  // only `livred` means the parcel reached the recipient.
+  livre: 3, livred: 4,
 };
 const NOEST_ALERT = {
   colis_suspendu: 'معلّق ⚠️',
@@ -550,20 +740,58 @@ const NOEST_ALERT = {
   pickup_picked_recu: 'تم استلام الإرجاع',
 };
 
-// Yalidine's status is free-text French, so match by keyword instead of an exact table.
+// Noest's own French status names, mapped to the 5 steps exactly as they read in
+// the Noest dashboard. This is the authoritative signal — the event_key table
+// above only backs it up — so a renamed or unmapped key can no longer pin the
+// tracker a step behind. Returns { stage:-1 } for text we don't recognize so it
+// yields to the key table instead of forcing "just created". Order matters:
+// "Livré" (delivered) is checked apart from "En livraison" (out for delivery),
+// and "Prêt à expédier" must not be mistaken for "En expédition".
+//   Prêt à expédier → 0 · En traitement → 1 · En expédition/En hub → 2
+//   En livraison → 3 · Livré → 4 · Suspendu → ⚠️ before delivery
+function noestNormalize(raw) {
+  const s = String(raw || '').toLowerCase().trim();
+  if (!s) return { stage: -1, alert: null };
+  if (/retour|annul|rembours/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
+  if (/suspend|bloqu|[ée]chou|[ée]chec|probl[èe]me|tentative|alerte/.test(s)) return { stage: 3, alert: 'معلّق — مشكلة في التوصيل' };
+  // "Enlevé/Remis/Affecté par le livreur" = the parcel left the hub with the
+  // courier for delivery — OUT for delivery, not delivered. The "livreur"
+  // substring contains "livre", so it must be caught BEFORE the delivered rule.
+  if (/enlev[ée] par le livreur|remis au livreur|affect[ée] au livreur|pris(?:e)? en charge par le livreur/.test(s)) return { stage: 3, alert: null };
+  // "Livré/Livrée/Livrés" (delivered) — but NOT "livraison" (out for delivery)
+  // and NOT "livreur" (courier): a driver-pickup label must never count as
+  // delivered. (No \b: a word boundary after the accented "é" never matches
+  // without the /u flag.)
+  if (/livr[ée]/.test(s) && !/livraison|livreur/.test(s)) return { stage: 4, alert: null };
+  if (/en\s*livraison|en cours de livraison|sortie?\s+(en|pour)\s+livraison|distribution/.test(s)) return { stage: 3, alert: null };
+  if (/exp[ée]dition|en\s*hub|\bhub\b|en\s*transit|\btransit\b|centre de tri|dispatch|redispatch/.test(s)) return { stage: 2, alert: null };
+  if (/traitement|trait[ée]|valid|confirm|ramass|collect|r[ée]ception|re[çc]u/.test(s)) return { stage: 1, alert: null };
+  if (/pr[êe]t\s*[àa]\s*exp[ée]dier|pr[êe]t|pr[ée]paration|cr[é]{2}|upload|nouveau|enregistr/.test(s)) return { stage: 0, alert: null };
+  return { stage: -1, alert: null };
+}
+
+// Yalidine's last_status is free-text French, matched by keyword. Mapped to the 5
+// steps exactly as requested:
+//   In preparation → 0 · Dispatched → 1 · To the Wilaya → 2
+//   Agency center → 3 · Delivered → 4 · On alert → ⚠️ before delivery
+// Order matters: returns/alerts first, then "Livré" (delivered) apart from
+// "En livraison"; the destination agency ("localisation"/"agence"/"sorti") counts
+// as out-for-delivery (3), while a wilaya/hub transfer is sorting (2).
 function yalidineNormalize(raw) {
   const s = String(raw || '');
-  // Pre-shipping states first — "Pas encore expédié" / "Prêt à expédier"
-  // contain "expédi" and "Pas encore ramassé" contains "ramass", so testing
-  // the shipped keywords first would wrongly show them as already shipped.
-  if (/(pas encore|pr[êe]t [àa] exp[ée]dier|en pr[ée]paration|v[ée]rifier)/i.test(s)) return { stage: 0, alert: null };
-  if (/^Livr[ée]/i.test(s)) return { stage: 4, alert: null };
   if (/(retour|[ée]change)/i.test(s)) return { stage: null, alert: 'مرتجع / قيد الإرجاع' };
   // Failures: "Tentative échouée", "En alerte", "Echèc livraison" (è!), "échoué".
-  if (/(tentative|alerte|[ée]ch[eè]c|[ée]chou)/i.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
-  if (/(sorti|attente|pr[êe]t pour livreur)/i.test(s)) return { stage: 3, alert: null };
-  if (/(centre|wilaya|localisation)/i.test(s)) return { stage: 2, alert: null };
-  if (/(ramass|bloqu|transfert|exp[ée]di)/i.test(s)) return { stage: 1, alert: null };
+  if (/(tentative|alerte|[ée]ch[eè]c|[ée]chou|bloqu|suspend)/i.test(s)) return { stage: 3, alert: 'تنبيه — مشكلة في التوصيل' };
+  if (/^livr[ée]/i.test(s)) return { stage: 4, alert: null };
+  // Pre-shipping FIRST — "Pas encore expédié" / "Prêt à expédier" contain "expédi",
+  // so the dispatched rule below would otherwise mark them already shipped.
+  if (/(pas encore|pr[êe]t [àa] exp[ée]dier|pr[ée]paration|v[ée]rifier|cr[é]{2})/i.test(s)) return { stage: 0, alert: null };
+  // Agency center / out for delivery — at destination agency, localised, out with driver.
+  if (/(agence|localisation|sorti|en\s*livraison|pr[êe]t pour livreur|en attente du client|distribution)/i.test(s)) return { stage: 3, alert: null };
+  // To the wilaya / hub transfer / sorting.
+  if (/(vers wilaya|wilaya|centre|hub|tri|transfert|en\s*transit)/i.test(s)) return { stage: 2, alert: null };
+  // Dispatched / picked up / shipped.
+  if (/(exp[ée]di|ramass|enlev|collect|pris en charge)/i.test(s)) return { stage: 1, alert: null };
   return { stage: 0, alert: null };
 }
 
@@ -590,7 +818,10 @@ async function fetchNoestStatus(db, o) {
   }
   // Noest returns this (not an HTTP error) for parcels still sitting unvalidated
   // in "prêt à expédier" — very common right after creation, not a real failure.
+  // BUT this is also exactly what a parcel deleted from Noest's own dashboard
+  // would return forever after, so only treat it as "still pending" while fresh.
   if (body && body.message === 'Trackings non trouvés') {
+    if (parcelIsStale(o, 'noest')) return deletedAtCarrierStatus('noest', 'Noest', o.noest.tracking);
     return {
       carrier: 'noest', tracking: o.noest.tracking,
       stage: 0, alert: null, stageLabels: STAGE_LABELS,
@@ -602,55 +833,100 @@ async function fetchNoestStatus(db, o) {
 
   const entry = (body && typeof body === 'object')
     ? (body[o.noest.tracking] || body[Object.keys(body)[0]]) : null;
-  // Noest's activity events carry no geographic location field — "by" is the
-  // partner/shop name (e.g. the account owner), not a place, so it must not
-  // be used as one.
+  // Each Noest activity carries who handled it (the agent/livreur), which hub it
+  // passed through, and a free-text reason ("Client ne répond pas", etc.). Field
+  // names vary, so read them generously and keep any leftover string fields in
+  // `extra` so no detail the API returns is dropped from the panel.
   const rawEvents = (entry && (entry.activity || entry.events)) || [];
   const events = rawEvents.map((e) => ({
     key: e.event_key || e.key || e.status || '',
     label: e.event || e.event_key || e.key || e.status || '',
     date: e.date || e.created_at || e.updated_at || null,
     location: e.location || null,
+    by: e.by || e.agent || e.user || e.staff || null,                                  // who performed the action
+    driver: e.driver || e.livreur || null,                                             // livreur holding the parcel
+    content: e.content || e.comment || e.note || e.reason || e.motif || null,          // free-text reason
+    causer: e.causer || e.cause || null,                                               // NOEST / PARTENAIRE
+    badge: e['badge-class'] || e.badge_class || e.badgeClass || e.badge || null,       // colour hint only
   })).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const last = events[events.length - 1] || null;
-  const alert = last ? (NOEST_ALERT[last.key] || null) : null;
+  const currentText = (last && last.label) || '';
 
-  // Stage = the highest recognized milestone reached across the WHOLE history,
-  // not just the last event. Looking only at the last event meant an
-  // intermediate event_key we don't have mapped (e.g. a hub scan) would reset
-  // the tracker back to "just created" even after real progress happened.
+  // Stage = the furthest milestone reached across the WHOLE history. Noest's own
+  // French status names (noestNormalize) are authoritative; the legacy event_key
+  // table backs them up so a renamed/unmapped key can't drag a moved parcel back.
+  // We take the max so an intermediate event we don't recognise never resets the
+  // tracker, and — crucially — never leaves it a step behind the real state.
   let stage = 0;
-  events.forEach((e) => { if (e.key in NOEST_STAGE) stage = Math.max(stage, NOEST_STAGE[e.key]); });
-  // Validated in Noest = any activity beyond the initial upload/edit. Used to
-  // sync o.noest.validated so the panel stops asking to confirm a parcel the
-  // seller already confirmed in the Noest dashboard.
+  let recognized = false;
+  events.forEach((e) => {
+    if (e.key in NOEST_STAGE) { stage = Math.max(stage, NOEST_STAGE[e.key]); recognized = true; }
+    const r = noestNormalize(e.label);
+    if (typeof r.stage === 'number' && r.stage >= 0) { stage = Math.max(stage, r.stage); recognized = true; }
+  });
+  // Alert / terminal state reflects the CURRENT (latest) status, not history — a
+  // parcel that was "Suspendu" then moved again should stop warning.
+  const cur = noestNormalize(currentText);
+  // "Delivered" is terminal and must be confirmed by the CURRENT event. If the
+  // latest activity is no longer a delivery (e.g. a returned parcel re-dispatched
+  // for re-delivery, or a `livre`/livreur pickup record in mid-history), a
+  // historical delivered-looking event must not keep the tracker pinned at
+  // "تم الاستلام" — downgrade to the current event's step, never above "خرج للتوصيل".
+  if (stage === STAGE_LABELS.length - 1) {
+    const lastKeyStage = (last && last.key in NOEST_STAGE) ? NOEST_STAGE[last.key] : -1;
+    const lastLabelStage = (typeof cur.stage === 'number') ? cur.stage : -1;
+    if (lastKeyStage < 4 && lastLabelStage < 4) {
+      stage = Math.max(0, lastKeyStage, lastLabelStage);
+      if (stage > STAGE_LABELS.length - 2) stage = STAGE_LABELS.length - 2;
+      console.log('[getParcelStatus] Noest delivered downgraded', o.noest.tracking,
+        'lastKey:', last && last.key, 'lastLabel:', currentText);
+    }
+  }
+  let alert = cur.alert || (last ? (NOEST_ALERT[last.key] || null) : null);
+  if (cur.stage === null) {
+    stage = null;                       // return / cancel — no meaningful progress
+  } else if (alert) {
+    // A delivery problem (Tentative/Suspendu) means the parcel is NOT delivered —
+    // pin it at "out for delivery" so the ⚠️ sits before the final step and
+    // "تم الاستلام" never turns green (a stray `livre` event must not deliver it).
+    stage = STAGE_LABELS.length - 2;
+  }
+  // Validated in Noest = any activity beyond the initial upload/edit.
   const noestValidated = events.some((e) =>
     e.key === 'customer_validation' || (NOEST_STAGE[e.key] || 0) >= 1 || (e.key in NOEST_ALERT));
-  // Our stage table only covers the event_keys we've seen so far. Log every key
-  // we don't recognize (not just when none match) so gaps in the table — which
-  // is why some orders show a stuck/blank tracker while others progress fine —
-  // are visible in the Cloud Functions logs.
+  // Log any status text we couldn't place, so a new Noest wording is visible in
+  // the Cloud Functions logs instead of silently sticking the tracker.
   events.forEach((e) => {
-    if (!(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT)) {
-      console.log('[getParcelStatus] unrecognized Noest event_key', e.key, e.label, 'tracking:', o.noest.tracking);
+    if (!(e.key in NOEST_STAGE) && noestNormalize(e.label).stage < 0 && !(e.key in NOEST_ALERT)) {
+      console.log('[getParcelStatus] unrecognized Noest status', e.key, e.label, 'tracking:', o.noest.tracking);
     }
   });
-  // An event_key we've never mapped means Noest did something beyond the
-  // known pre-shipping steps — show at least stage 1 instead of sticking at
-  // "just created". Only unmapped keys count: upload/edit/validation events
-  // are mapped to 0 on purpose and must NOT bump a fresh parcel to "shipped".
-  const hasUnmapped = events.some((e) => !(e.key in NOEST_STAGE) && !(e.key in NOEST_ALERT));
-  if (!alert && hasUnmapped && stage === 0) stage = 1;
-  if (alert) stage = null;
+  // Some activity but nothing we could place, and still at "just created" — the
+  // parcel has clearly moved, so nudge it off stage 0 rather than look stuck.
+  if (stage === 0 && !recognized && events.length) stage = 1;
+
+  // The livreur who CURRENTLY holds the parcel: Noest reports the assigned
+  // driver top-level (OrderInfo.driver_name / driver_phone) — that's the one
+  // piece of info missing from the tracker. Fall back to the most recent
+  // activity that names a driver when the top-level fields are empty.
+  const orderInfo = (entry && entry.OrderInfo) || {};
+  let livreur = null;
+  const driverName = String(orderInfo.driver_name || '').trim();
+  const driverPhone = String(orderInfo.driver_phone || '').trim();
+  if (driverName || driverPhone) {
+    livreur = { name: driverName || null, phone: driverPhone || null };
+  } else {
+    const lastWithDriver = events.reduce((acc, e) => (e.driver ? e : acc), null);
+    if (lastWithDriver) livreur = { name: lastWithDriver.driver, phone: null };
+  }
 
   return {
     carrier: 'noest', tracking: o.noest.tracking,
-    stage, alert, stageLabels: STAGE_LABELS,
-    // Show Noest's OWN status text (e.g. "Validé", "Tentative de livraison"),
-    // never our stage guess — the stage table is incomplete and replacing the
-    // real label with STAGE_LABELS[stage] hid what Noest actually said.
-    lastLabel: last ? (alert || last.label || STAGE_LABELS[stage]) : 'بانتظار المعالجة',
+    stage, alert, stageLabels: STAGE_LABELS, livreur,
+    // Show Noest's OWN status text (e.g. "En livraison", "Suspendu") so the raw
+    // carrier state is always visible next to our step mapping.
+    lastLabel: last ? (last.label || alert || (stage != null ? STAGE_LABELS[stage] : null)) : 'بانتظار المعالجة',
     lastLocation: last ? last.location : null,
     lastDate: last ? last.date : null,
     noestValidated,
@@ -679,8 +955,11 @@ async function fetchYalidineStatus(db, o) {
   const parcel = list.find((p) => p && p.tracking === o.yalidine.tracking)
     || (body && !body.data && body.tracking === o.yalidine.tracking ? body : null);
   // No parcel record yet (just created, not picked up by Yalidine's system) — same
-  // "still pending" case as Noest's unvalidated parcels, not a real failure.
+  // "still pending" case as Noest's unvalidated parcels, not a real failure. BUT
+  // it's also exactly what a parcel deleted from Yalidine's own dashboard would
+  // return forever after, so only treat it as "still pending" while fresh.
   if (!parcel) {
+    if (parcelIsStale(o, 'yalidine')) return deletedAtCarrierStatus('yalidine', 'Yalidine', o.yalidine.tracking);
     return {
       carrier: 'yalidine', tracking: o.yalidine.tracking,
       stage: 0, alert: null, stageLabels: STAGE_LABELS,
@@ -701,7 +980,11 @@ async function fetchYalidineStatus(db, o) {
       const list = Array.isArray(hBody) ? hBody : (hBody && hBody.data) || [];
       events = list.map((h) => ({
         key: h.status, label: h.status, date: h.date_status,
-        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - '),
+        location: [h.commune_name, h.wilaya_name].filter(Boolean).join(' - ') || null,
+        by: h.driver_name || h.driver || null,
+        center: h.center_name || h.center || null,
+        content: h.reason || h.raison || null,
+        causer: null, badge: null,
       })).sort((a, b) => new Date(a.date) - new Date(b.date));
     }
   } catch (e) { /* history is best-effort; the parcel's own last_status already covers the stepper */ }
@@ -709,26 +992,68 @@ async function fetchYalidineStatus(db, o) {
   return {
     carrier: 'yalidine', tracking: o.yalidine.tracking,
     stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: alert || rawStatus || 'بانتظار المعالجة',
+    // Always surface Yalidine's own French status; the alert is shown via the ⚠️
+    // marker/badge in the panel, not by hiding what the carrier actually said.
+    lastLabel: rawStatus || alert || 'بانتظار المعالجة',
     lastLocation: location || null,
     lastDate: parcel.date_last_status || null,
     events, updatedAt: Date.now(),
   };
 }
 
-// ZR Express's status is a free-text state name (English, e.g. "OutForDelivery" with
-// no spaces), so match by keyword like Yalidine's. "Out for delivery" must be checked
-// before the "delivered" test — it contains "delivery", which "delivered" would
-// otherwise substring-match and misreport as fully delivered.
+// ZR Express's state names are snake_case French ("vers_wilaya",
+// "pret_a_expedier", "confirme_au_bureau", "commande_recue"), and the event
+// history can also surface the accented description ("Commande reçue",
+// "Prêt à expédier"). Normalize both to one lowercase space-separated form so
+// a single set of keyword rules covers them — an unrecognized snake_case name
+// (e.g. "vers_wilaya") used to fall through every rule and then keep the
+// parcel's PREVIOUS stage, which misreported an in-transit parcel as still
+// "تم التأكيد والشحن". Same green-step model as the others: created/ready → 0,
+// dispatched → 1, hub/wilaya transit → 2, out for delivery → 3, delivered → 4.
+// "Out for delivery" is checked before "delivered" — it contains "delivery",
+// which "delivered" would otherwise substring-match and misreport.
 function zrNormalize(raw) {
-  const s = String(raw || '').toLowerCase();
-  if (/out\s*for\s*delivery|en cours de livraison|dispatch/.test(s)) return { stage: 3, alert: null };
-  if (/^(delivered|livr[ée])/.test(s)) return { stage: 4, alert: null };
-  if (/(return|retour|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
-  if (/(fail|[ée]chec|problem|probl[èe]me|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل — تحتاج متابعة' };
-  if (/(hub|center|centre|sort|tri|transit)/.test(s)) return { stage: 2, alert: null };
-  if (/(pick|ramass|creat|confirm)/.test(s)) return { stage: 1, alert: null };
-  return { stage: 0, alert: null };
+  // Split camelCase boundaries FIRST (EnLivraison → "En Livraison") so the
+  // snake_case French names, their accented descriptions, and the older
+  // English/camelCase names all land on the same lowercase word list.
+  const s = String(raw || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents: é→e, à→a, ê→e…
+    .replace(/[_\-\s]+/g, ' ').trim();
+  if (!s) return { stage: -1, alert: null };
+  if (/(retour|retourne|return|cancel|annul)/.test(s)) return { stage: null, alert: 'مرتجع / ملغى — تحتاج متابعة' };
+  if (/(fail|echec|problem|probleme|hold|suspend)/.test(s)) return { stage: 3, alert: 'مشكلة في التوصيل' };
+  // Client not reachable — ZR's tenant-specific states for failed delivery
+  // attempts ("No Answer 1", "No Answer 2", "Client ne répond pas"... ). The
+  // parcel is still out for delivery but the delivery keeps failing, so the
+  // admin must call the client — flag it as a delivery-problem alert (same
+  // step, but with the alert so the panel surfaces it on the whole card).
+  // Placed BEFORE the plain out-for-delivery rule so an alerting "no answer"
+  // state is never masked by a bare "en livraison" match.
+  if (/(no answer|sans reponse|ne repond|injoignable|absent)/.test(s)) return { stage: 3, alert: 'الزبون لا يرد — اتصل به لتسوية التوصيل' };
+  if (/out for delivery|en cours de livraison|en livraison|chez livreur|dispatch/.test(s)) return { stage: 3, alert: null };
+  // "Encaisse" = COD collected, which only happens once the parcel has been
+  // delivered — same terminal step as "delivered"/"livré". Anchored + word
+  // boundary so "livré" (delivered) never matches "livraison"/"livreur".
+  if (/^(delivered|livre\b)|encaiss/.test(s)) return { stage: 4, alert: null };
+  // Hub / sorting / transfer — incl. the "vers wilaya"/"vers centre" transfers
+  // that take a parcel from the origin office toward the destination wilaya.
+  // Deliberately NOT a generic "arrive" match: "arrivée chez le client" means
+  // delivered, and the -1 fallback below keeps unknown states on their known
+  // stage rather than guessing.
+  if (/(hub|center|centre|sort|tri|transit|vers wilaya|vers centre|vers bureau)/.test(s)) return { stage: 2, alert: null };
+  // Pre-shipping FIRST — "Prêt à expédier" contains "expédi", so the dispatched
+  // rule below would otherwise mark it as already shipped (same class of bug
+  // yalidineNormalize already guards against for the identical French phrasing).
+  if (/pret a expedier|ready|pending|commande recue|commande|creat|nouveau/.test(s)) return { stage: 0, alert: null };
+  // Dispatched / picked up / confirmed / shipped.
+  if (/(pick|ramass|collect|confirme|confirm|expedie|expedition|ship)/.test(s)) return { stage: 1, alert: null };
+  // Unrecognized — signal -1 (not 0) so callers fall back to whatever stage was
+  // already known instead of visibly regressing an in-progress parcel back to
+  // "just created". Logged by the caller so a real gap in this mapping (like the
+  // missing "encaisse" case above) shows up instead of silently misreporting.
+  return { stage: -1, alert: null };
 }
 
 async function fetchZrStatus(db, o) {
@@ -758,7 +1083,10 @@ async function fetchZrStatus(db, o) {
     if (!res.ok) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
     row = ((body && (body.items || body.data || body.results)) || [])[0];
   }
+  // Not found yet is ambiguous the same way as Yalidine/Noest above — could be
+  // "just created, not indexed yet" or "deleted from ZR's own dashboard".
   if (!row) {
+    if (parcelIsStale(o, 'zr')) return deletedAtCarrierStatus('zr', 'ZR Express', tracking);
     return {
       carrier: 'zr', tracking,
       stage: 0, alert: null, stageLabels: STAGE_LABELS,
@@ -768,14 +1096,67 @@ async function fetchZrStatus(db, o) {
   }
 
   const rawStatus = (row.state && row.state.name) || '';
-  const { stage, alert } = zrNormalize(rawStatus);
+  const norm = zrNormalize(rawStatus);
+  let stage = norm.stage;
+  if (stage === -1) {
+    console.log('[getParcelStatus] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', tracking);
+    const prevTs = o.trackingStatus;
+    stage = (prevTs && prevTs.carrier === 'zr' && prevTs.tracking === o.zr.tracking && typeof prevTs.stage === 'number')
+      ? prevTs.stage : 0;
+  }
+
+  // Full state-transition timeline for the "تفاصيل الشحنة" panel, same role as
+  // Yalidine's /histories call — best-effort, a failure here must never break
+  // the stepper itself, which already has everything it needs from `row`.
+  let events = [];
+  try {
+    const { res: hRes, body: hBody } = await zrFetch(
+      ZR_BASE + '/parcels/' + (row.id || parcelId) + '/state-history',
+      { method: 'GET', headers }
+    );
+    if (hRes.ok && Array.isArray(hBody)) {
+      events = hBody.map((h) => {
+        const stateName = (h.newState && (h.newState.name || h.newState.description)) || '';
+        // ZR attaches a per-state SITUATION to some events (e.g. «مجددا» = the
+        // parcel went out for delivery a second time) — surface its name
+        // alongside the state name so the panel shows the real situation, not
+        // just the raw state. The situation comment (reason) still goes to
+        // `content` below.
+        const sitNames = Array.isArray(h.situations)
+          ? h.situations.map((s) => s.name).filter(Boolean)
+          : [];
+        // Colour-code each entry the same way the top-level stepper already
+        // does — reuse zrNormalize instead of ZR's own per-state `color`
+        // (a tenant-configurable hex, not a stable ok/bad/warn signal) so an
+        // event's colour always agrees with what the stepper says about it.
+        const enorm = zrNormalize(stateName);
+        const badge = enorm.alert ? 'badge-danger'
+          : enorm.stage === STAGE_LABELS.length - 1 ? 'badge-success'
+          : enorm.stage >= 0 ? 'badge-primary'
+          : null;
+        return {
+          key: (h.newState && h.newState.id) || null,
+          label: [stateName, ...sitNames].join(' ') || stateName,
+          date: h.createdAt || null,
+          location: (h.location && [h.location.hubName, h.location.hubCity].filter(Boolean).join(' - ')) || null,
+          by: (h.modifiedBy && h.modifiedBy.fullName) || null,
+          center: (h.location && h.location.hubName) || null,
+          content: h.comment ||
+            (Array.isArray(h.situations) ? h.situations.map((s) => s.comment).filter(Boolean).join(' · ') : '') ||
+            null,
+          causer: null, badge,
+        };
+      }).filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+  } catch (e) { /* history is best-effort; row.state already covers the stepper */ }
+
   return {
     carrier: 'zr', tracking: row.trackingNumber || tracking,
-    stage, alert, stageLabels: STAGE_LABELS,
-    lastLabel: alert || rawStatus || 'بانتظار المعالجة',
+    stage, alert: norm.alert, stageLabels: STAGE_LABELS,
+    lastLabel: rawStatus || norm.alert || 'بانتظار المعالجة',
     lastLocation: null,
     lastDate: row.lastStateUpdateAt || null,
-    events: [], updatedAt: Date.now(),
+    events, updatedAt: Date.now(),
   };
 }
 
@@ -811,6 +1192,212 @@ exports.getParcelStatus = onCall(
     }
     await ref.update(update);
     return status;
+  }
+);
+
+/* ───────────────────────────────────────────────────────────────
+   lookupParcel: admin-only «ربط طلب» (link order) flow. Given a carrier
+   and a tracking number for a parcel that was created OUTSIDE this app
+   (already shipped at the carrier), fetches that parcel's live info from
+   the carrier API WITHOUT creating anything — the admin confirms it's the
+   right parcel, then a new order doc is written referencing that tracking
+   number directly (never via a create*Parcel call).
+
+   Admin-gated via requireAdmin: the response carries customer PII
+   (name/phone/address/COD amount), unlike the pre-existing open callables.
+   Returns { carrier, tracking, status, package } where `status` is the same
+   normalized TrackingStatus shape the admin tracker already renders, and
+   `package` holds the recipient/parcel details used to prefill the order.
+   `raw` keeps the untouched carrier object for reference-only display.
+   ─────────────────────────────────────────────────────────────── */
+const LOOKUP_CARRIERS = {
+  yalidine: { name: 'Yalidine' },
+  noest: { name: 'Noest' },
+  zr: { name: 'ZR Express' },
+};
+
+async function lookupYalidine(db, tracking) {
+  const credSnap = await db.collection('private').doc('yalidine').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const apiId = String(cred.apiId || '').trim(), apiToken = String(cred.apiToken || '').trim();
+  if (!apiId || !apiToken) throw new HttpsError('failed-precondition', 'أدخلي بيانات Yalidine أولاً.');
+  const headers = { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken };
+
+  let res, body;
+  try {
+    res = await fetch(`${API_BASE}/parcels/?tracking=${encodeURIComponent(tracking)}`, { headers });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Yalidine: ' + e.message);
+  }
+  if (!res.ok) throw new HttpsError('internal', 'Yalidine tracking error: ' + JSON.stringify(body));
+  // Only accept the parcel whose tracking actually matches (same guard as
+  // fetchYalidineStatus) — a not-found here is a wrong number, not "pending".
+  const list = (body && Array.isArray(body.data)) ? body.data : [];
+  const parcel = list.find((p) => p && p.tracking === tracking)
+    || (body && !body.data && body.tracking === tracking ? body : null);
+  if (!parcel) return null;
+
+  const status = await fetchYalidineStatus(db, { yalidine: { tracking } });
+  const cod = Number(parcel.price != null ? parcel.price : parcel.to_pay);
+  const parcelInfo = {
+    customer: [parcel.firstname, parcel.familyname].filter(Boolean).join(' ').trim() || undefined,
+    phone: String(parcel.contact_phone || '').trim() || undefined,
+    // Yalidine returns the numeric to_wilaya_id (matches the app's own
+    // Yalidine wilaya list) — prefer it, keep the name for display.
+    wilaya: parcel.to_wilaya_id != null ? String(parcel.to_wilaya_id) : (parcel.to_wilaya_name || undefined),
+    wilayaFr: parcel.to_wilaya_name || undefined,
+    commune: parcel.to_commune_name || undefined,
+    address: String(parcel.address || '').trim() || undefined,
+    productLabel: String(parcel.product_list || '').trim() || undefined,
+    price: isFinite(cod) && cod > 0 ? cod : null,
+    createdAt: parcel.created_at || parcel.date_creation || null,
+    // A stop-desk parcel is flagged by stopdesk_id/stopdesk_name (the API has
+    // no is_stopdesk field) — null for home delivery, a code for Stop Desk.
+    deliveryType: (parcel.stopdesk_id || parcel.stopdesk_name || parcel.is_stopdesk) ? 'office' : 'home',
+    raw: parcel,
+  };
+  return { status, package: parcelInfo };
+}
+
+async function lookupNoest(db, tracking) {
+  const credSnap = await db.collection('private').doc('noest').get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  const token = String(cred.apiToken || '').trim();
+  const guid = String(cred.userGuid || '').trim();
+  if (!token) throw new HttpsError('failed-precondition', 'أدخلي بيانات Noest أولاً.');
+  const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' };
+
+  let res, body;
+  try {
+    res = await fetch(NOEST_BASE + '/api/public/get/trackings/info', {
+      method: 'POST', headers,
+      body: JSON.stringify({ api_token: token, user_guid: guid, trackings: [tracking] }),
+    });
+    body = await res.json();
+  } catch (e) {
+    throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
+  }
+  // Noest's "not found" is a body message, not an HTTP error (same as
+  // fetchNoestStatus) — for a LOOKUP this means the number is wrong, not
+  // that a parcel is still pending confirmation.
+  if (body && body.message === 'Trackings non trouvés') return null;
+  if (!res.ok) throw new HttpsError('internal', 'Noest tracking error: ' + JSON.stringify(body));
+  const entry = (body && typeof body === 'object')
+    ? (body[tracking] || body[Object.keys(body)[0]]) : null;
+  if (!entry) return null;
+
+  const status = await fetchNoestStatus(db, { noest: { tracking } });
+  // Noest nests the recipient/COD fields under `OrderInfo` (the outer object
+  // also carries a top-level `recipientName`). All the old direct field reads
+  // (receiver_name/parcel_price/wilaya_name/...) silently came back empty for
+  // real parcels, so a linked order prefilled blank — read from OrderInfo.
+  const oi = entry.OrderInfo || {};
+  const cod = Number(oi.montant != null ? oi.montant : (entry.parcel_price != null ? entry.parcel_price : entry.to_pay));
+  const parcelInfo = {
+    customer: String(entry.recipientName || oi.client || '').trim() || undefined,
+    phone: String(oi.phone || entry.phone || '').trim() || undefined,
+    // Noest's wilaya_id is the numeric wilaya code (1-58) the app's own
+    // Noest wilaya list uses — send it as the id string so the link modal
+    // matches by id (it also tries name matching for the other carriers).
+    wilaya: oi.wilaya_id != null ? String(oi.wilaya_id) : (entry.wilaya_name || oi.wilaya || undefined),
+    wilayaFr: entry.wilaya_fr || oi.wilaya_name || undefined,
+    commune: String(oi.commune || entry.commune_name || entry.commune || '').trim() || undefined,
+    address: String(oi.adresse || entry.adresse || entry.address || '').trim() || undefined,
+    productLabel: String(oi.produit || entry.product || entry.produit || entry.products || '').trim() || undefined,
+    price: isFinite(cod) && cod > 0 ? cod : null,
+    createdAt: oi.created_at || entry.created_at || entry.createdAt || entry.date_creation || null,
+    deliveryType: oi.stop_desk ? 'office' : 'home',
+    raw: entry,
+  };
+  return { status, package: parcelInfo };
+}
+
+async function lookupZr(db, tracking) {
+  const cred = await zrCreds(db);
+  const headers = zrHeaders(cred);
+
+  const { res, body } = await zrFetch(ZR_BASE + '/parcels/search', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      pageNumber: 1, pageSize: 1,
+      advancedFilter: { logic: 'and', filters: [{ field: 'trackingNumber', operator: 'eq', value: tracking }] },
+    }),
+  });
+  if (!res.ok) throw new HttpsError('internal', 'ZR Express tracking error: ' + zrErrMsg(body, res.status));
+  const row = ((body && (body.items || body.data || body.results)) || [])[0];
+  if (!row) return null;
+
+  const status = await fetchZrStatus(db, { zr: { tracking } });
+
+  // ZR stores territory ids (UUIDs), not names — resolve the wilaya/commune
+  // display names from the territory table best-effort (display-only; the
+  // admin can still correct them by hand in the link form).
+  const da = row.deliveryAddress || row.address || {};
+  let cityName = da.cityName || null;
+  let districtName = da.districtName || null;
+  if (!cityName || !districtName) {
+    try {
+      const byId = {};
+      const trows = await zrAllTerritories(headers);
+      trows.forEach((t) => { byId[t.id] = t; });
+      const city = byId[da.cityTerritoryId || da.cityId];
+      const district = byId[da.districtTerritoryId || da.districtId];
+      if (!cityName) cityName = (city && (city.name || city.nameAr)) || null;
+      if (!districtName) districtName = (district && (district.name || district.nameAr)) || null;
+    } catch (e) { /* display-only — leave the raw ids as-is */ }
+  }
+  // ZR's deliveryAddress.cityTerritoryCode is the numeric wilaya code the
+  // app's own ZR wilaya list uses — prefer it over the territory's display
+  // name (which can differ from the synced list, e.g. "El Menia" territory
+  // vs "El Meniaa" in the app), same idea as Noest's wilaya_id.
+  const wilayaCode = da.cityTerritoryCode != null ? String(da.cityTerritoryCode) : null;
+  const cust = row.customer || {};
+  const productList = (row.orderedProducts || [])
+    .map((p) => p && `${p.productName || ''}${p.quantity && p.quantity > 1 ? ' x' + p.quantity : ''}`)
+    .filter(Boolean).join(', ') || row.description || '';
+  const cod = Number(row.amount);
+  const isOffice = row.deliveryType === 'pickup-point';
+  // For pickup-point parcels, deliveryAddress.hubName is the desk name the
+  // app's synced ZR centers use — pass it as the commune so the link modal
+  // can select the exact desk (home delivery keeps the district/commune).
+  const commune = String(isOffice ? (da.hubName || districtName) : (districtName || da.districtName || '')).trim();
+  const parcelInfo = {
+    customer: String(cust.name || '').trim() || undefined,
+    phone: String((cust.phone && (cust.phone.number1 || cust.phone.number)) || '').trim() || undefined,
+    wilaya: wilayaCode || cityName || undefined,
+    wilayaFr: cityName || undefined,
+    commune: commune || undefined,
+    address: String(da.street || '').trim() || undefined,
+    productLabel: String(productList || '').trim() || undefined,
+    price: isFinite(cod) && cod > 0 ? cod : null,
+    createdAt: row.createdAt || row.created_at || null,
+    deliveryType: isOffice ? 'office' : 'home',
+    raw: row,
+  };
+  return { status, package: parcelInfo };
+}
+
+exports.lookupParcel = onCall(
+  { region: 'us-central1', timeoutSeconds: 60 },
+  async (req) => {
+    requireAdmin(req);
+    const carrier = String(req.data && req.data.carrier || '').toLowerCase().trim();
+    const tracking = String(req.data && req.data.tracking || '').trim();
+    const meta = LOOKUP_CARRIERS[carrier];
+    if (!meta) throw new HttpsError('invalid-argument', 'شركة التوصيل غير صالحة.');
+    if (!tracking) throw new HttpsError('invalid-argument', 'أدخلي رقم التتبع أولاً.');
+
+    const db = admin.firestore();
+    let res;
+    if (carrier === 'yalidine') res = await lookupYalidine(db, tracking);
+    else if (carrier === 'noest') res = await lookupNoest(db, tracking);
+    else res = await lookupZr(db, tracking);
+
+    if (!res) {
+      throw new HttpsError('not-found', `لم يتم العثور على طرد بالرقم «${tracking}» لدى ${meta.name}. تأكدي من الرقم وشركة التوصيل.`);
+    }
+    return { carrier, tracking, status: res.status, package: res.package };
   }
 );
 
@@ -931,7 +1518,7 @@ function wilayaIdByName(name) {
   return null;
 }
 
-async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, centersByW, communeFeesByW) {
+async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, centersByW) {
   const ids = wilayaIds.map(Number).filter((id) => WILAYA_NAMES[id]).sort((a, b) => a - b);
   const wilayas = ids.map((id) => ({ id, ar: WILAYA_NAMES[id][0], fr: WILAYA_NAMES[id][1] }));
   const communes = {};
@@ -961,34 +1548,8 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, cent
     out.sort((a, b) => a.name.localeCompare(b.name));
     if (out.length) { centers[String(wid)] = out; centerCount += out.length; }
   });
-  // Per-commune fee overrides (currently only Yalidine — see
-  // yalidineFeeTable's per_commune capture). Same {home, desk} shape as
-  // `fees`, one extra level keyed by the exact commune name from `communes`
-  // above. Omitted from the doc entirely when the caller has none, so
-  // Noest/ZR docs stay exactly as they were (schema stays append-only).
-  const communeFees = {};
-  let communeFeeCount = 0;
-  Object.keys(communeFeesByW || {}).forEach((wid) => {
-    const raw = communeFeesByW[wid] || {};
-    const out = {};
-    Object.keys(raw).forEach((cname) => {
-      const f = raw[cname];
-      if (Array.isArray(f) && f.length === 2 && !isNaN(f[0]) && !isNaN(f[1])) {
-        out[cname] = { home: f[0], desk: f[1] };
-        communeFeeCount++;
-      }
-    });
-    if (Object.keys(out).length) communeFees[String(wid)] = out;
-  });
-  const doc = { wilayas, communes, centers, fees, updatedAt: Date.now() };
-  if (communeFeeCount) doc.communeFees = communeFees;
-  await db.collection('delivery_data').doc(name).set(doc);
-  return {
-    wilayas: wilayas.length,
-    communes: Object.values(communes).reduce((a, b) => a + b.length, 0),
-    centers: centerCount,
-    communeFees: communeFeeCount,
-  };
+  await db.collection('delivery_data').doc(name).set({ wilayas, communes, centers, fees, updatedAt: Date.now() });
+  return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0), centers: centerCount };
 }
 
 // Noest exposes the partner's real per-wilaya grid at /api/public/fees
@@ -1020,22 +1581,17 @@ async function noestFeeTable(headers) {
 // Yalidine's /v1/fees endpoint is per (from_wilaya_id, to_wilaya_id) route —
 // unlike Noest/ZR it exposes no single "all routes" call, so build the table
 // with one request per destination wilaya, using the account's origin wilaya as
-// the fixed `from_wilaya_id`. Each response's per_commune breakdown gives BOTH
-// a per-wilaya summary (the mode — most common [home, desk], mirrors
-// zrFeeTable's per-wilaya shape, used as the fallback/preview before a commune
-// is picked) AND the real per-commune fees themselves (Yalidine's own
-// "Supplément commune" — real destinations inside the same wilaya can bill
-// differently, e.g. Adrar 1400 vs Akabli 1450 home). No extra API calls versus
-// the old mode-only version — the per-commune data was already in every
-// response, just discarded. Kept deliberately gentle (low concurrency + a
-// pause between batches) — an earlier version fired 8-at-a-time and appears to
-// have tripped Yalidine's abuse protection, which then connect-timed-out every
+// the fixed `from_wilaya_id`. Each response's per_commune breakdown is collapsed
+// to one [home, desk] per wilaya via mode (mirrors zrFeeTable — communes are
+// uniform in practice). Kept deliberately gentle (low concurrency + a pause
+// between batches) — an earlier version fired 8-at-a-time and appears to have
+// tripped Yalidine's abuse protection, which then connect-timed-out every
 // request (even the unrelated wilaya/commune list calls) for a while after.
-// Returns empty tables if the origin can't be resolved or every request
-// fails, so the caller falls back to the YAL_FEES placeholder; individual
-// wilaya failures are skipped rather than aborting the whole sync.
+// Returns {} if the origin can't be resolved or every request fails, so the
+// caller falls back to the YAL_FEES placeholder; individual wilaya failures are
+// skipped rather than aborting the whole sync.
 async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
-  if (!fromWilayaId) return { table: {}, communeFees: {} };
+  if (!fromWilayaId) return {};
   const mode = (m) => {
     const e = Object.entries(m);
     if (!e.length) return null;
@@ -1044,7 +1600,6 @@ async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
   };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const table = {};
-  const communeFees = {};
   const CONCURRENCY = 2;
   const BATCH_DELAY_MS = 400;
   for (let i = 0; i < wilayaIds.length; i += CONCURRENCY) {
@@ -1057,36 +1612,19 @@ async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
         const body = await res.json();
         const perCommune = (body && body.per_commune) || {};
         const home = {}, desk = {};
-        const cf = {};
-        // per_commune is a dict keyed by commune name, each value carrying
-        // its own express_home/express_desk (Yalidine's real
-        // commune-specific price) plus a commune_name field that should
-        // match the key — fall back to the key itself if that field is
-        // ever absent, so a shape surprise degrades to "commune fee
-        // missing", never a crash.
-        Object.entries(perCommune).forEach(([key, c]) => {
-          if (!c) return;
-          const name = String((c.commune_name || key) || '').trim();
-          const h = typeof c.express_home === 'number' ? c.express_home : null;
-          const d = typeof c.express_desk === 'number' ? c.express_desk : null;
-          if (h != null) home[h] = (home[h] || 0) + 1;
-          if (d != null) desk[d] = (desk[d] || 0) + 1;
-          if (name && (h != null || d != null)) {
-            // if one side is missing for this commune, reuse the other so
-            // no delivery type is ever free.
-            cf[name] = [h != null ? h : d, d != null ? d : h];
-          }
+        Object.values(perCommune).forEach((c) => {
+          if (typeof c.express_home === 'number') home[c.express_home] = (home[c.express_home] || 0) + 1;
+          if (typeof c.express_desk === 'number') desk[c.express_desk] = (desk[c.express_desk] || 0) + 1;
         });
         const h0 = mode(home), d0 = mode(desk);
         const h = h0 != null ? h0 : d0; // if one side is missing, reuse the other
         const d = d0 != null ? d0 : h0; // so no delivery type is ever free
         if (h != null && d != null) table[String(toId)] = [h, d];
-        if (Object.keys(cf).length) communeFees[String(toId)] = cf;
       } catch (e) { /* skip this wilaya, keep the rest */ }
     }));
     if (i + CONCURRENCY < wilayaIds.length) await sleep(BATCH_DELAY_MS);
   }
-  return { table, communeFees };
+  return table;
 }
 
 // Yalidine's stop-desk (center) list. GET /v1/centers returns EVERY center
@@ -1201,12 +1739,8 @@ exports.syncCarriers = onCall(
         }
         const yalCenters = await yalidineCenters(h);
         const fromWilayaId = wilayaIdByName(settings.originWilaya);
-        const { table: yalFees, communeFees: yalCommuneFees } = await yalidineFeeTable(h, fromWilayaId, wIds);
-        out.yalidine = await writeCarrierData(
-          db, 'yalidine', wIds, byW,
-          Object.keys(yalFees).length ? yalFees : YAL_FEES,
-          yalCenters, yalCommuneFees
-        );
+        const yalFees = await yalidineFeeTable(h, fromWilayaId, wIds);
+        out.yalidine = await writeCarrierData(db, 'yalidine', wIds, byW, Object.keys(yalFees).length ? yalFees : YAL_FEES, yalCenters);
       } catch (e) {
         out.yalidine = { error: (e && e.message) || String(e) };
       }
@@ -1416,6 +1950,265 @@ exports.sendTestEmail = onCall({ region: 'us-central1' }, async () => {
 });
 
 /* ───────────────────────────────────────────────────────────────
+   Carrier webhooks — parcels push their own status changes instead of
+   waiting for a manual 🔄 refresh.
+
+   zrWebhook / yalidineWebhook are public HTTPS endpoints registered with
+   the carriers via registerZrWebhook / registerYalidineWebhook (called
+   from the admin Settings page, admin-only). Each verifies the request
+   signature against a per-carrier secret stored in the server-only
+   `private/*` doc, maps the carrier status through the SAME normalizers
+   the manual refresh uses, and writes `trackingStatus` onto the matching
+   order — the admin panel's live orders listener then moves the tracker
+   in real time.
+   ─────────────────────────────────────────────────────────────── */
+const { onRequest } = require('firebase-functions/v2/https');
+const crypto = require('crypto');
+
+// Mirrors firestore.rules isAdmin() — onCall functions are otherwise
+// callable by anyone, and the register calls can return webhook secrets.
+function requireAdmin(req) {
+  const email = req.auth && req.auth.token && req.auth.token.email;
+  if (!email || ['tango0es@gmail.com', 'hadjajamel1988@gmail.com'].indexOf(email) === -1) {
+    throw new HttpsError('permission-denied', 'هذه العملية للمسؤول فقط — سجّلي الدخول في لوحة التحكم.');
+  }
+}
+
+async function orderByField(db, field, value) {
+  if (!value) return null;
+  const q = await db.collection('orders').where(field, '==', value).limit(1).get();
+  return q.empty ? null : q.docs[0];
+}
+
+function webhookUrlFor(name) {
+  return `https://us-central1-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/${name}`;
+}
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
+/* ───────── ZR Express (Svix-signed webhooks) ───────── */
+
+// Standard Svix scheme: secret is base64 after the whsec_ prefix; the
+// signature is HMAC-SHA256 over "<svix-id>.<svix-timestamp>.<raw body>",
+// base64-encoded, listed space-separated as "v1,<sig>" in svix-signature.
+function verifySvix(req, secret) {
+  const id = String(req.headers['svix-id'] || '');
+  const ts = String(req.headers['svix-timestamp'] || '');
+  const sigHeader = String(req.headers['svix-signature'] || '');
+  if (!id || !ts || !sigHeader) return false;
+  const t = parseInt(ts, 10);
+  if (!t || Math.abs(Math.floor(Date.now() / 1000) - t) > 300) return false; // replay guard
+  const key = Buffer.from(String(secret).replace(/^whsec_/, ''), 'base64');
+  const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
+  const expected = crypto.createHmac('sha256', key).update(`${id}.${ts}.${raw}`).digest('base64');
+  return sigHeader.split(/\s+/).some((part) => {
+    const sig = part.split(',')[1] || '';
+    try { return safeEqual(sig, expected); } catch (e) { return false; }
+  });
+}
+
+// Events: parcel.state.updated / parcel.state.situation.created /
+// parcel.isReturn.updated (see ZR's webhook integration guide).
+exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
+  try {
+    const db = admin.firestore();
+    const credSnap = await db.collection('private').doc('zrexpress').get();
+    const secret = credSnap.exists ? String(credSnap.data().webhookSecret || '') : '';
+    if (!secret || !verifySvix(req, secret)) { res.status(401).json({ error: 'invalid signature' }); return; }
+
+    const ev = req.body || {};
+    const type = String(ev.eventType || ev.type || '');
+    const data = ev.data || {};
+    // Parcels are keyed by their ZR UUID (zr.parcelId); older orders may
+    // only carry the tracking number.
+    const doc = (await orderByField(db, 'zr.parcelId', data.id)) ||
+                (await orderByField(db, 'zr.tracking', data.trackingNumber || data.id));
+    if (!doc) { res.status(200).json({ received: true, matched: false }); return; }
+    const o = doc.data();
+
+    let rawStatus = (data.state && data.state.name) || '';
+    if (/isReturn/i.test(type) && (data.isReturn === true || data.isReturn === 'true') && !rawStatus) rawStatus = 'Retour';
+    const content = (data.situation && (data.situation.name || data.situation.reason || data.situation.comment)) || data.reason || null;
+
+    const prev = (o.trackingStatus && o.trackingStatus.carrier === 'zr') ? o.trackingStatus : {};
+    const evs = Array.isArray(prev.events) ? prev.events.slice(-49) : [];
+    const eid = String(req.headers['svix-id'] || '') || null;
+    if (eid && evs.some((e) => e && e.id === eid)) { res.status(200).json({ received: true, duplicate: true }); return; }
+    evs.push({
+      id: eid, key: type, label: rawStatus || type,
+      date: ev.occurredAt || new Date().toISOString(),
+      location: null, by: null, content, causer: 'ZR WEBHOOK', badge: null,
+    });
+
+    const norm = zrNormalize(rawStatus);
+    let stage = norm.stage;
+    const alert = norm.alert;
+    if (stage === -1) {
+      console.log('[zrWebhook] unrecognized ZR status', JSON.stringify(rawStatus), 'tracking:', o.zr && o.zr.tracking);
+      stage = (typeof prev.stage === 'number') ? prev.stage : 0;
+    }
+    const update = {
+      trackingStatus: {
+        carrier: 'zr', tracking: data.trackingNumber || o.zr.tracking,
+        stage, alert, stageLabels: STAGE_LABELS,
+        lastLabel: rawStatus || alert || 'بانتظار المعالجة',
+        lastLocation: null,
+        lastDate: ev.occurredAt || new Date().toISOString(),
+        events: evs, updatedAt: Date.now(), viaWebhook: true,
+      },
+    };
+    // heal a not-yet-resolved tracking number, same as getParcelStatus
+    if (data.trackingNumber && o.zr && data.trackingNumber !== o.zr.tracking) update['zr.tracking'] = data.trackingNumber;
+    await doc.ref.update(update);
+    res.status(200).json({ received: true });
+  } catch (e) {
+    console.error('zrWebhook', e);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Registers (or reuses) the endpoint on ZR's side and stores its Svix
+// secret in private/zrexpress. Idempotent — safe to click again.
+exports.registerZrWebhook = onCall({ region: 'us-central1' }, async (req) => {
+  requireAdmin(req);
+  const db = admin.firestore();
+  const cred = await zrCreds(db);
+  const headers = zrHeaders(cred);
+  const url = webhookUrlFor('zrWebhook');
+
+  let ep = null;
+  const list = await zrFetch(ZR_BASE + '/webhooks/endpoints', { method: 'GET', headers });
+  if (list.res.ok) {
+    const rows = (list.body && (list.body.items || list.body.data || list.body.results)) ||
+      (Array.isArray(list.body) ? list.body : []);
+    ep = rows.find((r) => r && r.url === url) || null;
+  }
+  if (!ep) {
+    const { res, body } = await zrFetch(ZR_BASE + '/webhooks/endpoints', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        url,
+        description: 'Desert Shop — تتبع تلقائي',
+        eventTypes: ['parcel.state.updated', 'parcel.state.situation.created', 'parcel.isReturn.updated'],
+      }),
+    });
+    if (!(res.ok || res.status === 201) || !body || !body.id) {
+      throw new HttpsError('internal', 'رفضت ZR Express تسجيل الـ Webhook: ' + zrErrMsg(body, res.status));
+    }
+    ep = body;
+  }
+  const { res: sRes, body: sBody } = await zrFetch(ZR_BASE + '/webhooks/endpoints/' + ep.id + '/secret', { method: 'GET', headers });
+  const secret = sBody && (sBody.secret || sBody.key);
+  if (!sRes.ok || !secret) throw new HttpsError('internal', 'تعذّر جلب سر التحقق من ZR: ' + zrErrMsg(sBody, sRes.status));
+  await db.collection('private').doc('zrexpress').set(
+    { webhookSecret: String(secret), webhookEndpointId: ep.id, webhookUrl: url, webhookAt: Date.now() },
+    { merge: true }
+  );
+  return { ok: true, url };
+});
+
+/* ───────── Yalidine (crc_token handshake + HMAC signature) ───────── */
+
+exports.yalidineWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
+  // Subscription handshake: Yalidine sends GET ?crc_token=... and expects
+  // the token echoed back.
+  if (req.method === 'GET') { res.status(200).send(String(req.query.crc_token || 'ok')); return; }
+  if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
+  try {
+    const db = admin.firestore();
+    const credSnap = await db.collection('private').doc('yalidine').get();
+    const secret = credSnap.exists ? String(credSnap.data().webhookSecret || '') : '';
+    if (!secret) { res.status(401).json({ error: 'webhook not configured' }); return; }
+    const raw = req.rawBody ? req.rawBody : Buffer.from(JSON.stringify(req.body || {}));
+    const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+    const sig = String(req.headers['x-yalidine-signature'] || req.headers['x_yalidine_signature'] || '');
+    let okSig = false;
+    try { okSig = safeEqual(sig, expected); } catch (e) { okSig = false; }
+    if (!okSig) { res.status(401).json({ error: 'invalid signature' }); return; }
+
+    const body = req.body || {};
+    const events = Array.isArray(body.events) ? body.events : [];
+    for (const ev of events) {
+      const d = (ev && ev.data) || {};
+      const tracking = String(d.tracking || '').trim();
+      if (!tracking) continue;
+      const doc = await orderByField(db, 'yalidine.tracking', tracking);
+      if (!doc) continue;
+      const o = doc.data();
+      const rawStatus = String(d.status || '');
+      const { stage, alert } = yalidineNormalize(rawStatus);
+      const prev = (o.trackingStatus && o.trackingStatus.carrier === 'yalidine') ? o.trackingStatus : {};
+      const evs = Array.isArray(prev.events) ? prev.events.slice(-49) : [];
+      const eid = ev.event_id ? String(ev.event_id) : null;
+      if (eid && evs.some((e) => e && e.id === eid)) continue; // duplicate delivery
+      evs.push({
+        id: eid, key: rawStatus, label: rawStatus,
+        date: ev.occurred_at || new Date().toISOString(),
+        location: null, by: null, content: d.reason || null, causer: 'YALIDINE WEBHOOK', badge: null,
+      });
+      await doc.ref.update({
+        trackingStatus: {
+          carrier: 'yalidine', tracking, stage, alert, stageLabels: STAGE_LABELS,
+          lastLabel: rawStatus || alert || 'بانتظار المعالجة',
+          lastLocation: prev.lastLocation || null,
+          lastDate: ev.occurred_at || new Date().toISOString(),
+          events: evs, updatedAt: Date.now(), viaWebhook: true,
+        },
+      });
+    }
+    res.status(200).json({ received: true });
+  } catch (e) {
+    console.error('yalidineWebhook', e);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Creates the webhook subscription on Yalidine's side. Their webhook API
+// isn't publicly documented, so if the API call is refused this returns
+// { manual: true } with the endpoint URL + secret for the owner to paste
+// into the Yalidine dashboard (admin-gated, so returning the secret to
+// the caller is fine).
+exports.registerYalidineWebhook = onCall({ region: 'us-central1' }, async (req) => {
+  requireAdmin(req);
+  const db = admin.firestore();
+  const ref = db.collection('private').doc('yalidine');
+  const credSnap = await ref.get();
+  const cred = credSnap.exists ? credSnap.data() : {};
+  if (!cred.apiId || !cred.apiToken) {
+    throw new HttpsError('failed-precondition', 'احفظي مفاتيح Yalidine (API ID و Token) أولاً.');
+  }
+  let secret = String(cred.webhookSecret || '').trim();
+  if (!secret) {
+    secret = crypto.randomBytes(24).toString('hex');
+    await ref.set({ webhookSecret: secret }, { merge: true });
+  }
+  const url = webhookUrlFor('yalidineWebhook');
+  const headers = { 'X-API-ID': String(cred.apiId), 'X-API-TOKEN': String(cred.apiToken), 'Content-Type': 'application/json' };
+  try {
+    const res = await fetch(API_BASE + '/webhooks/', {
+      method: 'POST', headers,
+      body: JSON.stringify([{ url, events: ['parcel_status_updated'], secret }]),
+    });
+    const text = await res.text();
+    let body; try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+    if (res.ok) {
+      await ref.set({ webhookUrl: url, webhookAt: Date.now() }, { merge: true });
+      return { ok: true, url };
+    }
+    console.log('registerYalidineWebhook API refused', res.status, typeof body === 'string' ? body.slice(0, 300) : JSON.stringify(body || {}).slice(0, 300));
+    return { ok: false, manual: true, url, secret };
+  } catch (e) {
+    console.error('registerYalidineWebhook', e);
+    return { ok: false, manual: true, url, secret };
+  }
+});
+
+/* ───────────────────────────────────────────────────────────────
    Meta (Facebook) Pixel + Conversions API.
 
    The access token lives only in the server-only doc `private/meta`
@@ -1433,7 +2226,6 @@ exports.sendTestEmail = onCall({ region: 'us-central1' }, async () => {
    after an order document actually exists in Firestore — so a Purchase
    CAPI event can never be sent just because a client called a function.
    ─────────────────────────────────────────────────────────────── */
-const crypto = require('crypto');
 
 const META_GRAPH_VERSION = 'v26.0';
 

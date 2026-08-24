@@ -76,8 +76,8 @@
   function getOrders() {
     return db.collection('orders').get().then(function (snap) {
       return mapDocs(snap).sort(function (a, b) {
-        var ta = a.placedAt && a.placedAt.seconds ? a.placedAt.seconds : (a.createdAt || 0);
-        var tb = b.placedAt && b.placedAt.seconds ? b.placedAt.seconds : (b.createdAt || 0);
+        var ta = a.placedAt && a.placedAt.seconds ? a.placedAt.seconds * 1000 : (a.createdAt || 0);
+        var tb = b.placedAt && b.placedAt.seconds ? b.placedAt.seconds * 1000 : (b.createdAt || 0);
         return tb - ta;
       });
     }).catch(function (e) { console.error('[DS] getOrders', e); return []; });

@@ -88,6 +88,50 @@ body{background:#F5FAF9}
 @keyframes clHint{0%,100%{transform:translateX(0)}50%{transform:translateX(-8px)}}
 @media(max-width:640px){.cl-story{padding:3.5rem 1.2rem 3rem}.cl-story-caption{min-height:120px}}
 
+/* ───────── before / after + skin concerns ───────── */
+.cl-ba{position:relative;overflow:hidden;text-align:center;padding:4.5rem 1.2rem;background:#0A2A2E}
+.cl-ba .cl-label{color:#BFEDE8;background:rgba(255,255,255,.07);border-color:rgba(191,237,232,.35)}
+.cl-ba .cl-title{color:#fff}
+.cl-ba-sub{color:#BFEDE8;font-size:.92rem;max-width:520px;margin:.9rem auto 0;line-height:1.85}
+.cl-ba-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;max-width:1100px;margin:2.6rem auto 0}
+.ba-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:1rem 1rem 1.35rem;backdrop-filter:blur(6px)}
+.ba-frame{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:3/2.4;cursor:ew-resize;touch-action:pan-y;user-select:none;-webkit-user-select:none;--ba:50%}
+.ba-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
+.ba-after{clip-path:inset(0 calc(100% - var(--ba)) 0 0);transition:clip-path .7s cubic-bezier(.22,1,.36,1)}
+.ba-handle{position:absolute;top:0;bottom:0;left:var(--ba);width:0;transition:left .7s cubic-bezier(.22,1,.36,1)}
+.ba-frame.dragging .ba-after,.ba-frame.dragging .ba-handle{transition:none}
+.ba-handle::before{content:'';position:absolute;top:0;bottom:0;left:-1.5px;width:3px;background:#fff;box-shadow:0 0 14px rgba(0,0,0,.5)}
+.ba-knob{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.4);color:var(--col-deep)}
+.ba-knob svg{width:20px;height:20px}
+.ba-tag{position:absolute;top:10px;font-size:.66rem;font-weight:800;padding:4px 12px;border-radius:100px;color:#fff;backdrop-filter:blur(4px);pointer-events:none}
+.ba-tag-before{right:10px;background:rgba(10,42,46,.65);border:1px solid rgba(255,255,255,.25)}
+.ba-tag-after{left:10px;background:linear-gradient(135deg,#E8C79A,#D9A86C);color:#3A2B12}
+.ba-card h3{color:#fff;font-size:1.02rem;font-weight:900;margin:1rem 0 .3rem}
+.ba-card>p{color:#BFEDE8;font-size:.78rem;line-height:1.7}
+.cl-ba-note{color:rgba(191,237,232,.55);font-size:.68rem;margin-top:1.2rem}
+.ba-ph{color:#fff;font-size:clamp(1.2rem,2.6vw,1.6rem);font-weight:900;margin:3.4rem auto 0;line-height:1.5}
+.ba-ph em{font-style:normal;background:linear-gradient(135deg,#E8C79A,#D9A86C);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.ba-pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;max-width:1100px;margin:1.8rem auto 0;text-align:right}
+.ba-prob{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:1.3rem;
+  min-height:340px;display:flex;flex-direction:column;justify-content:flex-end;transition:all .35s var(--ease);
+  box-shadow:0 14px 34px rgba(0,0,0,.35)}
+.ba-prob:hover{transform:translateY(-6px);border-color:rgba(232,199,154,.45);box-shadow:0 22px 48px rgba(0,0,0,.5)}
+.ba-prob .bp-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;transition:transform .7s var(--ease)}
+.ba-prob:hover .bp-bg{transform:scale(1.07)}
+.ba-prob::after{content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(180deg,rgba(10,42,46,.45) 0%,rgba(10,42,46,.72) 45%,rgba(7,30,34,.96) 100%)}
+.ba-prob .bp-body{position:relative;z-index:2}
+.ba-prob h4{color:#fff;font-size:1rem;font-weight:900;margin-bottom:.45rem;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.ba-prob h4::before{content:'';display:inline-block;width:22px;height:2px;border-radius:100px;vertical-align:middle;
+  margin-inline-end:.5rem;background:linear-gradient(90deg,#E8C79A,#D9A86C)}
+.ba-prob p{color:#D9EEEB;font-size:.78rem;line-height:1.75;margin-bottom:.75rem;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.ba-prob .bp-fix{display:flex;align-items:flex-start;gap:.45rem;font-size:.76rem;font-weight:700;color:#E8C79A;line-height:1.65;border-top:1px dashed rgba(232,199,154,.35);padding-top:.75rem}
+.ba-prob .bp-fix b{flex-shrink:0}
+.cl-ba .btn-gold{margin-top:2.4rem}
+@media(max-width:960px){.cl-ba-grid{grid-template-columns:1fr;max-width:430px}.ba-pgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.cl-ba{padding:3.5rem 1.2rem}.ba-pgrid{grid-template-columns:1fr;max-width:430px}}
+
 /* ───────── section shell (teal variant) ───────── */
 .cl-sec{max-width:1280px;margin:0 auto;padding:5rem 3rem}
 .cl-sec-head{text-align:center;margin-bottom:3rem}
@@ -129,8 +173,6 @@ body{background:#F5FAF9}
 .cl-prow:hover{transform:translateY(-6px);box-shadow:0 24px 50px rgba(14,58,64,.15)}
 .cl-prow .pr-imgwrap{position:relative}
 .cl-prow .pr-imgwrap img{width:100%;border-radius:18px;box-shadow:0 16px 34px rgba(14,58,64,.14)}
-.cl-prow .pr-num{position:absolute;top:-12px;right:-12px;width:42px;height:42px;border-radius:50%;background:var(--pc);
-  color:#fff;font-weight:900;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(0,0,0,.25);z-index:2}
 .cl-prow .pr-brand{font-size:.64rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:var(--pc);margin-bottom:.4rem}
 .cl-prow h3{font-size:1.18rem;font-weight:900;color:var(--col-deep);line-height:1.35;margin-bottom:.3rem}
 .cl-prow .pr-headline{font-size:.85rem;color:var(--ink-2);margin-bottom:1.1rem;line-height:1.6}
@@ -151,6 +193,27 @@ body{background:#F5FAF9}
 .cl-prow .pr-mini span{display:flex;align-items:center;gap:.3rem}
 @media(max-width:860px){.cl-prow{grid-template-columns:1fr;padding:1.6rem}.cl-prow .pr-imgwrap{max-width:220px;margin:0 auto;order:-1}}
 @media(max-width:460px){.cl-prow .pr-icons{grid-template-columns:repeat(2,1fr);row-gap:.9rem}}
+/* special-offer product (glutathione — final solution) */
+.cl-prow--special{background:linear-gradient(160deg,#0E3A40 0%,#0A2A2E 100%);border-inline-start-width:0;
+  border:1px solid rgba(201,162,74,.5);box-shadow:0 18px 44px rgba(14,58,64,.28),0 0 0 1px rgba(201,162,74,.18) inset;padding-top:2.6rem}
+.cl-prow--special::before{content:'';position:absolute;inset:0;border-radius:26px;padding:1px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(232,199,154,.9),rgba(201,162,74,.15),rgba(232,199,154,.7));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.cl-prow--special:hover{box-shadow:0 28px 60px rgba(0,0,0,.4),0 0 0 1px rgba(201,162,74,.3) inset}
+.cl-prow--special .pr-brand{color:#E8C79A}
+.cl-prow--special h3{color:#fff}
+.cl-prow--special .pr-headline{color:#D9EEEB}
+.cl-prow--special .pr-icon .pi-ic{background:rgba(201,162,74,.16)}
+.cl-prow--special .pr-icon span{color:#BFEDE8}
+.cl-prow--special .pr-bullets li{color:#D9EEEB}
+.cl-prow--special .pr-bullets li b{color:#E8C79A}
+.cl-prow--special .pr-price{color:#fff}
+.cl-prow--special .pr-mini{color:rgba(191,237,232,.75)}
+.cl-prow--special .pr-btn{background:linear-gradient(135deg,#E8C79A,#C9A24A);color:#3A2B12}
+.pr-ribbon{position:absolute;top:0;inset-inline-start:0;z-index:3;font-size:.72rem;font-weight:900;color:#3A2B12;
+  background:linear-gradient(135deg,#E8C79A,#D9A86C);padding:.5rem 1.1rem;border-end-end-radius:16px;
+  box-shadow:0 6px 16px rgba(0,0,0,.25);letter-spacing:.2px}
+.pr-price .pr-offer{display:block;font-size:.62rem;font-weight:800;color:#E8C79A;margin-top:.15rem;letter-spacing:.3px}
 
 /* ───────── how it works ───────── */
 .cl-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem}
@@ -214,6 +277,24 @@ body{background:#F5FAF9}
 .cl-opt.on .check{border-color:var(--col-teal);background:var(--col-teal)}
 .cl-opt .check svg{width:14px;height:14px;color:#fff;opacity:0;transform:scale(.5);transition:all .2s}
 .cl-opt.on .check svg{opacity:1;transform:scale(1)}
+/* special-offer option — light golden & inviting */
+.cl-opt--special{position:relative;overflow:hidden;border-color:rgba(201,162,74,.55);
+  background:linear-gradient(135deg,#FFFBF2 0%,#FBF1DA 100%);
+  box-shadow:0 6px 20px rgba(201,162,74,.18);animation:optGlow 2.6s ease-in-out infinite}
+@keyframes optGlow{0%,100%{box-shadow:0 6px 18px rgba(201,162,74,.16)}50%{box-shadow:0 8px 26px rgba(201,162,74,.34)}}
+.cl-opt--special::after{content:'';position:absolute;top:0;bottom:0;width:45%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.7),transparent);
+  transform:skewX(-18deg);animation:optShine 3.4s ease-in-out infinite}
+@keyframes optShine{0%{inset-inline-start:-60%}55%,100%{inset-inline-start:130%}}
+.cl-opt--special:hover{border-color:var(--gold,#C9A24A)}
+.cl-opt--special .co-name{color:#5A4212}
+.cl-opt--special .co-price{color:#B07E24}
+.cl-opt--special.on{border-color:var(--gold,#C9A24A);background:linear-gradient(135deg,#FFF7E6 0%,#F7E7C2 100%)}
+.cl-opt--special .check{border-color:rgba(201,162,74,.6)}
+.cl-opt--special.on .check{border-color:var(--gold,#C9A24A);background:linear-gradient(135deg,#E8C79A,#C9A24A)}
+.cl-opt--special .co-tag{display:inline-block;font-size:.6rem;font-weight:900;color:#3A2B12;
+  background:linear-gradient(135deg,#E8C79A,#D9A86C);padding:2px 9px;border-radius:100px;margin-bottom:.28rem;letter-spacing:.2px}
+@media(prefers-reduced-motion:reduce){.cl-opt--special,.cl-opt--special::after{animation:none}}
 .cl-hint{text-align:center;font-size:.76rem;color:var(--ink-3);margin-bottom:.9rem}
 .cl-total{display:flex;align-items:center;justify-content:space-between;background:var(--col-pearl);border-radius:14px;
   padding:.85rem 1rem;margin-bottom:1rem;font-weight:800;color:var(--col-deep)}
@@ -286,14 +367,109 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   </div>
 </section>
 
+<section class="cl-ba" id="beforeAfter">
+  <span class="cl-label">قبل وبعد</span>
+  <h2 class="cl-title">شاهدي الفرق بنفسكِ</h2>
+  <p class="cl-ba-sub">اسحبي المؤشر يميناً ويساراً لتشاهدي الفرق الذي يصنعه الالتزام بالكولاجين يومياً.</p>
+  <div class="cl-ba-grid">
+    <div class="ba-card">
+      <div class="ba-frame">
+        <img class="ba-img ba-before" src="assets/collagen/ba-nails-before.webp" alt="الأظافر قبل الكولاجين" draggable="false">
+        <img class="ba-img ba-after" src="assets/collagen/story-nails.webp" alt="الأظافر بعد الكولاجين" draggable="false">
+        <span class="ba-tag ba-tag-before">قبل</span>
+        <span class="ba-tag ba-tag-after">بعد</span>
+        <div class="ba-handle"><span class="ba-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18-6-6 6-6"/><path d="m15 6 6 6-6 6"/></svg></span></div>
+      </div>
+      <h3>أظافر صحية لا تتكسر</h3>
+      <p>بنية أقوى للظفر، نمو أسرع، وتقصف أقل من أول شهر.</p>
+    </div>
+    <div class="ba-card">
+      <div class="ba-frame">
+        <img class="ba-img ba-before" src="assets/collagen/ba-hair-before.webp" alt="الشعر قبل الكولاجين" draggable="false">
+        <img class="ba-img ba-after" src="assets/collagen/story-hair.webp" alt="الشعر بعد الكولاجين" draggable="false">
+        <span class="ba-tag ba-tag-before">قبل</span>
+        <span class="ba-tag ba-tag-after">بعد</span>
+        <div class="ba-handle"><span class="ba-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18-6-6 6-6"/><path d="m15 6 6 6-6 6"/></svg></span></div>
+      </div>
+      <h3>شعر أقوى وأقل تساقطاً</h3>
+      <p>تغذية للبصيلات من الجذور، تساقط أقل وكثافة ولمعان يزدادان مع الوقت.</p>
+    </div>
+    <div class="ba-card">
+      <div class="ba-frame">
+        <img class="ba-img ba-before" src="assets/collagen/ba-skin-before.webp" alt="البشرة قبل الكولاجين" draggable="false">
+        <img class="ba-img ba-after" src="assets/collagen/story-skin.webp" alt="البشرة بعد الكولاجين" draggable="false">
+        <span class="ba-tag ba-tag-before">قبل</span>
+        <span class="ba-tag ba-tag-after">بعد</span>
+        <div class="ba-handle"><span class="ba-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18-6-6 6-6"/><path d="m15 6 6 6-6 6"/></svg></span></div>
+      </div>
+      <h3>بشرة أكثر نضارة وإشراقاً</h3>
+      <p>خطوط أدق، ترطيب أعمق، وإشراقة تلاحظينها خلال 4–8 أسابيع من الانتظام.</p>
+    </div>
+  </div>
+  <p class="cl-ba-note">الصور توضيحية لغرض المقارنة — النتائج الفعلية تختلف من شخص لآخر حسب الانتظام ونمط الحياة.</p>
+
+  <h3 class="ba-ph">هل تعانين من إحدى هذه المشاكل؟ <em>منتجاتنا صُمّمت لأجلكِ</em></h3>
+  <div class="ba-pgrid">
+    <div class="ba-prob">
+      <img class="bp-bg" src="assets/collagen/prob-wrinkles.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>التجاعيد والخطوط الدقيقة</h4>
+        <p>بعد سن 25 يفقد الجسم قرابة 1% من كولاجينه سنوياً، فتظهر الخطوط حول العينين والفم وتفقد البشرة امتلاءها.</p>
+        <div class="bp-fix"><b>✓</b>ببتيدات الكولاجين تدعم مرونة البشرة وتساعد على تقليل مظهر الخطوط من الداخل.</div>
+      </div>
+    </div>
+    <div class="ba-prob">
+      <img class="bp-bg" src="assets/collagen/prob-dryskin.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>جفاف البشرة وبهتانها</h4>
+        <p>قلة الترطيب والإجهاد اليومي يتركان البشرة باهتة ومتعبة المظهر مهما جرّبتِ من كريمات خارجية.</p>
+        <div class="bp-fix"><b>✓</b>الكولاجين البحري مع حمض الهيالورونيك يرطّب بشرتكِ بعمق من الداخل ويعيد إشراقتها.</div>
+      </div>
+    </div>
+    <div class="ba-prob">
+      <img class="bp-bg" src="assets/collagen/ba-hair-before.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>تساقط الشعر وضعفه</h4>
+        <p>التساقط بعد الولادة، نقص الفيتامينات أو الصبغات المتكررة — كلها تُضعف بصيلات الشعر وتقلل كثافته.</p>
+        <div class="bp-fix"><b>✓</b>تركيبة الكولاجين المدعمة بالبيوتين تغذّي الجذور وتساعد على تقليل التساقط.</div>
+      </div>
+    </div>
+    <div class="ba-prob">
+      <img class="bp-bg" src="assets/collagen/ba-nails-before.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>أظافر هشة ومتكسرة</h4>
+        <p>أظافر تتقصف من أبسط الأعمال اليومية، تنمو ببطء ولا تحتفظ بطولها مهما اعتنيتِ بها.</p>
+        <div class="bp-fix"><b>✓</b>الكولاجين مع فيتامين C يقوّي بنية الظفر ويدعم نموه بشكل صحي.</div>
+      </div>
+    </div>
+    <div class="ba-prob">
+      <img class="bp-bg" src="assets/collagen/story-joints.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>آلام وتيبّس المفاصل</h4>
+        <p>ألم في الركبتين وصعوبة في الحركة بعد يوم طويل، أو تيبّس صباحي يزداد مع مرور السنوات.</p>
+        <div class="bp-fix"><b>✓</b>20غ من ببتيدات الكولاجين يومياً تدعم صحة الغضاريف ومرونة الحركة.</div>
+      </div>
+    </div>
+    <div class="ba-prob">
+      <img class="bp-bg" src="assets/collagen/ba-skin-before.webp" alt="" loading="lazy" aria-hidden="true">
+      <div class="bp-body">
+        <h4>فقدان مرونة البشرة</h4>
+        <p>ترهّل خفيف في الوجه والرقبة وفقدان الامتلاء الطبيعي للخدين مع التقدم في العمر.</p>
+        <div class="bp-fix"><b>✓</b>الاستخدام المنتظم يدعم كثافة الكولاجين تحت الجلد ويساعد على شدّ البشرة.</div>
+      </div>
+    </div>
+  </div>
+  <button class="btn-gold" id="baOrderBtn">🛒 ابدئي رحلة التغيير اليوم</button>
+</section>
+
 <section class="cl-story" id="clStory">
   <span class="cl-label">قصة جمالكِ</span>
   <h2 class="cl-title">شاهدي ما يفعله الكولاجين</h2>
   <div class="cl-story-stage" id="storyStage">
     <figure class="cl-scard"><img src="assets/collagen/story-skin.webp" alt="بشرة نضرة ومشرقة" draggable="false"></figure>
-    <figure class="cl-scard"><img src="assets/collagen/story-hair.jpg" alt="شعر قوي وكثيف" draggable="false"></figure>
-    <figure class="cl-scard"><img src="assets/collagen/story-nails.jpg" alt="أظافر صحية وقوية" draggable="false"></figure>
-    <figure class="cl-scard"><img src="assets/collagen/story-joints.jpg" alt="مفاصل مرنة بلا آلام" draggable="false"></figure>
+    <figure class="cl-scard"><img src="assets/collagen/story-hair.webp" alt="شعر قوي وكثيف" draggable="false"></figure>
+    <figure class="cl-scard"><img src="assets/collagen/story-nails.webp" alt="أظافر صحية وقوية" draggable="false"></figure>
+    <figure class="cl-scard"><img src="assets/collagen/story-joints.webp" alt="مفاصل مرنة بلا آلام" draggable="false"></figure>
   </div>
   <div class="cl-story-caption" id="storyCaption"><h3></h3><p></p></div>
   <div class="cl-story-dots" id="storyDots"><span></span><span></span><span></span><span></span></div>
@@ -332,7 +508,7 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     <span class="cl-label">مجموعتنا المختارة</span>
     <h2 class="cl-title">اختاري الكولاجين المناسب لكِ</h2>
     <div class="cl-underline"></div>
-    <p class="cl-sub">أربع تركيبات عالمية موثوقة — بودرة بدون نكهة أو كبسولات، حسب ما يناسب روتينكِ.</p>
+    <p class="cl-sub">أربع تركيبات كولاجين عالمية موثوقة، وكخطوةٍ أخيرة: جلوتاثيون للتفتيح وتوحيد لون البشرة — عرض خاص لبشرة موحّدة ومشرقة.</p>
   </div>
   <div class="cl-products" id="clProducts"></div>
 </section>
@@ -449,6 +625,14 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
       price: 10600, image: 'assets/collagen/neocell-marine.webp', color: '#1B6FA8', soft: 'rgba(27,111,168,.12)',
       icons: [['💧', 'يدعم ترطيب البشرة بعمق'], ['✨', 'يحسّن مرونة البشرة ويقلل التجاعيد'], ['💅', 'يدعم صحة الأظافر'], ['💆‍♀️', 'يدعم نمو الشعر وكثافته']],
       bullets: ['كولاجين بحري مدعم بحمض الهيالورونيك لترطيب أعمق', '120 كبسولة سهلة الاستخدام يومياً بدون طعم', 'يدعم مرونة البشرة ويقلل من مظهر التجاعيد']
+    },
+    {
+      id: 'col-glutathione', brand: 'LIFE EXTENSION', title: 'Glutathione, Cysteine & C — جلوتاثيون للتفتيح',
+      headline: 'الحل النهائي لمشاكل البشرة — يفتّح ويوحّد لون بشرتكِ ويكمّل مفعول الكولاجين.',
+      price: 14000, image: 'assets/collagen/glutathione.webp', color: '#C9A24A', soft: 'rgba(201,162,74,.14)',
+      special: true, badge: '✨ عرض خاص — الحل النهائي', offerNote: 'لفترة محدودة',
+      icons: [['🌟', 'يفتّح ويوحّد لون البشرة'], ['🛡️', 'مضاد أكسدة قوي'], ['💧', 'يقلل التصبّغات والبقع الداكنة'], ['🧬', 'يعزّز مفعول الكولاجين']],
+      bullets: ['ثلاثية الجلوتاثيون + السيستئين + فيتامين C للتفتيح والحماية من الأكسدة', 'يعمل جنباً إلى جنب مع الكولاجين لبشرة موحّدة ومشرقة من الداخل', '100 كبسولة — خالٍ من الجلوتين ومعتمد NON-GMO']
     }
   ];
 
@@ -457,7 +641,8 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
 
   // ───────── product rows ─────────
   document.getElementById('clProducts').innerHTML = PRODUCTS.map(function (p, i) {
-    return '<div class="cl-prow" style="--pc:' + p.color + ';--pc-soft:' + p.soft + '">' +
+    return '<div class="cl-prow' + (p.special ? ' cl-prow--special' : '') + '" style="--pc:' + p.color + ';--pc-soft:' + p.soft + '">' +
+      (p.badge ? '<div class="pr-ribbon">' + esc(p.badge) + '</div>' : '') +
       '<div class="pr-body">' +
         '<div class="pr-brand">' + p.brand + '</div>' +
         '<h3>' + esc(p.title) + '</h3>' +
@@ -467,12 +652,12 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
         }).join('') + '</div>' +
         '<ul class="pr-bullets">' + p.bullets.map(function (b) { return '<li><b>✓</b>' + esc(b) + '</li>'; }).join('') + '</ul>' +
         '<div class="pr-foot">' +
-          '<span class="pr-price">' + money(p.price) + '</span>' +
+          '<span class="pr-price">' + money(p.price) + (p.offerNote ? '<small class="pr-offer">' + esc(p.offerNote) + '</small>' : '') + '</span>' +
           '<button class="pr-btn" data-pick="' + p.id + '">🛒 اطلبي الآن</button>' +
           '<div class="pr-mini"><span>💵 الدفع عند الاستلام</span><span>🚚 توصيل لكل الولايات</span></div>' +
         '</div>' +
       '</div>' +
-      '<div class="pr-imgwrap"><div class="pr-num">' + (i + 1) + '</div><img src="' + p.image + '" alt="' + esc(p.title) + '" loading="lazy"></div>' +
+      '<div class="pr-imgwrap"><img src="' + p.image + '" alt="' + esc(p.title) + '" loading="lazy"></div>' +
     '</div>';
   }).join('');
 
@@ -511,10 +696,13 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
       '<p class="cl-hint">يمكنكِ اختيار أكثر من منتج في نفس الطلب</p>' +
       PRODUCTS.map(function (p) {
         var on = selected.indexOf(p.id) !== -1;
-        return '<div class="cl-opt' + (on ? ' on' : '') + '" data-opt="' + p.id + '">' +
+        return '<div class="cl-opt' + (on ? ' on' : '') + (p.special ? ' cl-opt--special' : '') + '" data-opt="' + p.id + '">' +
           '<div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' +
           '<img src="' + p.image + '" alt="">' +
-          '<div class="co-info"><div class="co-name">' + esc(p.title) + '</div><div class="co-price">' + money(p.price) + '</div></div>' +
+          '<div class="co-info">' +
+            (p.special ? '<span class="co-tag">✨ عرض خاص</span>' : '') +
+            '<div class="co-name">' + esc(p.title) + '</div><div class="co-price">' + money(p.price) + '</div>' +
+          '</div>' +
         '</div>';
       }).join('') +
       '<div class="cl-fields">' +
@@ -647,13 +835,45 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
   ov.addEventListener('click', function (e) { if (e.target === ov) closeModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
-  ['heroOrderBtn', 'ctaOrderBtn', 'stickyOrderBtn'].forEach(function (id) {
+  ['heroOrderBtn', 'baOrderBtn', 'ctaOrderBtn', 'stickyOrderBtn'].forEach(function (id) {
     var b = document.getElementById(id); if (b) b.addEventListener('click', function () { openModal(); });
   });
   document.getElementById('clProducts').addEventListener('click', function (e) {
     var b = e.target.closest('[data-pick]'); if (!b) return;
     openModal(b.getAttribute('data-pick'));
   });
+
+  // ───────── before/after sliders (drag the divider) ─────────
+  (function () {
+    var frames = Array.prototype.slice.call(document.querySelectorAll('.ba-frame'));
+    if (!frames.length) return;
+    frames.forEach(function (fr) {
+      function set(p) { fr.style.setProperty('--ba', Math.max(8, Math.min(92, p)) + '%'); }
+      function fromEvent(e) { var r = fr.getBoundingClientRect(); set((e.clientX - r.left) / r.width * 100); }
+      var drag = false;
+      fr.addEventListener('pointerdown', function (e) {
+        drag = true; fr.classList.add('dragging');
+        if (fr.setPointerCapture) fr.setPointerCapture(e.pointerId);
+        fromEvent(e);
+      });
+      fr.addEventListener('pointermove', function (e) { if (drag) fromEvent(e); });
+      function stop() { drag = false; fr.classList.remove('dragging'); }
+      fr.addEventListener('pointerup', stop);
+      fr.addEventListener('pointercancel', stop);
+    });
+    // sweep the divider once when the section scrolls into view, so it reads as draggable
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      var io = new IntersectionObserver(function (es) {
+        if (!es[0].isIntersecting) return;
+        io.disconnect();
+        frames.forEach(function (fr, i) {
+          setTimeout(function () { fr.style.setProperty('--ba', '80%'); }, 250 + i * 180);
+          setTimeout(function () { fr.style.setProperty('--ba', '50%'); }, 1150 + i * 180);
+        });
+      }, { rootMargin: '0px 0px -100px 0px' });
+      io.observe(frames[0]);
+    }
+  })();
 
   // ───────── customer reviews: staggered in-view entrance ─────────
   (function () {
@@ -775,8 +995,8 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     function progress() {
       var r = stage.getBoundingClientRect(), vh = window.innerHeight;
       var c = r.top + r.height / 2;
-      var pIn = (vh - c) / (vh * 0.45);                                  // entering from below
-      var pOut = c / (vh * 0.45);                                        // leaving through the top
+      var pIn = (vh - c) / (vh * 0.26);                                  // entering from below
+      var pOut = c / (vh * 0.26);                                        // leaving through the top
       return Math.max(0, Math.min(1, Math.min(pIn, pOut)));
     }
     var settled = false;

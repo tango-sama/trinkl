@@ -2,16 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // The single admin account (Firebase Auth email/password). amelhadj.html
-    // signs in with this email; everything sensitive requires it. Email
-    // addresses are unique in Firebase Auth, so no one else can register it.
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'tango0es@gmail.com';
+      return request.auth != null &&
+        request.auth.token.email in ['tango0es@gmail.com', 'hadjajamel1988@gmail.com'];
     }
 
-    // Carrier API credentials (Yalidine/Noest/ZR). Never readable by any
-    // client — only Cloud Functions read them via the Admin SDK, which
-    // bypasses these rules. Only the signed-in admin can set them.
+    // Yalidine/Noest/ZR API credentials. Never readable by any client — only
+    // the Cloud Function reads them via the Admin SDK, which bypasses these
+    // rules. Writable only by the signed-in admin panel.
     match /private/{document=**} {
       allow read: if false;
       allow write: if isAdmin();
@@ -23,22 +21,22 @@ service cloud.firestore {
     // Synced per-carrier wilaya/commune/fee lists (function-written, public read).
     match /delivery_data/{document=**}      { allow read: if true; allow write: if false; }
 
-    // Admin web-push subscriptions. Registered from the admin panel after
-    // sign-in; only the Cloud Function reads them (Admin SDK).
-    match /push_subs/{document=**} { allow read: if false; allow write: if isAdmin(); }
+    // Admin web-push subscriptions — only registered from inside the signed-in
+    // admin panel; the Cloud Function reads them via the Admin SDK.
+    match /push_subs/{document=**} { allow read, write: if isAdmin(); }
 
-    // Public catalog: anyone can read, only the admin can change it.
+    // Public catalog — anyone can read, only the admin can write.
     match /products/{document=**}         { allow read: if true; allow write: if isAdmin(); }
     match /categories/{document=**}        { allow read: if true; allow write: if isAdmin(); }
     match /featured_products/{document=**} { allow read: if true; allow write: if isAdmin(); }
     match /site_settings/{document=**}     { allow read: if true; allow write: if isAdmin(); }
 
-    // Customers create orders/messages at checkout; only the admin can read
-    // them (they contain names, phones, addresses) or change them.
+    // Customer data — anyone can create (checkout/contact), only the admin
+    // can read or modify it afterward.
     match /orders/{document=**}   { allow create: if true; allow read, update, delete: if isAdmin(); }
     match /messages/{document=**} { allow create: if true; allow read, update, delete: if isAdmin(); }
 
-    // Internal bookkeeping — admin only.
+    // Financial ledger — admin only.
     match /expenses/{document=**} { allow read, write: if isAdmin(); }
   }
 }
