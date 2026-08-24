@@ -996,6 +996,7 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     var noEnabled = s.noestEnabled !== false;
     var zrEnabled = s.zrEnabled === true; // ZR is opt-in for customers
     var waOn = s.waEnabled !== false;     // WhatsApp visible on the storefront
+    var metaOn = s.metaEnabled !== false; // Meta Pixel/CAPI active on the storefront
     function carriersOnCount() { return (yalEnabled ? 1 : 0) + (noEnabled ? 1 : 0) + (zrEnabled ? 1 : 0); }
     var liveHours = s.tiktokLiveHours || 2;
     var liveActive = !!s.tiktokLive && (Date.now() - (s.tiktokLiveAt || 0) < liveHours * 3600000);
@@ -1030,6 +1031,17 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         '<div class="row-actions" style="margin-bottom:.5rem"><button class="btn btn-sm" style="background:' + (waOn ? 'var(--green)' : 'var(--card-2)') + ';color:' + (waOn ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="sToggleWa">' + (waOn ? '💬 واتساب مفعّل في الموقع — تعطيل' : '🚫 واتساب معطّل في الموقع — تفعيل') + '</button></div>' +
         '<div style="font-size:.75rem;color:var(--ink-3);margin-bottom:.8rem">عند التعطيل تختفي كل أزرار وروابط واتساب من الموقع (الزر العائم، صفحة المنتج، تأكيد الطلب، الفوتر) ويبقى الطلب عبر الاستمارة فقط.</div>' +
         '<div class="row-actions"><button class="btn btn-green" id="sSave">💾 حفظ الإعدادات</button></div>' +
+      '</div>' +
+      '<div class="card" style="max-width:680px;border-color:#1877F2"><h3 style="color:#7DA8F0">📘 Meta Pixel + Conversions API</h3>' +
+        '<div style="margin-bottom:1.1rem;padding:.7rem 1rem;border-radius:11px;font-weight:700;font-size:.85rem;' + (s.metaReady ? 'background:rgba(24,119,242,.15);color:#7DA8F0">✓ مربوط بحساب Meta' : 'background:rgba(229,72,77,.12);color:#F2A1A4">● غير مربوط بعد') + '</div>' +
+        '<div class="field"><label>Pixel ID</label><input class="inp" id="sMetaPixel" dir="ltr" value="' + esc(s.metaPixelId || '') + '" placeholder="1234567890123456"></div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>Access Token (Conversions API)</label><input class="inp" id="sMetaToken" type="password" autocomplete="off" dir="ltr" placeholder="' + (s.metaReady ? '•••••• (محفوظ)' : 'أدخلي Access Token') + '"></div>' +
+          '<div class="field"><label>Test Event Code (اختياري)</label><input class="inp" id="sMetaTest" dir="ltr" autocomplete="off" placeholder="' + (s.metaReady ? '(محفوظ إن وُجد) TEST12345' : 'TEST12345') + '"></div>' +
+        '</div>' +
+        '<div style="font-size:.75rem;color:var(--ink-3);margin-top:-.3rem;margin-bottom:.8rem">من Meta Events Manager ← مصدر البيانات ← إعدادات ← Conversions API: انسخي Pixel ID و Access Token. Test Event Code (من تبويب Test Events) يُظهر أحداثكِ فوراً هناك للتأكد من عملها — احذفيه بعد الاختبار. Access Token يُخزَّن بشكل آمن ولا يظهر في الموقع؛ اتركيه فارغاً للإبقاء على القيمة المحفوظة.</div>' +
+        '<div class="row-actions"><button class="btn" style="background:#1877F2;color:#fff" id="sSaveMeta">💾 حفظ إعدادات Meta</button>' +
+          '<button class="btn btn-sm" style="background:' + (metaOn ? 'var(--green)' : 'var(--card-2)') + ';color:' + (metaOn ? '#fff' : 'var(--ink-3)') + ';border:1px solid var(--border)" id="sToggleMeta">' + (metaOn ? '📘 التتبّع مفعّل — تعطيل' : '🚫 التتبّع معطّل — تفعيل') + '</button></div>' +
       '</div>' +
       '<div class="card" style="max-width:680px"><h3>🔴 البث المباشر (تيك توك)</h3>' +
         '<div style="font-size:.82rem;color:var(--ink-2);line-height:1.7;margin-bottom:1rem">عند بدء بثكِ المباشر على تيك توك، فعّلي الزر فيظهر زرّ عائم متحرّك يدعو الزوار للانضمام. يُخفى تلقائياً بعد المدة المحددة (أو أطفئيه يدوياً). يستخدم رابط حساب تيك توك المحفوظ.</div>' +
@@ -1130,7 +1142,8 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
     function persistSettings(extra, okMsg, after) {
       var data = Object.assign({}, state.settings, {
         heroImage: $('#sHero').value.trim(), storeName: $('#sName').value.trim(), waNumber: $('#sWa').value.trim(),
-        instagram: $('#sIg').value.trim(), facebook: $('#sFb').value.trim(), tiktok: $('#sTt').value.trim()
+        instagram: $('#sIg').value.trim(), facebook: $('#sFb').value.trim(), tiktok: $('#sTt').value.trim(),
+        metaPixelId: $('#sMetaPixel') ? $('#sMetaPixel').value.trim() : (state.settings.metaPixelId || '')
       }, extra || {});
       var docId = state.settings && state.settings.id ? state.settings.id : 'general';
       data.id = docId;
@@ -1139,6 +1152,24 @@ th{color:var(--ink-3);font-weight:700;font-size:.75rem;text-transform:uppercase;
         .catch(function (e) { console.error(e); toast('فشل الحفظ'); });
     }
     $('#sSave').onclick = function () { persistSettings({}, 'تم حفظ الإعدادات ✓'); };
+    if ($('#sToggleMeta')) $('#sToggleMeta').onclick = function () {
+      var willOn = !metaOn;
+      persistSettings({ metaEnabled: willOn }, willOn ? 'تتبّع Meta مفعّل ✓' : 'تم تعطيل تتبّع Meta', function () { views.settings(); });
+    };
+    if ($('#sSaveMeta')) $('#sSaveMeta').onclick = function () {
+      var token = $('#sMetaToken') ? $('#sMetaToken').value.trim() : '';
+      var testCode = $('#sMetaTest') ? $('#sMetaTest').value.trim() : '';
+      var pixelId = $('#sMetaPixel') ? $('#sMetaPixel').value.trim() : '';
+      var alreadyReady = !!state.settings.metaReady;
+      if (!pixelId) { toast('أدخلي Pixel ID أولاً'); return; }
+      if (!token && !alreadyReady) { toast('أدخلي Access Token'); return; }
+      function finish() { persistSettings({ metaReady: !!token || alreadyReady }, 'تم حفظ إعدادات Meta ✓', function () { views.settings(); }); }
+      var p;
+      if (token) p = DS.setDoc('private', 'meta', { accessToken: token, testEventCode: testCode, updatedAt: Date.now() });
+      else if (testCode) p = DS.updateDoc('private', 'meta', { testEventCode: testCode });
+      else { finish(); return; }
+      p.then(finish).catch(function (e) { console.error(e); toast('فشل حفظ المفاتيح'); });
+    };
     if ($('#sToggleLive')) $('#sToggleLive').onclick = function () {
       var willLive = !liveActive;
       if (willLive && !($('#sTt').value.trim() || state.settings.tiktok)) { toast('أضيفي رابط حساب تيك توك أولاً'); return; }

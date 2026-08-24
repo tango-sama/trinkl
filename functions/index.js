@@ -182,6 +182,7 @@ exports.createNoestParcel = onCall(
     // in the customer's commune; fall back to the wilaya's first desk.
     const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
     let stationCode = null;
+    let stationDesk = null;
     if (isStopdesk) {
       try {
         const dRes = await fetch(NOEST_BASE + '/api/public/desks', { headers });
@@ -201,14 +202,27 @@ exports.createNoestParcel = onCall(
             if (wantCommune) {
               const hay = norm([d.commune, d.commune_name, d.name, d.station_name, d.address, d.adresse]
                 .filter(Boolean).join(' '));
-              if (hay && (hay.includes(wantCommune) || wantCommune.includes(hay))) { stationCode = code; break; }
+              if (hay && (hay.includes(wantCommune) || wantCommune.includes(hay))) {
+                stationCode = code;
+                stationDesk = d;
+                break;
+              }
             }
           }
-          if (!stationCode) stationCode = first;
+          if (!stationCode) {
+            stationCode = first;
+            stationDesk = Object.values(desks).find((d) => String((d || {}).code || '') === first) || null;
+          }
         }
       } catch (e) { /* fall back to home delivery */ }
     }
     const useStopdesk = isStopdesk && !!stationCode;
+    // A Stop Desk's display name is not necessarily a valid Noest commune.
+    // Submit the selected desk's own underlying commune with its station code;
+    // otherwise Noest rejects the request with "commune sélectionné invalide".
+    const noestCommune = useStopdesk
+      ? (stationDesk && (stationDesk.commune || stationDesk.commune_name)) || o.communeFr || o.baladiya || ''
+      : o.communeFr || o.baladiya || '';
 
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
@@ -222,7 +236,7 @@ exports.createNoestParcel = onCall(
       phone: String(o.phone || '').replace(/\s/g, ''),
       adresse: [String(o.address || '').trim(), `${o.baladiya || ''} - ${o.wilaya || ''}`.trim()].filter(Boolean).join(' - ').slice(0, 255) || String(o.wilaya || '—'),
       wilaya_id: Number(o.wilayaId),
-      commune: o.communeFr || o.baladiya || '',
+      commune: noestCommune,
       montant: montant,
       produit: productList,
       type_id: 1,
@@ -895,15 +909,29 @@ exports.syncNoestFees = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
-   syncCarriers: pulls each carrier's real wilaya + commune lists from
-   its API and caches them (with per-wilaya fees) to delivery_data/<carrier>,
-   which the storefront reads to populate the right lists per carrier.
+   syncCarriers: pulls each carrier's real wilaya + commune + stop-desk
+   (agency office) lists from its API and caches them (with per-wilaya
+   fees) to delivery_data/<carrier>, which the storefront reads to
+   populate the right lists per carrier — including the Stop Desk
+   dropdown, which must show only that carrier's real desks in the
+   selected wilaya, never the commune list.
    ─────────────────────────────────────────────────────────────── */
 const WILAYA_NAMES = {"1":["أدرار","Adrar"],"2":["الشلف","Chlef"],"3":["الأغواط","Laghouat"],"4":["أم البواقي","Oum El Bouaghi"],"5":["باتنة","Batna"],"6":["بجاية","Béjaïa"],"7":["بسكرة","Biskra"],"8":["بشار","Béchar"],"9":["البليدة","Blida"],"10":["البويرة","Bouira"],"11":["تمنراست","Tamanrasset"],"12":["تبسة","Tébessa"],"13":["تلمسان","Tlemcen"],"14":["تيارت","Tiaret"],"15":["تيزي وزو","Tizi Ouzou"],"16":["الجزائر","Alger"],"17":["الجلفة","Djelfa"],"18":["جيجل","Jijel"],"19":["سطيف","Sétif"],"20":["سعيدة","Saïda"],"21":["سكيكدة","Skikda"],"22":["سيدي بلعباس","Sidi Bel Abbès"],"23":["عنابة","Annaba"],"24":["قالمة","Guelma"],"25":["قسنطينة","Constantine"],"26":["المدية","Médéa"],"27":["مستغانم","Mostaganem"],"28":["المسيلة","M'Sila"],"29":["معسكر","Mascara"],"30":["ورقلة","Ouargla"],"31":["وهران","Oran"],"32":["البيض","El Bayadh"],"33":["إليزي","Illizi"],"34":["برج بوعريريج","Bordj Bou Arréridj"],"35":["بومرداس","Boumerdès"],"36":["الطارف","El Tarf"],"37":["تندوف","Tindouf"],"38":["تيسمسيلت","Tissemsilt"],"39":["الوادي","El Oued"],"40":["خنشلة","Khenchela"],"41":["سوق أهراس","Souk Ahras"],"42":["تيبازة","Tipaza"],"43":["ميلة","Mila"],"44":["عين الدفلى","Aïn Defla"],"45":["النعامة","Naâma"],"46":["عين تموشنت","Aïn Témouchent"],"47":["غرداية","Ghardaïa"],"48":["غليزان","Relizane"],"49":["تيميمون","Timimoun"],"50":["برج باجي مختار","Bordj Badji Mokhtar"],"51":["أولاد جلال","Ouled Djellal"],"52":["بني عباس","Béni Abbès"],"53":["عين صالح","In Salah"],"54":["عين قزام","In Guezzam"],"55":["تقرت","Touggourt"],"56":["جانت","Djanet"],"57":["المغير","El M'Ghair"],"58":["المنيعة","El Meniaa"]};
 const YAL_FEES = {"1":[1400,1200],"2":[900,400],"3":[1050,600],"4":[900,400],"5":[900,400],"6":[900,400],"7":[1050,600],"8":[1400,800],"9":[750,350],"10":[900,400],"11":[1600,1200],"12":[1050,600],"13":[900,400],"14":[900,400],"15":[900,400],"16":[500,300],"17":[1050,600],"18":[900,400],"19":[900,400],"20":[900,400],"21":[900,400],"22":[900,400],"23":[900,400],"24":[900,400],"25":[900,400],"26":[900,400],"27":[900,400],"28":[900,400],"29":[900,400],"30":[1050,600],"31":[900,400],"32":[1050,600],"33":[1800,1200],"34":[900,400],"35":[750,350],"36":[900,400],"37":[1800,1200],"38":[900,400],"39":[1050,600],"40":[900,400],"41":[900,400],"42":[750,350],"43":[900,400],"44":[900,400],"45":[1050,600],"46":[900,400],"47":[1050,600],"48":[900,400],"49":[1400,800],"50":[1800,1200],"51":[1050,600],"52":[1400,800],"53":[1600,1200],"54":[1800,1200],"55":[1050,600],"56":[1800,1200],"57":[1050,600],"58":[1050,600]};
 const NOEST_FEES = {"1":[1500,700],"2":[950,450],"3":[850,400],"4":[850,400],"5":[850,400],"6":[900,400],"7":[950,450],"8":[1300,650],"9":[800,350],"10":[800,350],"11":[2000,1000],"12":[850,400],"13":[950,450],"14":[950,450],"15":[800,350],"16":[800,350],"17":[950,450],"18":[900,400],"19":[850,400],"20":[950,450],"21":[900,400],"22":[950,450],"23":[800,350],"24":[900,400],"25":[900,400],"26":[800,350],"27":[950,450],"28":[850,400],"29":[950,450],"30":[800,350],"31":[800,350],"32":[1000,500],"33":[1950,950],"34":[850,400],"35":[800,350],"36":[950,450],"37":[1750,850],"38":[950,450],"39":[800,350],"40":[850,400],"41":[900,400],"42":[800,350],"43":[900,400],"44":[950,450],"45":[1100,550],"46":[950,450],"47":[950,450],"48":[950,450],"49":[1200,600],"50":[1800,1200],"51":[950,450],"52":[1450,650],"53":[1650,850],"54":[1800,1200],"55":[700,300],"56":[2200,1600],"57":[850,300],"58":[1000,500]};
 
-async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable) {
+// Reverse-lookup for site_settings.originWilaya (stored as a French name, e.g.
+// "Touggourt") into the numeric wilaya id the Yalidine fees endpoint requires.
+function wilayaIdByName(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return null;
+  for (const id in WILAYA_NAMES) {
+    if (WILAYA_NAMES[id][1].toLowerCase() === n) return Number(id);
+  }
+  return null;
+}
+
+async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, centersByW, communeFeesByW) {
   const ids = wilayaIds.map(Number).filter((id) => WILAYA_NAMES[id]).sort((a, b) => a - b);
   const wilayas = ids.map((id) => ({ id, ar: WILAYA_NAMES[id][0], fr: WILAYA_NAMES[id][1] }));
   const communes = {};
@@ -915,8 +943,52 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable) {
   });
   const fees = {};
   ids.forEach((id) => { const f = feeTable[id]; if (f) fees[String(id)] = { home: f[0], desk: f[1] }; });
-  await db.collection('delivery_data').doc(name).set({ wilayas, communes, fees, updatedAt: Date.now() });
-  return { wilayas: wilayas.length, communes: Object.values(communes).reduce((a, b) => a + b.length, 0) };
+  // Stop desks (agency offices) — same shape as `communes` above (keyed by
+  // wilaya id) but each entry is a {id, name, address} object instead of a
+  // plain string, since desk names alone aren't guaranteed unique within a
+  // wilaya and the checkout dropdown needs a stable value to select by.
+  const centers = {};
+  let centerCount = 0;
+  Object.keys(centersByW || {}).forEach((wid) => {
+    const seen = new Set(); const out = [];
+    (centersByW[wid] || []).forEach((c) => {
+      const id = c && c.id != null ? String(c.id) : '';
+      const cname = c && String(c.name || '').trim();
+      if (!id || !cname || seen.has(id)) return;
+      seen.add(id);
+      out.push({ id, name: cname, address: (c.address && String(c.address).trim()) || '' });
+    });
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    if (out.length) { centers[String(wid)] = out; centerCount += out.length; }
+  });
+  // Per-commune fee overrides (currently only Yalidine — see
+  // yalidineFeeTable's per_commune capture). Same {home, desk} shape as
+  // `fees`, one extra level keyed by the exact commune name from `communes`
+  // above. Omitted from the doc entirely when the caller has none, so
+  // Noest/ZR docs stay exactly as they were (schema stays append-only).
+  const communeFees = {};
+  let communeFeeCount = 0;
+  Object.keys(communeFeesByW || {}).forEach((wid) => {
+    const raw = communeFeesByW[wid] || {};
+    const out = {};
+    Object.keys(raw).forEach((cname) => {
+      const f = raw[cname];
+      if (Array.isArray(f) && f.length === 2 && !isNaN(f[0]) && !isNaN(f[1])) {
+        out[cname] = { home: f[0], desk: f[1] };
+        communeFeeCount++;
+      }
+    });
+    if (Object.keys(out).length) communeFees[String(wid)] = out;
+  });
+  const doc = { wilayas, communes, centers, fees, updatedAt: Date.now() };
+  if (communeFeeCount) doc.communeFees = communeFees;
+  await db.collection('delivery_data').doc(name).set(doc);
+  return {
+    wilayas: wilayas.length,
+    communes: Object.values(communes).reduce((a, b) => a + b.length, 0),
+    centers: centerCount,
+    communeFees: communeFeeCount,
+  };
 }
 
 // Noest exposes the partner's real per-wilaya grid at /api/public/fees
@@ -945,42 +1017,217 @@ async function noestFeeTable(headers) {
   }
 }
 
+// Yalidine's /v1/fees endpoint is per (from_wilaya_id, to_wilaya_id) route —
+// unlike Noest/ZR it exposes no single "all routes" call, so build the table
+// with one request per destination wilaya, using the account's origin wilaya as
+// the fixed `from_wilaya_id`. Each response's per_commune breakdown gives BOTH
+// a per-wilaya summary (the mode — most common [home, desk], mirrors
+// zrFeeTable's per-wilaya shape, used as the fallback/preview before a commune
+// is picked) AND the real per-commune fees themselves (Yalidine's own
+// "Supplément commune" — real destinations inside the same wilaya can bill
+// differently, e.g. Adrar 1400 vs Akabli 1450 home). No extra API calls versus
+// the old mode-only version — the per-commune data was already in every
+// response, just discarded. Kept deliberately gentle (low concurrency + a
+// pause between batches) — an earlier version fired 8-at-a-time and appears to
+// have tripped Yalidine's abuse protection, which then connect-timed-out every
+// request (even the unrelated wilaya/commune list calls) for a while after.
+// Returns empty tables if the origin can't be resolved or every request
+// fails, so the caller falls back to the YAL_FEES placeholder; individual
+// wilaya failures are skipped rather than aborting the whole sync.
+async function yalidineFeeTable(headers, fromWilayaId, wilayaIds) {
+  if (!fromWilayaId) return { table: {}, communeFees: {} };
+  const mode = (m) => {
+    const e = Object.entries(m);
+    if (!e.length) return null;
+    e.sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+    return Number(e[0][0]);
+  };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const table = {};
+  const communeFees = {};
+  const CONCURRENCY = 2;
+  const BATCH_DELAY_MS = 400;
+  for (let i = 0; i < wilayaIds.length; i += CONCURRENCY) {
+    const batch = wilayaIds.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (toId) => {
+      try {
+        const url = `${API_BASE}/fees/?from_wilaya_id=${fromWilayaId}&to_wilaya_id=${toId}`;
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const body = await res.json();
+        const perCommune = (body && body.per_commune) || {};
+        const home = {}, desk = {};
+        const cf = {};
+        // per_commune is a dict keyed by commune name, each value carrying
+        // its own express_home/express_desk (Yalidine's real
+        // commune-specific price) plus a commune_name field that should
+        // match the key — fall back to the key itself if that field is
+        // ever absent, so a shape surprise degrades to "commune fee
+        // missing", never a crash.
+        Object.entries(perCommune).forEach(([key, c]) => {
+          if (!c) return;
+          const name = String((c.commune_name || key) || '').trim();
+          const h = typeof c.express_home === 'number' ? c.express_home : null;
+          const d = typeof c.express_desk === 'number' ? c.express_desk : null;
+          if (h != null) home[h] = (home[h] || 0) + 1;
+          if (d != null) desk[d] = (desk[d] || 0) + 1;
+          if (name && (h != null || d != null)) {
+            // if one side is missing for this commune, reuse the other so
+            // no delivery type is ever free.
+            cf[name] = [h != null ? h : d, d != null ? d : h];
+          }
+        });
+        const h0 = mode(home), d0 = mode(desk);
+        const h = h0 != null ? h0 : d0; // if one side is missing, reuse the other
+        const d = d0 != null ? d0 : h0; // so no delivery type is ever free
+        if (h != null && d != null) table[String(toId)] = [h, d];
+        if (Object.keys(cf).length) communeFees[String(toId)] = cf;
+      } catch (e) { /* skip this wilaya, keep the rest */ }
+    }));
+    if (i + CONCURRENCY < wilayaIds.length) await sleep(BATCH_DELAY_MS);
+  }
+  return { table, communeFees };
+}
+
+// Yalidine's stop-desk (center) list. GET /v1/centers returns EVERY center
+// nationwide in one paginated call (~99 total, per Yalidine's own docs) — the
+// same has_more/page pagination already used for communes above — so this is
+// one or two requests, not one per wilaya. (An earlier version called
+// `/centers/?wilaya_id=` once per wilaya — 58 extra requests stacked right
+// after yalidineFeeTable's own 58 — which is what tripped Yalidine's abuse
+// protection and made every one of those calls fail.)
+async function yalidineCenters(headers) {
+  const byW = {};
+  let page = 1, more = true;
+  while (more && page <= 4) {
+    const res = await fetch(`${API_BASE}/centers/?page_size=1000&page=${page}`, { headers });
+    if (!res.ok) break;
+    const body = await res.json();
+    (body.data || []).forEach((c) => {
+      if (c.wilaya_id == null) return;
+      const wid = String(c.wilaya_id);
+      (byW[wid] = byW[wid] || []).push({
+        id: c.center_id,
+        name: c.name || c.commune_name || '',
+        address: c.address || '',
+      });
+    });
+    more = !!body.has_more;
+    page++;
+  }
+  return byW;
+}
+
+// Noest's stop-desk list — a single call returns every desk nationwide (same
+// endpoint createNoestParcel already uses per-order); group by the wilaya id
+// encoded as the leading digits of each desk's `code`.
+async function noestCenters(headers) {
+  const byW = {};
+  try {
+    const res = await fetch(NOEST_BASE + '/api/public/desks', { headers });
+    if (!res.ok) return byW;
+    const raw = await res.json();
+    const arr = Array.isArray(raw) ? raw : Object.values(raw);
+    arr.forEach((d) => {
+      const code = String((d && d.code) || '');
+      const m = code.match(/^(\d+)/);
+      if (!m || !code) return;
+      const wid = String(parseInt(m[1], 10));
+      const name = d.name || d.station_name || d.commune_name || d.commune || code;
+      const address = d.address || d.adresse || '';
+      (byW[wid] = byW[wid] || []).push({ id: code, name, address });
+    });
+  } catch (e) { /* return whatever was collected before the failure */ }
+  return byW;
+}
+
+// ZR Express's stop-desk (hub) list — same `/hubs/search` call zrFindHub
+// already makes per-order, fetched once here and grouped by wilaya `code`
+// via the territory rows already fetched for the commune sync above.
+async function zrCenters(headers, rows) {
+  const wCodeById = {};
+  rows.forEach((t) => { if (t.level === 'wilaya' && Number(t.code)) wCodeById[t.id] = Number(t.code); });
+
+  const byW = {};
+  try {
+    const { res, body } = await zrFetch(ZR_BASE + '/hubs/search', {
+      method: 'POST', headers, body: JSON.stringify({ pageNumber: 1, pageSize: 1000 }),
+    });
+    if (!res.ok) return byW;
+    const hubs = (body && (body.items || body.data || body.results)) || [];
+    hubs.forEach((hub) => {
+      if (!hub || !hub.isPickupPoint) return;
+      const cityId = hub.address && hub.address.cityTerritoryId;
+      const code = cityId != null ? wCodeById[cityId] : null;
+      if (!code) return;
+      const name = hub.name || hub.label || (hub.address && (hub.address.street || hub.address.name)) || 'مكتب';
+      const address = (hub.address && hub.address.street) || '';
+      (byW[String(code)] = byW[String(code)] || []).push({ id: hub.id, name, address });
+    });
+  } catch (e) { /* return whatever was collected before the failure */ }
+  return byW;
+}
+
 exports.syncCarriers = onCall(
-  { region: 'us-central1', timeoutSeconds: 120 },
+  { region: 'us-central1', timeoutSeconds: 480 },
   async () => {
     const db = admin.firestore();
     const yalSnap = await db.collection('private').doc('yalidine').get();
     const noSnap = await db.collection('private').doc('noest').get();
+    const setSnap = await db.collection('site_settings').limit(1).get();
+    const settings = setSnap.empty ? {} : setSnap.docs[0].data();
     const yal = yalSnap.exists ? yalSnap.data() : {};
     const no = noSnap.exists ? noSnap.data() : {};
     const out = {};
 
+    // Each carrier is an independent, unrelated API — a timeout or outage on
+    // one (Yalidine's has intermittently connect-timed-out — see comment on
+    // yalidineFeeTable) must not prevent the other two from syncing. Every
+    // carrier block is wrapped so a failure is recorded per-carrier and the
+    // function still returns partial success instead of erroring out whole.
+
     // YALIDINE
     if (yal.apiId && yal.apiToken) {
-      const h = { 'X-API-ID': String(yal.apiId), 'X-API-TOKEN': String(yal.apiToken) };
-      const wj = await (await fetch('https://api.yalidine.app/v1/wilayas/?page_size=100', { headers: h })).json();
-      const wIds = (wj.data || []).map((w) => w.id);
-      const byW = {};
-      let page = 1, more = true;
-      while (more && page <= 4) {
-        const cj = await (await fetch('https://api.yalidine.app/v1/communes/?page_size=1000&page=' + page, { headers: h })).json();
-        (cj.data || []).forEach((c) => { if (c.is_deliverable) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.name); } });
-        more = !!cj.has_more; page++;
+      try {
+        const h = { 'X-API-ID': String(yal.apiId), 'X-API-TOKEN': String(yal.apiToken) };
+        const wj = await (await fetch('https://api.yalidine.app/v1/wilayas/?page_size=100', { headers: h })).json();
+        const wIds = (wj.data || []).map((w) => w.id);
+        const byW = {};
+        let page = 1, more = true;
+        while (more && page <= 4) {
+          const cj = await (await fetch('https://api.yalidine.app/v1/communes/?page_size=1000&page=' + page, { headers: h })).json();
+          (cj.data || []).forEach((c) => { if (c.is_deliverable) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.name); } });
+          more = !!cj.has_more; page++;
+        }
+        const yalCenters = await yalidineCenters(h);
+        const fromWilayaId = wilayaIdByName(settings.originWilaya);
+        const { table: yalFees, communeFees: yalCommuneFees } = await yalidineFeeTable(h, fromWilayaId, wIds);
+        out.yalidine = await writeCarrierData(
+          db, 'yalidine', wIds, byW,
+          Object.keys(yalFees).length ? yalFees : YAL_FEES,
+          yalCenters, yalCommuneFees
+        );
+      } catch (e) {
+        out.yalidine = { error: (e && e.message) || String(e) };
       }
-      out.yalidine = await writeCarrierData(db, 'yalidine', wIds, byW, YAL_FEES);
     }
 
     // NOEST
     if (no.apiToken) {
-      const h = { Authorization: 'Bearer ' + String(no.apiToken), Accept: 'application/json' };
-      const wRaw = await (await fetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
-      const wArr = (Array.isArray(wRaw) ? wRaw : Object.values(wRaw)).filter((w) => w.is_active != 0);
-      const cRaw = await (await fetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
-      const cArr = Array.isArray(cRaw) ? cRaw : Object.values(cRaw);
-      const byW = {};
-      cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
-      const noestFees = await noestFeeTable(h);
-      out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, Object.keys(noestFees).length ? noestFees : NOEST_FEES);
+      try {
+        const h = { Authorization: 'Bearer ' + String(no.apiToken), Accept: 'application/json' };
+        const wRaw = await (await fetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
+        const wArr = (Array.isArray(wRaw) ? wRaw : Object.values(wRaw)).filter((w) => w.is_active != 0);
+        const cRaw = await (await fetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
+        const cArr = Array.isArray(cRaw) ? cRaw : Object.values(cRaw);
+        const byW = {};
+        cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
+        const noestFees = await noestFeeTable(h);
+        const noestCntrs = await noestCenters(h);
+        out.noest = await writeCarrierData(db, 'noest', wArr.map((w) => w.code), byW, Object.keys(noestFees).length ? noestFees : NOEST_FEES, noestCntrs);
+      } catch (e) {
+        out.noest = { error: (e && e.message) || String(e) };
+      }
     }
 
     // ZR EXPRESS — its wilaya/commune list is keyed by UUID territory, not the
@@ -991,27 +1238,32 @@ exports.syncCarriers = onCall(
     const zrSnap = await db.collection('private').doc('zrexpress').get();
     const zr = zrSnap.exists ? zrSnap.data() : {};
     if (zr.tenantId && zr.secretKey) {
-      const rows = await zrAllTerritories(zrHeaders(zr));
+      try {
+        const rows = await zrAllTerritories(zrHeaders(zr));
 
-      const wilayaIds = [];
-      const codeById = {}; // wilaya UUID -> numeric wilaya code
-      rows.forEach((t) => {
-        if (t.level !== 'wilaya') return;
-        const del = t.delivery || {};
-        if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
-        const code = Number(t.code);
-        if (!code) return;
-        wilayaIds.push(code); codeById[t.id] = code;
-      });
-      const byW = {};
-      rows.forEach((t) => {
-        if (t.level !== 'commune' || !t.parentId || codeById[t.parentId] == null) return;
-        const del = t.delivery || {};
-        if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
-        (byW[codeById[t.parentId]] = byW[codeById[t.parentId]] || []).push(t.name);
-      });
-      const zrFees = await zrFeeTable(zrHeaders(zr), rows);
-      out.zr = await writeCarrierData(db, 'zr', wilayaIds, byW, Object.keys(zrFees).length ? zrFees : YAL_FEES);
+        const wilayaIds = [];
+        const codeById = {}; // wilaya UUID -> numeric wilaya code
+        rows.forEach((t) => {
+          if (t.level !== 'wilaya') return;
+          const del = t.delivery || {};
+          if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
+          const code = Number(t.code);
+          if (!code) return;
+          wilayaIds.push(code); codeById[t.id] = code;
+        });
+        const byW = {};
+        rows.forEach((t) => {
+          if (t.level !== 'commune' || !t.parentId || codeById[t.parentId] == null) return;
+          const del = t.delivery || {};
+          if (del.hasHomeDelivery === false && !del.hasPickupPoint) return;
+          (byW[codeById[t.parentId]] = byW[codeById[t.parentId]] || []).push(t.name);
+        });
+        const zrFees = await zrFeeTable(zrHeaders(zr), rows);
+        const zrCntrs = await zrCenters(zrHeaders(zr), rows);
+        out.zr = await writeCarrierData(db, 'zr', wilayaIds, byW, Object.keys(zrFees).length ? zrFees : YAL_FEES, zrCntrs);
+      } catch (e) {
+        out.zr = { error: (e && e.message) || String(e) };
+      }
     }
     return { ok: true, result: out };
   }
@@ -1162,3 +1414,181 @@ exports.sendTestEmail = onCall({ region: 'us-central1' }, async () => {
   }
   return { ok: true };
 });
+
+/* ───────────────────────────────────────────────────────────────
+   Meta (Facebook) Pixel + Conversions API.
+
+   The access token lives only in the server-only doc `private/meta`
+   ({ accessToken, testEventCode }), entered on the admin Settings page —
+   never sent to the browser (private/** is unreadable by clients, see
+   firestore.rules). The public Pixel ID lives in `site_settings`
+   (metaPixelId), the same doc the storefront already reads.
+
+   sendMetaEvent() is the shared CAPI utility: it hashes PII with SHA-256
+   per Meta's spec and posts to the Conversions API. It never throws — a
+   Meta outage or a bad/missing token must never break an order or a page.
+
+   Purchase is NOT sent from the logMetaEvent callable below. It's only
+   ever sent by onOrderCreatedMetaPurchase, a Firestore trigger that fires
+   after an order document actually exists in Firestore — so a Purchase
+   CAPI event can never be sent just because a client called a function.
+   ─────────────────────────────────────────────────────────────── */
+const crypto = require('crypto');
+
+const META_GRAPH_VERSION = 'v26.0';
+
+function sha256(v) { return crypto.createHash('sha256').update(String(v)).digest('hex'); }
+// Meta requires PII match fields lowercased, trimmed, then SHA-256 hashed.
+function hashField(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return s ? sha256(s) : undefined;
+}
+// Numbers are stored locally as 0X XXXXXXXX; Meta wants E.164 digits, no "+".
+function hashPhone(v) {
+  let digits = String(v || '').replace(/[^0-9]/g, '');
+  if (!digits) return undefined;
+  if (digits.charAt(0) === '0') digits = '213' + digits.slice(1);
+  else if (digits.slice(0, 3) !== '213') digits = '213' + digits;
+  return sha256(digits);
+}
+function clientIp(rawReq) {
+  if (!rawReq) return undefined;
+  const fwd = rawReq.headers && rawReq.headers['x-forwarded-for'];
+  return fwd ? String(fwd).split(',')[0].trim() : rawReq.ip;
+}
+
+async function getMetaCreds(db) {
+  const snap = await db.collection('private').doc('meta').get();
+  return snap.exists ? snap.data() : {};
+}
+async function getMetaPixelId(db) {
+  const snap = await db.collection('site_settings').get();
+  const doc = snap.docs[0];
+  return doc ? doc.data().metaPixelId : null;
+}
+
+// Shared CAPI sender. Always resolves (never throws) — callers decide what,
+// if anything, to persist about the outcome.
+async function sendMetaEvent(eventName, { eventId, eventSourceUrl, userData, customData, actionSource }) {
+  const db = admin.firestore();
+  const [creds, pixelId] = await Promise.all([getMetaCreds(db), getMetaPixelId(db)]);
+  const token = creds && creds.accessToken;
+  if (!token || !pixelId) return { ok: false, reason: 'not-configured' };
+
+  const payload = {
+    data: [{
+      event_name: eventName,
+      event_time: Math.floor(Date.now() / 1000),
+      event_id: eventId,
+      event_source_url: eventSourceUrl,
+      action_source: actionSource || 'website',
+      user_data: userData || {},
+      custom_data: customData || {},
+    }],
+  };
+  if (creds.testEventCode) payload.test_event_code = creds.testEventCode;
+
+  const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${pixelId}/events?access_token=${encodeURIComponent(token)}`;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error('[meta] CAPI error', eventName, res.status, body && body.error && body.error.message);
+      return { ok: false, reason: 'api-error' };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('[meta] CAPI request failed', eventName, e && e.message);
+    return { ok: false, reason: 'request-failed' };
+  }
+}
+
+// ViewContent / AddToCart / InitiateCheckout — called from the browser right
+// after the matching Pixel event (js/meta.js Meta.track()), passing the same
+// event_id both sides so Meta deduplicates them into one event. Purchase is
+// refused here on purpose; see the trigger below.
+const META_ALLOWED_EVENTS = ['PageView', 'ViewContent', 'AddToCart', 'InitiateCheckout'];
+
+exports.logMetaEvent = onCall({ region: 'us-central1' }, async (req) => {
+  const d = req.data || {};
+  if (!META_ALLOWED_EVENTS.includes(d.eventName)) throw new HttpsError('invalid-argument', 'unsupported event');
+  if (!d.eventId) throw new HttpsError('invalid-argument', 'eventId is required');
+
+  const rawReq = req.rawRequest;
+  const userData = {
+    client_ip_address: clientIp(rawReq),
+    client_user_agent: rawReq && rawReq.headers && rawReq.headers['user-agent'],
+  };
+  if (d.fbp) userData.fbp = d.fbp;
+  if (d.fbc) userData.fbc = d.fbc;
+
+  return sendMetaEvent(d.eventName, {
+    eventId: d.eventId,
+    eventSourceUrl: d.eventSourceUrl,
+    userData,
+    customData: d.customData || {},
+    actionSource: 'website',
+  });
+});
+
+/* Purchase — fires only from here, after the order document has actually
+   been created in Firestore (never from client code / logMetaEvent above).
+   Idempotent: writes meta.purchaseSent onto the order so a Firestore retry
+   of this trigger can never send the event twice. Reuses the exact event_id
+   the browser used for its fbq('track','Purchase', ...) call
+   (order.metaEventId, set in checkout.html / collagen.html) so Meta
+   deduplicates the two copies into one event. Skips seller-entered phone
+   orders (source: admin_phone) — that's the seller's own browser, not a
+   customer's web conversion. */
+exports.onOrderCreatedMetaPurchase = onDocumentCreated(
+  { document: 'orders/{orderId}', region: 'us-central1' },
+  async (event) => {
+    const snap = event.data;
+    const o = snap ? snap.data() : null;
+    if (!o) return;
+    if (o.source === 'admin_phone') return;
+    if (!o.metaEventId) return; // can't dedupe safely without the browser's id
+    if (o.meta && o.meta.purchaseSent) return; // already sent (trigger retry)
+
+    const items = o.items || [];
+    const customData = {
+      currency: 'DZD',
+      value: o.total != null ? o.total : o.subtotal,
+      content_ids: items.map((it) => String(it.id)),
+      content_type: 'product',
+      contents: items.map((it) => ({ id: String(it.id), quantity: it.qty || it.quantity || 1 })),
+      num_items: items.reduce((n, it) => n + (it.qty || it.quantity || 1), 0),
+      order_id: event.params.orderId,
+    };
+    const nameParts = String(o.customer || '').trim().split(/\s+/).filter(Boolean);
+    const userData = {
+      ph: hashPhone(o.phone),
+      fn: hashField(nameParts[0]),
+      ln: nameParts.length > 1 ? hashField(nameParts.slice(1).join(' ')) : undefined,
+      ct: hashField(o.communeFr || o.baladiya),
+      st: hashField(o.wilayaFr || o.wilaya),
+      country: hashField('dz'),
+      external_id: hashField(event.params.orderId),
+    };
+    if (o.fbp) userData.fbp = o.fbp;
+    if (o.fbc) userData.fbc = o.fbc;
+    Object.keys(userData).forEach((k) => { if (userData[k] === undefined) delete userData[k]; });
+
+    const result = await sendMetaEvent('Purchase', {
+      eventId: 'purchase_' + o.metaEventId,
+      eventSourceUrl: o.pageUrl,
+      userData,
+      customData,
+      actionSource: 'website',
+    });
+
+    await snap.ref.set({
+      meta: {
+        purchaseEventId: 'purchase_' + o.metaEventId,
+        purchaseSent: !!result.ok,
+        purchaseSentAt: Date.now(),
+        purchaseError: result.ok ? null : (result.reason || 'unknown'),
+      },
+    }, { merge: true }).catch((e) => console.error('[meta] failed to write order.meta', e.message));
+  }
+);

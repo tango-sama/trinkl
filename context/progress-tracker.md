@@ -8,13 +8,14 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Nothing active. Next candidate: port the security lockdown to the Bazar Merabet clone (see Next Up).
+- Meta Pixel + Conversions API implemented (2026-08-24), not yet deployed — see Next Up.
 
 ## Completed
 
 - Storefront: home, products, product detail, categories, collagen landing page, checkout — RTL Arabic, Blush Rose & Gold theme.
 - Cart in localStorage; orders created in Firestore at checkout; optional WhatsApp order confirmation.
 - Admin panel (`amelhadj.html`): products, categories, featured, orders, messages, income/expenses ledger, settings.
+- Meta Pixel + Conversions API (2026-08-24): browser Pixel (`js/meta.js`, `window.Meta`) fires PageView/ViewContent/AddToCart/InitiateCheckout/Purchase; server CAPI mirrors ViewContent/AddToCart/InitiateCheckout via the `logMetaEvent` callable, and Purchase via the `onOrderCreatedMetaPurchase` Firestore trigger (fires only after an order doc is actually created — never from client code). Same client-generated `event_id` on both legs for Meta's deduplication. Credentials in `private/meta` (server-only, via Admin SDK); Pixel ID + on/off toggle in `site_settings` (admin Settings page, new "Meta Pixel + Conversions API" card). Idempotency via `order.meta.purchaseSent`. Skips seller-entered phone orders (`source: admin_phone`).
 - Delivery carriers: Yalidine, Noest, ZR Express — idempotent parcel creation, tracking lookup, synced fee grids (`delivery_fees` / `delivery_data`), per-carrier enable toggles.
 - Admin notifications: web push (`push_subs` + `push-sw.js`) and Gmail email on new orders/messages.
 - Security lockdown (2026-07-19): admin panel gated by Firebase Auth email/password; `firestore.rules` tightened — catalog public-read/admin-write, orders & messages create-only for clients, customer data and expenses admin-only.
@@ -23,10 +24,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## In Progress
 
-- None yet.
+- Meta Pixel + CAPI: code complete, verified locally (client-side logic end-to-end; server functions syntax-checked but not deployed). Still needed before it does anything live: deploy `functions` (adds `logMetaEvent` + `onOrderCreatedMetaPurchase`), then enter the Pixel ID + Conversions API access token in the admin Settings page ("Meta Pixel + Conversions API" card).
 
 ## Next Up
 
+- Deploy the Meta Pixel/CAPI functions and fill in real credentials (see above), then verify with Meta Events Manager → Test Events per the implementation report.
 - Port the security lockdown (auth gate + tightened rules) to Bazar Merabet (`mrabet-fb38c`) — its rules are still wide open, exposing its customer orders.
 - Port the WhatsApp toggle to Bazar Merabet in the same pass.
 - Commit the four untracked product images in `assets/collagen/` (referenced by the live site).
@@ -44,6 +46,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Parcel creation is idempotent per order per carrier — safe to re-run.
 - `sw.js` is a permanent kill-switch: the site must never register a caching service worker again.
 - Branding stays in theme tokens and the `SITE` config so the Bazar Merabet clone can rebase cleanly.
+- Meta Purchase CAPI is sent by a Firestore trigger on `orders/{orderId}` creation, not by a client call after checkout — there's no order-creation API to hook (the browser writes orders straight to Firestore), so the trigger is the only point that's guaranteed to fire after — and only after — an order actually exists.
 
 ## Session Notes
 

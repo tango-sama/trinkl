@@ -211,8 +211,10 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <script src="js/firebase.js"></script>
 <script src="js/site.js"></script>
+<script src="js/meta.js"></script>
 <script src="js/cart.js"></script>
 <script src="js/yalidine.js"></script>
 <script>
@@ -286,6 +288,14 @@
     var sub = document.getElementById('pSub'); if (p.subtitle) sub.textContent = p.subtitle; else sub.style.display = 'none';
     document.getElementById('pPrice').textContent = DS.priceFmt(p.price);
     fillCat();
+    if (window.Meta) {
+      var vcPrice = DS.priceNum(p.price);
+      Meta.track('ViewContent', {
+        content_ids: [String(p.id)], content_type: 'product',
+        contents: [{ id: String(p.id), quantity: 1, item_price: vcPrice }],
+        value: vcPrice, currency: 'DZD'
+      });
+    }
     var bl = DS.benefits(p.description);
     if (bl.length) {
       document.getElementById('benefits').style.display = '';

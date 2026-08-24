@@ -26,6 +26,14 @@
         image: product.image || (Array.isArray(product.images) ? product.images[0] : '') || '', quantity: 1 });
     }
     save(items); sync();
+    if (window.Meta) {
+      var price = pn(product.price);
+      Meta.track('AddToCart', {
+        content_ids: [String(product.id)], content_type: 'product',
+        contents: [{ id: String(product.id), quantity: 1, item_price: price }],
+        value: price, currency: 'DZD'
+      });
+    }
     if (opts.silent !== true) { toast('أُضيف إلى السلة'); openDrawer(); }
   }
   function setQty(id, q) {

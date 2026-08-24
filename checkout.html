@@ -179,8 +179,10 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <script src="js/firebase.js"></script>
 <script src="js/site.js"></script>
+<script src="js/meta.js"></script>
 <script src="js/cart.js"></script>
 <script src="js/yalidine.js"></script>
 <script>
@@ -303,6 +305,15 @@
     document.getElementById('sumTotal').textContent = (sub + deliveryFee).toLocaleString('en-US');
   }
   renderSummary();
+  if (window.Meta && Cart.get().length) {
+    var icItems = Cart.get();
+    Meta.track('InitiateCheckout', {
+      content_ids: icItems.map(function (i) { return String(i.id); }), content_type: 'product',
+      contents: icItems.map(function (i) { return { id: String(i.id), quantity: i.quantity || 1, item_price: DS.priceNum(i.price) }; }),
+      value: Cart.total(), currency: 'DZD',
+      num_items: icItems.reduce(function (n, i) { return n + (i.quantity || 1); }, 0)
+    });
+  }
 
   // qty controls inside summary
   document.addEventListener('click', function (e) {
@@ -367,7 +378,24 @@
       insurance: company === 'yalidine' && insurance,
       items: items, subtotal: sub, total: sub + deliveryFee
     };
-    if (isSeller()) order.source = 'admin_phone';
+    var seller = isSeller();
+    if (seller) order.source = 'admin_phone';
+    // Meta Purchase: a stable client-generated id, reused as the CAPI event_id
+    // by the onOrderCreatedMetaPurchase Firestore trigger (functions/index.js)
+    // so the browser Pixel copy and the server CAPI copy dedupe as one event.
+    // Skipped for seller/admin-phone orders — that's the seller's own
+    // browser placing a phone order, not a real customer web conversion.
+    if (window.Meta && !seller) {
+      order.metaEventId = Meta.newEventId();
+      order.fbp = Meta.getFbp(); order.fbc = Meta.getFbc();
+      order.pageUrl = window.location.href;
+      Meta.track('Purchase', {
+        content_ids: items.map(function (i) { return String(i.id); }), content_type: 'product',
+        contents: items.map(function (i) { return { id: String(i.id), quantity: i.qty, item_price: DS.priceNum(i.price) }; }),
+        value: order.total, currency: 'DZD',
+        num_items: items.reduce(function (n, i) { return n + (i.qty || 1); }, 0)
+      }, { eventId: 'purchase_' + order.metaEventId, skipCapi: true }); // CAPI leg: the Firestore trigger, only after the order actually saves
+    }
     lastOrder = order;
     DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
 

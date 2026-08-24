@@ -106,6 +106,9 @@
     if (s.instagram) SITE.instagram = s.instagram;
     if (s.facebook) SITE.facebook = s.facebook;
     if (s.tiktok) SITE.tiktok = s.tiktok;
+    // Meta Pixel: id + on/off live in site_settings (admin Settings page);
+    // Meta.init() is idempotent and only starts the pixel once.
+    if (s.metaPixelId && s.metaEnabled !== false && window.Meta) Meta.init(s.metaPixelId);
     // wire WA links that opted in
     document.querySelectorAll('[data-wa]').forEach(function (a) {
       var txt = a.getAttribute('data-wa') || '';

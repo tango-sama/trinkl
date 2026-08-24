@@ -399,8 +399,10 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <script src="js/firebase.js"></script>
 <script src="js/site.js"></script>
+<script src="js/meta.js"></script>
 <script src="js/yalidine.js"></script>
 <script>
 (function () {
@@ -473,6 +475,14 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
       '<div class="pr-imgwrap"><div class="pr-num">' + (i + 1) + '</div><img src="' + p.image + '" alt="' + esc(p.title) + '" loading="lazy"></div>' +
     '</div>';
   }).join('');
+
+  if (window.Meta) {
+    Meta.track('ViewContent', {
+      content_ids: PRODUCTS.map(function (p) { return p.id; }), content_type: 'product',
+      contents: PRODUCTS.map(function (p) { return { id: p.id, quantity: 1, item_price: p.price }; }),
+      value: PRODUCTS.reduce(function (n, p) { return n + p.price; }, 0), currency: 'DZD'
+    });
+  }
 
   // ───────── order modal ─────────
   var ov = document.getElementById('orderOv'), body = document.getElementById('modalBody'), title = document.getElementById('modalTitle');
@@ -559,6 +569,16 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
     renderPicker();
     ov.classList.add('open');
     document.body.style.overflow = 'hidden';
+    if (window.Meta) {
+      var picked = selectedProducts();
+      if (picked.length) {
+        Meta.track('InitiateCheckout', {
+          content_ids: picked.map(function (p) { return p.id; }), content_type: 'product',
+          contents: picked.map(function (p) { return { id: p.id, quantity: 1, item_price: p.price }; }),
+          value: selectedTotal(), currency: 'DZD', num_items: picked.length
+        });
+      }
+    }
   }
   function closeModal() { ov.classList.remove('open'); document.body.style.overflow = ''; }
 
@@ -592,6 +612,19 @@ footer.cl-footer a{color:var(--col-mid);font-weight:700}
       subtotal: sub, total: sub + fee,
       source: 'landing_collagen'
     };
+    // Meta Purchase: same client-generated id used for the browser Pixel
+    // event and, via the onOrderCreatedMetaPurchase Firestore trigger, the
+    // server CAPI copy — see checkout.html for the matching comment.
+    if (window.Meta) {
+      order.metaEventId = Meta.newEventId();
+      order.fbp = Meta.getFbp(); order.fbc = Meta.getFbc();
+      order.pageUrl = window.location.href;
+      Meta.track('Purchase', {
+        content_ids: picked.map(function (p) { return p.id; }), content_type: 'product',
+        contents: picked.map(function (p) { return { id: p.id, quantity: 1, item_price: p.price }; }),
+        value: order.total, currency: 'DZD', num_items: picked.length
+      }, { eventId: 'purchase_' + order.metaEventId, skipCapi: true });
+    }
     if (window.DS && DS.saveOrder) DS.saveOrder(order).catch(function (err) { console.error('saveOrder', err); });
 
     var namesList = picked.map(function (p) { return p.title; }).join('، ');
