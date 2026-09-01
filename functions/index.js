@@ -69,8 +69,17 @@ exports.createYalidineParcel = onCall(
           const cj = await cRes.json();
           const centers = (cj && cj.data) || [];
           if (centers.length) {
+            // The desk actually chosen, recorded on the order as Yalidine's own
+            // center_id (Order.deskId/deskCarrier in the shop). Only an id
+            // recorded against Yalidine is usable — center ids are per-carrier.
+            const ownDesk = String(o.deskCarrier || '') === 'yalidine' && o.deskId != null
+              ? String(o.deskId).trim()
+              : '';
             const wanted = String(o.communeFr || o.baladiya || '').toLowerCase().trim();
-            stopdeskCenter = centers.find(function (c) { return String(c.commune_name || '').toLowerCase().trim() === wanted; }) || centers[0];
+            stopdeskCenter =
+              (ownDesk && centers.find(function (c) { return String(c.center_id) === ownDesk; })) ||
+              centers.find(function (c) { return String(c.commune_name || '').toLowerCase().trim() === wanted; }) ||
+              centers[0];
           }
         }
       } catch (e) { /* fall back to home delivery below */ }
@@ -244,7 +253,13 @@ exports.createNoestParcel = onCall(
     // in the customer's commune; fall back to the wilaya's first desk.
     const isStopdesk = (o.deliveryType === 'office' || o.deliveryType === 'desk');
     let stationCode = null;
-    if (isStopdesk) {
+    // The desk actually chosen, recorded on the order as Noest's own station
+    // `code` (Order.deskId/deskCarrier in the shop — noestCenters syncs the
+    // code as each desk's id). Only an id recorded against Noest is usable.
+    if (isStopdesk && String(o.deskCarrier || '') === 'noest' && o.deskId != null && String(o.deskId).trim()) {
+      stationCode = String(o.deskId).trim();
+    }
+    if (isStopdesk && !stationCode) {
       try {
         const dRes = await fetch(NOEST_BASE + '/api/public/desks', { headers });
         if (dRes.ok) {
@@ -522,10 +537,19 @@ async function zrResolveTerritory(headers, wilayaCode, communeName) {
     .replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim();
   const wanted = norm(communeName);
   const communeRows = rows.filter((t) => t.level === 'commune' && t.parentId === wRow.id);
+  // NO "first commune in the wilaya" fallback: ZR accepts such a parcel and
+  // then delivers it to a commune nobody chose, with nothing to notice. An
+  // unmatched commune is a real failure — surface it so the admin fixes the
+  // destination (the panel's destination popup) instead of the parcel quietly
+  // going to the wrong place.
   const cRow = communeRows.find((t) => norm(t.name) === wanted) ||
-    communeRows.find((t) => wanted && (norm(t.name).includes(wanted) || wanted.includes(norm(t.name)))) ||
-    communeRows[0];
-  if (!cRow) throw new HttpsError('failed-precondition', 'لم يُعثر على بلدية مطابقة لدى ZR Express.');
+    communeRows.find((t) => wanted && (norm(t.name).includes(wanted) || wanted.includes(norm(t.name))));
+  if (!cRow) {
+    throw new HttpsError(
+      'failed-precondition',
+      'لم يُعثر على بلدية «' + String(communeName || '—') + '» ضمن بلديات ZR Express في هذه الولاية — صحّحي وجهة الطلب ثم أعيدي المحاولة.'
+    );
+  }
 
   const hasPickup = communeRows.some((t) => t.delivery && t.delivery.hasPickupPoint);
   return { cityTerritoryId: wRow.id, districtTerritoryId: cRow.id, hasPickup };
@@ -569,8 +593,18 @@ exports.createZrParcel = onCall(
     const territory = await zrResolveTerritory(headers, o.wilayaId, o.communeFr || o.baladiya);
 
     let deliveryType = 'home', hubId = null;
-    if (isStopdesk && territory.hasPickup) {
-      hubId = await zrFindHub(headers, territory.cityTerritoryId);
+    if (isStopdesk) {
+      // The desk the customer (or the admin) actually picked, recorded on the
+      // order as ZR's own hub id — see Order.deskId/deskCarrier in the shop.
+      // Without it zrFindHub below can only return the FIRST pickup hub in the
+      // whole wilaya, which is how every stop-desk parcel used to end up at the
+      // same office regardless of what was chosen. Only an id recorded against
+      // ZR is usable: hub ids mean nothing in Yalidine's or Noest's networks.
+      const ownDesk = String(o.deskCarrier || '') === 'zr' && o.deskId != null
+        ? String(o.deskId).trim()
+        : '';
+      if (ownDesk) hubId = ownDesk;
+      else if (territory.hasPickup) hubId = await zrFindHub(headers, territory.cityTerritoryId);
       if (hubId) deliveryType = 'pickup-point';
     }
     const useStopdesk = deliveryType === 'pickup-point';
@@ -589,7 +623,10 @@ exports.createZrParcel = onCall(
       deliveryAddress: {
         cityTerritoryId: territory.cityTerritoryId,
         districtTerritoryId: territory.districtTerritoryId,
-        street: String(o.address || '').slice(0, 200),
+        // Stop Desk orders carry no home address (the shop only saves one for
+        // home delivery), so fall back to where the parcel is actually going.
+        street: (String(o.address || '').trim() || String(o.baladiya || '').trim() ||
+          String(o.communeFr || '').trim() || '—').slice(0, 200),
       },
       orderedProducts: [{
         productName: productList, unitPrice: amount, quantity: 1, stockType: 'none',
