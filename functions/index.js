@@ -1923,6 +1923,7 @@ exports.syncCarriers = onCall(
    `push_subs` collection; dead subscriptions are pruned on send.
    ─────────────────────────────────────────────────────────────── */
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const webpush = require('web-push');
 const nodemailer = require('nodemailer');
 
@@ -2491,3 +2492,224 @@ exports.onOrderCreatedMetaPurchase = onDocumentCreated(
     }, { merge: true }).catch((e) => console.error('[meta] failed to write order.meta', e.message));
   }
 );
+
+/* ═══════════════════════════════════════════════════════════════
+   MARKETING — Meta ad spend ingestion
+   ═══════════════════════════════════════════════════════════════
+   Pulls daily ad-level insights out of the Meta Marketing API into
+   `marketing/meta/insights/{YYYY-MM-DD}_{adId}`, so the growth
+   dashboard can join real spend against the attributed orders that
+   Phase 1 started stamping (lib/attribution.ts in desert-ghost).
+
+   WHY AD LEVEL, NOT CAMPAIGN LEVEL
+   --------------------------------
+   Campaign totals hide the variance that decides what to scale. In
+   this account the Glutathione campaign averages ~€6.34 per purchase,
+   but its "Primary" ad alone runs ~€10 — the campaign is being carried
+   by its other ads. Campaign and ad-set figures are just sums of these
+   rows, so storing the finest level loses nothing.
+
+   WHY THE LAST 14 DAYS, EVERY RUN
+   -------------------------------
+   Meta keeps revising a day's attributed conversions after the fact as
+   its attribution windows close. Writing each day once would freeze the
+   first, wrong answer. Re-fetching a rolling window and overwriting is
+   what keeps the numbers true, and is why the doc id is deterministic.
+
+   WHY IT NEVER THROWS
+   -------------------
+   Ad credentials are the owner's to supply and may be missing, expired,
+   or lacking `ads_read`. None of that is an error worth failing a
+   scheduled job over: the function logs why, writes nothing, and the
+   dashboard shows orders and margin with spend simply absent. Same
+   fail-safe posture as sendMetaEvent above.
+
+   NO FILTERING HAPPENS HERE. This ad account is shared with an
+   unrelated business, but the Desert Shop campaign allowlist is applied
+   when the dashboard READS these rows, not when they are written.
+   Filtering on write would permanently discard spend that a later
+   correction to the allowlist needs, and would make "spend we haven't
+   classified yet" impossible to show. Storage is cheap; lost data is not.
+   ─────────────────────────────────────────────────────────────── */
+
+const INSIGHTS_WINDOW_DAYS = 14;
+const DEFAULT_EUR_TO_DZD = 260;
+
+function ymd(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+/* Meta returns conversions as an `actions` array of {action_type, value}
+   rather than as named fields. Purchases appear under several action
+   types depending on how the conversion was reported; take the largest
+   rather than summing, since these overlap (an `omni_purchase` generally
+   already includes the `offsite_conversion.fb_pixel_purchase` it came
+   from, so adding them would double-count). */
+function purchasesFromActions(actions) {
+  if (!Array.isArray(actions)) return 0;
+  const types = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase'];
+  let best = 0;
+  for (const a of actions) {
+    if (a && types.indexOf(a.action_type) !== -1) {
+      const v = Number(a.value) || 0;
+      if (v > best) best = v;
+    }
+  }
+  return best;
+}
+
+async function getAdsCreds(db) {
+  const [metaSnap, setSnap] = await Promise.all([
+    db.collection('private').doc('meta').get(),
+    db.collection('site_settings').limit(1).get(),
+  ]);
+  const meta = metaSnap.exists ? metaSnap.data() : {};
+  const settings = setSnap.empty ? {} : setSnap.docs[0].data();
+  return {
+    // A token minted specifically for ads reporting wins; the CAPI token is
+    // tried as a fallback purely because it sometimes already carries
+    // ads_read, which saves the owner a trip to Business Manager.
+    token: meta.adsToken || meta.accessToken || null,
+    accountId: String(settings.metaAdAccountId || '').replace(/^act_/, '').trim(),
+    eurToDzd: Number(settings.eurToDzd) > 0 ? Number(settings.eurToDzd) : DEFAULT_EUR_TO_DZD,
+  };
+}
+
+async function graphGet(path, params, token) {
+  const qs = new URLSearchParams(Object.assign({ access_token: token }, params));
+  const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${path}?${qs}`;
+  const res = await fetch(url);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = body && body.error && body.error.message;
+    const err = new Error(msg || `graph ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+
+/* Fetch + store the rolling window. Returns a summary rather than
+   throwing, so both the schedule and the manual button can report the
+   same outcome to the owner. */
+async function runMetaInsightsSync() {
+  const db = admin.firestore();
+  const { token, accountId, eurToDzd } = await getAdsCreds(db);
+
+  if (!token) return { ok: false, reason: 'no-token', written: 0 };
+  if (!accountId) return { ok: false, reason: 'no-ad-account', written: 0 };
+
+  const until = new Date();
+  const since = new Date(until.getTime() - INSIGHTS_WINDOW_DAYS * 86400000);
+
+  let rows = [];
+  try {
+    // Paginate: an account with many ads returns these in pages, and
+    // stopping at the first would silently under-report spend.
+    let next = null;
+    let guard = 0;
+    do {
+      const body = next
+        ? await (await fetch(next)).json()
+        : await graphGet(`act_${accountId}/insights`, {
+            level: 'ad',
+            time_increment: '1',
+            time_range: JSON.stringify({ since: ymd(since), until: ymd(until) }),
+            fields: [
+              'date_start', 'spend', 'impressions', 'clicks', 'actions',
+              'campaign_id', 'campaign_name', 'adset_id', 'adset_name',
+              'ad_id', 'ad_name',
+            ].join(','),
+            limit: '500',
+          }, token);
+      if (body && body.error) throw new Error(body.error.message || 'graph page error');
+      rows = rows.concat((body && body.data) || []);
+      next = body && body.paging && body.paging.next;
+    } while (next && ++guard < 20);
+  } catch (e) {
+    console.error('[meta] insights fetch failed:', e && e.message);
+    return { ok: false, reason: e && e.status === 403 ? 'forbidden' : 'fetch-failed', written: 0 };
+  }
+
+  let written = 0;
+  // Firestore caps a batch at 500 writes; chunk so a busy account can't
+  // exceed it.
+  for (let i = 0; i < rows.length; i += 400) {
+    const batch = db.batch();
+    for (const r of rows.slice(i, i + 400)) {
+      const date = r.date_start;
+      const adId = r.ad_id;
+      if (!date || !adId) continue;
+      const spendEur = Number(r.spend) || 0;
+      batch.set(
+        db.collection('marketing').doc('meta').collection('insights').doc(`${date}_${adId}`),
+        {
+          date, adId,
+          adName: r.ad_name || '',
+          adsetId: r.adset_id || '',
+          adsetName: r.adset_name || '',
+          campaignId: r.campaign_id || '',
+          campaignName: r.campaign_name || '',
+          spendEur,
+          // Converted at write time and stored WITH the rate used. Editing
+          // the rate later must not retroactively rewrite past months —
+          // last month's profit cannot change because today's rate did.
+          spendDzd: Math.round(spendEur * eurToDzd),
+          rate: eurToDzd,
+          impressions: Number(r.impressions) || 0,
+          clicks: Number(r.clicks) || 0,
+          purchases: purchasesFromActions(r.actions),
+          syncedAt: Date.now(),
+        },
+        { merge: true }
+      );
+      written++;
+    }
+    await batch.commit();
+  }
+
+  console.log(`[meta] insights synced ${written} ad-days at ${eurToDzd} DA/EUR`);
+  return { ok: true, written, since: ymd(since), until: ymd(until), rate: eurToDzd };
+}
+
+// Nightly refresh. 03:00 Africa/Algiers — after the day has closed and
+// well outside the hours the owner is working in the panel.
+exports.syncMetaInsights = onSchedule(
+  { schedule: '0 3 * * *', timeZone: 'Africa/Algiers', region: 'us-central1' },
+  async () => {
+    const result = await runMetaInsightsSync();
+    if (!result.ok) console.warn('[meta] scheduled insights sync skipped:', result.reason);
+  }
+);
+
+// Manual "sync now" from the admin panel — same code path as the
+// schedule, so what the button does and what runs overnight can't drift.
+exports.syncMetaInsightsNow = onCall({ region: 'us-central1' }, async (req) => {
+  requireAdmin(req);
+  return runMetaInsightsSync();
+});
+
+/* Campaign list for the dashboard's allowlist picker. Returns every
+   campaign in the account — including the unrelated business's — because
+   the owner is the one who decides which are Desert Shop's. */
+exports.listMetaCampaigns = onCall({ region: 'us-central1' }, async (req) => {
+  requireAdmin(req);
+  const db = admin.firestore();
+  const { token, accountId } = await getAdsCreds(db);
+  if (!token) return { ok: false, reason: 'no-token', campaigns: [] };
+  if (!accountId) return { ok: false, reason: 'no-ad-account', campaigns: [] };
+
+  try {
+    const body = await graphGet(`act_${accountId}/campaigns`, {
+      fields: 'id,name,status,effective_status',
+      limit: '500',
+    }, token);
+    const campaigns = ((body && body.data) || []).map((c) => ({
+      id: c.id, name: c.name || '', status: c.effective_status || c.status || '',
+    }));
+    return { ok: true, campaigns };
+  } catch (e) {
+    console.error('[meta] listMetaCampaigns failed:', e && e.message);
+    return { ok: false, reason: e && e.status === 403 ? 'forbidden' : 'fetch-failed', campaigns: [] };
+  }
+});

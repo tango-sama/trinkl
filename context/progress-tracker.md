@@ -52,8 +52,45 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Meta Pixel + CAPI: code complete, verified locally (client-side logic end-to-end; server functions syntax-checked but not deployed). Still needed before it does anything live: deploy `functions` (adds `logMetaEvent` + `onOrderCreatedMetaPurchase`), then enter the Pixel ID + Conversions API access token in the admin Settings page ("Meta Pixel + Conversions API" card).
 
+- Growth Phase 2 — Meta ad spend ingestion (2026-09-04): new
+  `syncMetaInsights` (scheduled, 03:00 Africa/Algiers), `syncMetaInsightsNow`
+  (admin callable, same code path so the button and the schedule cannot drift)
+  and `listMetaCampaigns` (populates the dashboard's campaign allowlist).
+  Pulls **ad-level** daily insights into
+  `marketing/meta/insights/{YYYY-MM-DD}_{adId}`. Ad level because that is
+  where the variance is — the Glutathione campaign averages ~€6.34/purchase
+  while its own "Primary" ad runs ~€10, so campaign totals hide what to
+  scale; campaign and ad-set figures are just sums of these rows.
+  Re-fetches a **rolling 14-day window every run** with deterministic doc ids
+  and `set(merge)`, because Meta keeps revising a day's attributed
+  conversions after the fact — writing each day once would freeze the first,
+  wrong answer. Paginated (an account with many ads returns pages; stopping
+  at the first would silently under-report spend), and batched in chunks of
+  400 to stay under Firestore's 500-write batch cap.
+  Converts EUR→DZD at `site_settings.eurToDzd` (owner: **1 EUR = 260 DA**)
+  and **stores the rate on every row**, so editing the rate later cannot
+  retroactively rewrite past months. Credentials: `private/meta.adsToken`,
+  falling back to the existing `.accessToken` in case it already carries
+  `ads_read`. **Never throws** — a missing token, missing account id or 403
+  logs the reason and writes nothing, leaving the dashboard to show orders
+  and margin with spend simply absent (same posture as `sendMetaEvent`).
+  **No campaign filtering happens at write time** on purpose: the ad account
+  is shared with an unrelated business, but the allowlist is applied when the
+  dashboard reads, so excluded spend is still stored, still reportable as
+  "unallocated", and a corrected allowlist applies retroactively.
+  Verified with 9 assertions (purchase extraction from Meta's overlapping
+  `actions` types, EUR conversion against the real €50.69 campaign, window).
+
 ## Next Up
 
+- **Deploy Phase 2**: `firebase deploy --only functions` also deploys the new
+  scheduled function, which requires the **Cloud Scheduler API enabled** on
+  `desert-shop-24af9`. The callable "sync now" button works without it, so the
+  dashboard is usable before that is sorted.
+- **Owner action**: mint a Business Manager System User token with `ads_read`
+  on ad account `839446010997263` and save it as `private/meta.adsToken`.
+  Until then the sync writes nothing (by design) and the growth dashboard
+  shows orders and margin without spend.
 - **Deploy the `outcome` work**: `firebase deploy --only functions,firestore:rules`.
   Until the functions deploy, no order gets an `outcome` and the growth
   dashboard's delivery/return rates stay empty. Rules can deploy independently
