@@ -21,6 +21,32 @@ Update this file whenever the current phase, active feature, or implementation s
 - Security lockdown (2026-07-19): admin panel gated by Firebase Auth email/password; `firestore.rules` tightened — catalog public-read/admin-write, orders & messages create-only for clients, customer data and expenses admin-only.
 - WhatsApp site-wide toggle (2026-07-19): `site_settings.waEnabled` + admin Settings button; hides every WA surface via `html.no-wa` and guards JS openers.
 - Context docs (2026-07-19): `CLAUDE.md` + `context/` folder; internal files excluded from Hosting (were publicly downloadable).
+- Growth Phase 1 — canonical order outcome (2026-09-04): every place that writes
+  `trackingStatus` now also writes a flat `outcome` string
+  (`new`/`confirmed`/`shipped`/`delivered`/`returned`/`cancelled`) plus
+  `outcomeAt`, via the new `outcomeFromStatus()` / `withOutcome()` helpers in
+  `functions/index.js`. Applied at all three status write points
+  (`getParcelStatus`, `zrWebhook`, `yalidineWebhook`) and at all three parcel
+  creation sites (which stamp `confirmed`). `trackingStatus` is a rendering
+  model — a stage index and an alert string shaped for the admin stepper — so
+  it cannot be queried or aggregated; `outcome` is what makes "how many of last
+  month's Meta orders actually delivered?" answerable, which the profit engine
+  needs. Derived from the EXISTING per-carrier normalizers only; no new carrier
+  logic and no migration (older orders simply have no `outcome`). Return alerts
+  map to `returned`, but transient alerts ("الزبون لا يرد", "مشكلة في التوصيل")
+  deliberately stay `shipped` — writing those off as returns would discard
+  orders that go on to deliver. `withOutcome()` refuses to move an order
+  backwards so a late/out-of-order webhook cannot un-deliver a completed order,
+  while still allowing `delivered → returned`. Verified against all 7 alert
+  strings the normalizers emit (14 assertions, all passing).
+- Growth Phase 1 — analytics collections locked down (2026-09-04):
+  `firestore.rules` now denies ALL client writes to `marketing/`, `analytics/`,
+  `funnels/`, `experiments/` and `ai/`, admin-read-only. Closed rather than
+  create-only (unlike `orders`/`messages`, which an anonymous customer must be
+  able to submit to): nothing in these collections is authored by a visitor's
+  browser, and leaving create open would let anyone forge conversions and ad
+  spend directly into the numbers budget decisions are made from. Written
+  server-side only, via Admin SDK.
 
 ## In Progress
 
@@ -28,6 +54,10 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
+- **Deploy the `outcome` work**: `firebase deploy --only functions,firestore:rules`.
+  Until the functions deploy, no order gets an `outcome` and the growth
+  dashboard's delivery/return rates stay empty. Rules can deploy independently
+  and are safe on their own (they only close collections nothing writes yet).
 - Deploy the Meta Pixel/CAPI functions and fill in real credentials (see above), then verify with Meta Events Manager → Test Events per the implementation report.
 - Port the security lockdown (auth gate + tightened rules) to Bazar Merabet (`mrabet-fb38c`) — its rules are still wide open, exposing its customer orders.
 - Port the WhatsApp toggle to Bazar Merabet in the same pass.

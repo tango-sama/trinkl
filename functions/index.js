@@ -144,6 +144,11 @@ exports.createYalidineParcel = onCall(
       yalidine: { tracking, label: labelUrl, stopdesk: useStopdesk, createdAt: Date.now() },
       status: 'Confirmed',
       fulfilled: true,
+      // Canonical lifecycle state (see outcomeFromStatus below). Set here so
+      // an order counts as confirmed the moment a parcel exists, rather than
+      // waiting for the first tracking refresh to classify it.
+      outcome: 'confirmed',
+      outcomeAt: Date.now(),
     });
 
     return { ok: true, tracking, label: labelUrl };
@@ -328,6 +333,11 @@ exports.createNoestParcel = onCall(
       noest: { tracking, validated: false, stopdesk: useStopdesk, createdAt: Date.now() },
       status: 'Confirmed',
       fulfilled: true,
+      // Canonical lifecycle state (see outcomeFromStatus below). Set here so
+      // an order counts as confirmed the moment a parcel exists, rather than
+      // waiting for the first tracking refresh to classify it.
+      outcome: 'confirmed',
+      outcomeAt: Date.now(),
     });
 
     return { ok: true, tracking, validated: false };
@@ -658,6 +668,11 @@ exports.createZrParcel = onCall(
       zr: { tracking: tracking || parcelId, parcelId, stopdesk: useStopdesk, createdAt: Date.now() },
       status: 'Confirmed',
       fulfilled: true,
+      // Canonical lifecycle state (see outcomeFromStatus below). Set here so
+      // an order counts as confirmed the moment a parcel exists, rather than
+      // waiting for the first tracking refresh to classify it.
+      outcome: 'confirmed',
+      outcomeAt: Date.now(),
     });
 
     return { ok: true, tracking: tracking || parcelId };
@@ -725,6 +740,61 @@ const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد وال�
 // one before it render green in the panel). `alert` with a non-null stage = a
 // delivery problem shown as a ⚠️ between "خرج للتوصيل" and "تم الاستلام"; `stage:
 // null` = a terminal return/cancel with no meaningful step progress.
+
+/* ── Canonical order outcome ──────────────────────────────────────
+   `trackingStatus` is a rendering model: a stage index, an alert
+   string, and a label, all shaped for the admin's stepper. It is
+   fine for drawing a row and useless for answering "how many of
+   last month's Meta orders actually got delivered?" — you cannot
+   query or aggregate on it.
+
+   So every place that writes trackingStatus also writes a flat
+   `outcome` string next to it. Same source of truth (the existing
+   per-carrier normalizers), no new carrier logic, no migration:
+   orders written before this simply have no `outcome`, and
+   lib/profit.ts falls back for them.
+
+   Only RETURN alerts count as `returned`. The other alerts —
+   "client not answering", "delivery postponed" — are transient
+   problems on a parcel that is still out for delivery, and calling
+   those returns would write off orders that go on to deliver fine.
+   ───────────────────────────────────────────────────────────────── */
+const OUTCOME_RANK = {
+  new: 0, confirmed: 1, shipped: 2, delivered: 3, returned: 4, cancelled: 5,
+};
+
+function outcomeFromStatus(status) {
+  if (!status) return null;
+  const alert = String(status.alert || '');
+  // Deleted from the carrier's own dashboard — the parcel is not coming.
+  if (status.notFoundAtCarrier || /حذف|محذوف/.test(alert)) return 'cancelled';
+  // The normalizers phrase every return/cancel alert with مرتجع or إرجاع.
+  if (/مرتجع|إرجاع|ملغ/.test(alert)) return 'returned';
+  const stage = status.stage;
+  if (typeof stage !== 'number') return 'confirmed';
+  // Same delivered test the admin stepper uses: last step, no active alert.
+  if (!alert && stage >= STAGE_LABELS.length - 1) return 'delivered';
+  if (stage >= 1) return 'shipped';
+  return 'confirmed';
+}
+
+/* Merge the derived outcome into a Firestore update object.
+
+   Guards against going backwards: carrier webhooks can arrive late or out
+   of order, and a stale "in transit" event landing after a delivery must
+   not un-deliver a completed order. A parcel that comes back AFTER being
+   delivered is real, though, so terminal states may still overwrite
+   `delivered`. */
+function withOutcome(update, status, prevOutcome) {
+  const next = outcomeFromStatus(status);
+  if (!next) return update;
+  const prevRank = OUTCOME_RANK[prevOutcome];
+  const nextRank = OUTCOME_RANK[next];
+  if (typeof prevRank === 'number' && nextRank < prevRank) return update;
+  update.outcome = next;
+  update.outcomeAt = Date.now();
+  return update;
+}
 
 // A carrier not having the parcel yet is ambiguous: it usually just means it was
 // created seconds ago and hasn't been indexed on their side yet (normal, resolves
@@ -1215,7 +1285,7 @@ exports.getParcelStatus = onCall(
     else if (o.zr && o.zr.tracking) status = await fetchZrStatus(db, o);
     else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
 
-    const update = { trackingStatus: status };
+    const update = withOutcome({ trackingStatus: status }, status, o.outcome);
     // Noest activity proves the parcel was validated — sync the flag so the
     // panel stops showing «أكّديه في Noest للشحن» on already-confirmed parcels.
     if (status.carrier === 'noest' && status.noestValidated && !(o.noest && o.noest.validated)) {
@@ -2099,6 +2169,7 @@ exports.zrWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
         events: evs, updatedAt: Date.now(), viaWebhook: true,
       },
     };
+    withOutcome(update, update.trackingStatus, o.outcome);
     // heal a not-yet-resolved tracking number, same as getParcelStatus
     if (data.trackingNumber && o.zr && data.trackingNumber !== o.zr.tracking) update['zr.tracking'] = data.trackingNumber;
     await doc.ref.update(update);
@@ -2188,15 +2259,14 @@ exports.yalidineWebhook = onRequest({ region: 'us-central1' }, async (req, res) 
         date: ev.occurred_at || new Date().toISOString(),
         location: null, by: null, content: d.reason || null, causer: 'YALIDINE WEBHOOK', badge: null,
       });
-      await doc.ref.update({
-        trackingStatus: {
-          carrier: 'yalidine', tracking, stage, alert, stageLabels: STAGE_LABELS,
-          lastLabel: rawStatus || alert || 'بانتظار المعالجة',
-          lastLocation: prev.lastLocation || null,
-          lastDate: ev.occurred_at || new Date().toISOString(),
-          events: evs, updatedAt: Date.now(), viaWebhook: true,
-        },
-      });
+      const yStatus = {
+        carrier: 'yalidine', tracking, stage, alert, stageLabels: STAGE_LABELS,
+        lastLabel: rawStatus || alert || 'بانتظار المعالجة',
+        lastLocation: prev.lastLocation || null,
+        lastDate: ev.occurred_at || new Date().toISOString(),
+        events: evs, updatedAt: Date.now(), viaWebhook: true,
+      };
+      await doc.ref.update(withOutcome({ trackingStatus: yStatus }, yStatus, o.outcome));
     }
     res.status(200).json({ received: true });
   } catch (e) {
