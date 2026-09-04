@@ -30,3 +30,22 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DESERT_SHOP_24AF9 }}
+
+      # firestore.rules is neither static Hosting content nor a function, so
+      # neither step above ever shipped it — a rules change had to be deployed
+      # by hand from someone's machine, and forgetting meant new collections
+      # stayed unreadable (there is no catch-all rule: anything not listed is
+      # denied). This closes that gap.
+      #
+      # Its own step, deliberately placed last: if the CI service account lacks
+      # rules-deploy permission, hosting and functions have already shipped and
+      # only this goes red, which is recoverable with one local command. Folding
+      # it into the functions deploy above would have let a rules failure block
+      # the functions too.
+      - name: Deploy Firestore rules
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/gcp-key.json"
+          npx firebase-tools@latest deploy --only firestore:rules --project desert-shop-24af9 --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DESERT_SHOP_24AF9 }}
