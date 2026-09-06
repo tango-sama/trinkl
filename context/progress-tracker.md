@@ -8,7 +8,10 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Meta Pixel + Conversions API implemented (2026-08-24), not yet deployed — see Next Up.
+- Meta Pixel + Conversions API implemented 2026-08-24 and **deployed** — CI
+  run `32676460553` on the `d9559f6` merge shipped `logMetaEvent` and
+  `onOrderCreatedMetaPurchase`. Dormant until the credentials are entered —
+  see Next Up.
 
 ## Completed
 
@@ -50,7 +53,14 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## In Progress
 
-- Meta Pixel + CAPI: code complete, verified locally (client-side logic end-to-end; server functions syntax-checked but not deployed). Still needed before it does anything live: deploy `functions` (adds `logMetaEvent` + `onOrderCreatedMetaPurchase`), then enter the Pixel ID + Conversions API access token in the admin Settings page ("Meta Pixel + Conversions API" card).
+- Meta Pixel + CAPI: code complete and **deployed** — the CI functions step
+  has existed since `0107e0a` (2026-07-14), and the run on the `d9559f6`
+  merge succeeded, so `logMetaEvent` and `onOrderCreatedMetaPurchase` are
+  live. The remaining step is **not** a deploy: enter the Pixel ID +
+  Conversions API access token in the admin Settings page ("Meta Pixel +
+  Conversions API" card). Until then the functions run and no-op.
+  (The browser Pixel is separately confirmed firing — the "amel" pixel
+  `1742198836647450` recorded browser *and* server events on 2026-09-05.)
 
 - Growth Phase 2 — Meta ad spend ingestion (2026-09-04): new
   `syncMetaInsights` (scheduled, 03:00 Africa/Algiers), `syncMetaInsightsNow`
@@ -83,19 +93,30 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- **Deploy Phase 2**: `firebase deploy --only functions` also deploys the new
-  scheduled function, which requires the **Cloud Scheduler API enabled** on
-  `desert-shop-24af9`. The callable "sync now" button works without it, so the
-  dashboard is usable before that is sorted.
+- ~~**Deploy Phase 2** / **Deploy the `outcome` work**~~ — **done, by CI, on
+  2026-09-04.** The merge of #11 (`55c4b76`) ran
+  `.github/workflows/firebase-hosting-merge.yml` to success (run
+  `33922637622`), and that workflow now deploys **hosting, then Cloud
+  Functions, then `firestore.rules`** — the rules step was added in the same
+  PR precisely because nothing in CI had ever shipped rules before. So
+  `outcome`, `syncMetaInsights`, `syncMetaInsightsNow` and `listMetaCampaigns`
+  are live, and the analytics collections are readable by the admin.
+  Nothing here needs a hand-run `firebase deploy` any more; merging to `main`
+  is the deploy.
 - **Owner action**: mint a Business Manager System User token with `ads_read`
   on ad account `839446010997263` and save it as `private/meta.adsToken`.
   Until then the sync writes nothing (by design) and the growth dashboard
-  shows orders and margin without spend.
-- **Deploy the `outcome` work**: `firebase deploy --only functions,firestore:rules`.
-  Until the functions deploy, no order gets an `outcome` and the growth
-  dashboard's delivery/return rates stay empty. Rules can deploy independently
-  and are safe on their own (they only close collections nothing writes yet).
-- Deploy the Meta Pixel/CAPI functions and fill in real credentials (see above), then verify with Meta Events Manager → Test Events per the implementation report.
+  shows orders and margin without spend. **This is now the only thing
+  standing between the dashboard and real spend numbers.**
+- **Owner action**: confirm the **Cloud Scheduler API is enabled** on
+  `desert-shop-24af9`, which the nightly `syncMetaInsights` (03:00
+  Africa/Algiers) needs. The owner reported enabling it on 2026-09-05; not
+  verifiable from the session sandbox, whose network policy answers 403 to
+  `cloudfunctions.net`. The callable "sync now" button works either way, so
+  the dashboard is usable before this is settled.
+- **Owner action**: fill in the real Meta Pixel/CAPI credentials (the
+  functions themselves are already deployed — see above), then verify with
+  Meta Events Manager → Test Events per the implementation report.
 - Port the security lockdown (auth gate + tightened rules) to Bazar Merabet (`mrabet-fb38c`) — its rules are still wide open, exposing its customer orders.
 - Port the WhatsApp toggle to Bazar Merabet in the same pass.
 - Commit the four untracked product images in `assets/collagen/` (referenced by the live site).
