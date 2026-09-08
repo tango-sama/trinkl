@@ -50,6 +50,63 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## In Progress
 
+- Nightly parcel refresh (2026-09-08, owner-requested): new
+  `refreshAllParcels` (`onSchedule`, 00:00 `Africa/Algiers`, us-central1)
+  refreshes every order that has a carrier tracking number and is not
+  delivered yet — the owner asked for the admin panel's
+  «تحديث حالة الطرود المفتوحة» button to be deleted and the work to happen by
+  itself every night. That button is already gone from the ghost panel
+  (branch `claude/admin-orders-auto-update-a8zq9v` there); the per-order 🔄
+  button stays.
+
+  The per-parcel work was factored out of `getParcelStatus` into
+  `refreshOrderStatus(db, ref, o)`, and both the callable and the schedule
+  call it — same reason `syncMetaInsightsNow` shares a code path with
+  `syncMetaInsights`: a hand refresh and the nightly run cannot drift apart.
+  «Delivered» is read off the status already stored on the order, using the
+  panel's own test (last stage reached, no active alert) and only trusting a
+  stored status that still matches the order's current carrier + tracking
+  number — so a re-created parcel reads as not-delivered and gets refreshed.
+
+  Nothing needs pushing to the panel: `refreshOrderStatus` writes
+  `trackingStatus`/`outcome` onto the order doc and the admin panel watches
+  orders live, so an open panel shows the night's results on its own.
+
+  Pacing and limits: one carrier call at a time, 350ms apart (same pacing the
+  old bulk button used), `timeoutSeconds: 540`, `memory: '512MiB'`,
+  `retryCount: 0` (a failed night is picked up by the next one; retrying a
+  half-finished batch would just re-hit the carriers). A run is capped at
+  `REFRESH_MAX_PARCELS = 400`, newest parcel first, and a truncated run is
+  `console.warn`-ed rather than passing silently.
+
+  `const { onSchedule } = require(...)` was hoisted from the notifications
+  section to the top of `functions/index.js`: `refreshAllParcels` registers
+  ~600 lines above where that require used to sit, and a `const` require is
+  in TDZ until its own line runs, so the module would have thrown on load.
+
+  Verified: `node --check` clean; the module loads with all 25 exports
+  registering, and `refreshAllParcels.__endpoint` reads back the intended
+  deployment config (`schedule '0 0 * * *'`, `timeZone 'Africa/Algiers'`,
+  540s, 512MiB, retryCount 0, us-central1). The parcel-selection rule
+  (`parcelCarrier` / `storedAsDelivered` / newest-first ordering) was
+  exercised against 11 order shapes — delivered, delivered-but-alerting,
+  delivered-under-an-old-tracking-number, no-status-yet, legacy status with
+  no `stageLabels`, multi-carrier precedence — all green.
+
+  **NOT deployed, and not yet run against real carrier APIs.** The owner has
+  to `firebase deploy --only functions` from this repo; the first deploy also
+  has to enable Cloud Scheduler on the project if it is not already (the
+  existing `syncMetaInsights` schedule means it most likely is). Worth
+  watching the first night's log line — `[parcels] nightly refresh: {...}` —
+  for the real `targets` count, since that is what tells us whether the 400
+  cap is anywhere near being hit.
+
+  Open: only DELIVERED parcels are skipped, exactly as asked. Parcels that
+  are terminal for other reasons (returned, cancelled, deleted at the
+  carrier) are still re-asked every night forever, and they can never change.
+  Skipping those too is a one-line change to `storedAsDelivered` — the
+  `outcome` field already records them — but it was not assumed. Owner's call.
+
 - Meta Pixel + CAPI: code complete, verified locally (client-side logic end-to-end; server functions syntax-checked but not deployed). Still needed before it does anything live: deploy `functions` (adds `logMetaEvent` + `onOrderCreatedMetaPurchase`), then enter the Pixel ID + Conversions API access token in the admin Settings page ("Meta Pixel + Conversions API" card).
 
 - Growth Phase 2 — Meta ad spend ingestion (2026-09-04): new

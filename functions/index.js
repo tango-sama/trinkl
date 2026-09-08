@@ -11,6 +11,10 @@
    single site_settings document (also set in the admin Settings page).
    ─────────────────────────────────────────────────────────────── */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+// Hoisted to the top with the other module requires: `refreshAllParcels`
+// below registers well above the notifications section this used to sit in,
+// and a `const` require is in TDZ until its own line runs.
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
@@ -732,8 +736,13 @@ exports.cancelZrParcel = onCall(
    (or an "alert" state for failed/suspended/returned parcels), caches
    the result on the order (trackingStatus) so the admin panel can
    render it without hitting the carrier API on every page load, and
-   returns it. Refreshing is manual (button click) to respect each
-   carrier's rate limits — status is not polled automatically.
+   returns it.
+
+   Two things refresh a parcel, and both go through refreshOrderStatus
+   below: this callable, from the panel's per-order 🔄 button, and the
+   nightly refreshAllParcels schedule (00:00 Africa/Algiers), which sweeps
+   every parcel that is not delivered yet. Nothing polls in a loop — each
+   carrier is asked at most once a night per parcel, paced.
    ─────────────────────────────────────────────────────────────── */
 const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم الاستلام'];
 // stage = index of the furthest step the parcel has REACHED (that step and every
@@ -1267,6 +1276,34 @@ async function fetchZrStatus(db, o) {
   };
 }
 
+// The refresh itself, with none of the callable's request plumbing: ask
+// whichever carrier owns the parcel, write the normalized status (plus the
+// two flags a refresh can heal) back onto the order, return it. Shared by
+// the getParcelStatus callable and the nightly refreshAllParcels schedule,
+// so a hand refresh and the 00:00 run can never drift apart.
+async function refreshOrderStatus(db, ref, o) {
+  let status;
+  if (o.noest && o.noest.tracking) status = await fetchNoestStatus(db, o);
+  else if (o.yalidine && o.yalidine.tracking) status = await fetchYalidineStatus(db, o);
+  else if (o.zr && o.zr.tracking) status = await fetchZrStatus(db, o);
+  else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
+
+  const update = withOutcome({ trackingStatus: status }, status, o.outcome);
+  // Noest activity proves the parcel was validated — sync the flag so the
+  // panel stops showing «أكّديه في Noest للشحن» on already-confirmed parcels.
+  if (status.carrier === 'noest' && status.noestValidated && !(o.noest && o.noest.validated)) {
+    update['noest.validated'] = true;
+  }
+  // ZR Express's create call sometimes can't resolve the real tracking number
+  // right away (falls back to the internal parcel id) — heal it once a refresh
+  // finds the real one, so the admin panel stops showing the raw parcel id.
+  if (status.carrier === 'zr' && status.tracking && status.tracking !== o.zr.tracking) {
+    update['zr.tracking'] = status.tracking;
+  }
+  await ref.update(update);
+  return status;
+}
+
 exports.getParcelStatus = onCall(
   { region: 'us-central1' },
   async (req) => {
@@ -1277,28 +1314,126 @@ exports.getParcelStatus = onCall(
     const ref = db.collection('orders').doc(String(orderId));
     const snap = await ref.get();
     if (!snap.exists) throw new HttpsError('not-found', 'Order not found');
-    const o = snap.data();
 
-    let status;
-    if (o.noest && o.noest.tracking) status = await fetchNoestStatus(db, o);
-    else if (o.yalidine && o.yalidine.tracking) status = await fetchYalidineStatus(db, o);
-    else if (o.zr && o.zr.tracking) status = await fetchZrStatus(db, o);
-    else throw new HttpsError('failed-precondition', 'لا يوجد طرد مُنشأ لهذا الطلب بعد.');
+    return refreshOrderStatus(db, ref, snap.data());
+  }
+);
 
-    const update = withOutcome({ trackingStatus: status }, status, o.outcome);
-    // Noest activity proves the parcel was validated — sync the flag so the
-    // panel stops showing «أكّديه في Noest للشحن» on already-confirmed parcels.
-    if (status.carrier === 'noest' && status.noestValidated && !(o.noest && o.noest.validated)) {
-      update['noest.validated'] = true;
+/* ───────────────────────────────────────────────────────────────
+   refreshAllParcels: the nightly run that keeps every still-moving
+   parcel's tracking current without anyone having to open the admin
+   panel. Owner-requested (2026-09-08), and the reason the panel's manual
+   «تحديث حالة الطرود المفتوحة» button was removed.
+
+   Delivered parcels are skipped: their tracking is final, so re-asking
+   the carrier about them only burns rate limit.
+
+   Nothing has to be pushed to the panel — refreshOrderStatus writes
+   trackingStatus/outcome onto the order doc, and the admin panel already
+   watches orders live, so an open panel picks the results up on its own.
+   ─────────────────────────────────────────────────────────────── */
+
+// Which carrier owns this order's parcel, in the same precedence the admin
+// panel uses (orderCarrier in components/admin/carriers.ts).
+function parcelCarrier(o) {
+  if (o.noest && o.noest.tracking) return 'noest';
+  if (o.yalidine && o.yalidine.tracking) return 'yalidine';
+  if (o.zr && o.zr.tracking) return 'zr';
+  return null;
+}
+
+// Delivered according to the status ALREADY stored on the order — the same
+// test the admin's stepper applies (last stage reached, no active alert),
+// and it only trusts a stored status that still belongs to the order's
+// current carrier and tracking number. A re-created parcel therefore reads
+// as not-delivered and gets refreshed, which is right.
+function storedAsDelivered(o) {
+  const carrier = parcelCarrier(o);
+  const ts = o.trackingStatus;
+  if (!carrier || !ts) return false;
+  if (ts.carrier !== carrier || ts.tracking !== o[carrier].tracking) return false;
+  const labels = ts.stageLabels || [];
+  return !ts.alert && typeof ts.stage === 'number' && labels.length > 0
+    && ts.stage >= labels.length - 1;
+}
+
+// One carrier call at a time with this gap between them — the same pacing
+// the panel's old bulk refresh used, so a night's run cannot burst past a
+// carrier's rate limit.
+const REFRESH_GAP_MS = 350;
+// Ceiling on one night's run. The function's own timeout is the real limit
+// (below); this keeps the run from ever reaching it, and a truncated run is
+// logged loudly rather than passing silently.
+const REFRESH_MAX_PARCELS = 400;
+
+async function runParcelRefresh() {
+  const db = admin.firestore();
+  const snap = await db.collection('orders').get();
+
+  const targets = [];
+  snap.forEach((doc) => {
+    const o = doc.data();
+    if (!parcelCarrier(o)) return;
+    if (storedAsDelivered(o)) return;
+    targets.push({ ref: doc.ref, id: doc.id, data: o });
+  });
+
+  // Newest parcels first: those are the ones actually moving, so if the cap
+  // ever truncates a run it drops the stalest parcels, not the live ones.
+  targets.sort((a, b) => confirmStampOf(b.data) - confirmStampOf(a.data));
+  const truncated = targets.length > REFRESH_MAX_PARCELS;
+  const run = truncated ? targets.slice(0, REFRESH_MAX_PARCELS) : targets;
+  if (truncated) {
+    console.warn(
+      `[parcels] ${targets.length} undelivered parcels exceeds the ${REFRESH_MAX_PARCELS} cap — ` +
+      `refreshing the ${REFRESH_MAX_PARCELS} newest and skipping ${targets.length - REFRESH_MAX_PARCELS}`
+    );
+  }
+
+  let ok = 0;
+  let fail = 0;
+  for (const t of run) {
+    try {
+      await refreshOrderStatus(db, t.ref, t.data);
+      ok++;
+    } catch (e) {
+      // One unreachable carrier must not abandon the other parcels.
+      console.error('[parcels] refresh failed for order', t.id, e && e.message);
+      fail++;
     }
-    // ZR Express's create call sometimes can't resolve the real tracking number
-    // right away (falls back to the internal parcel id) — heal it once a refresh
-    // finds the real one, so the admin panel stops showing the raw parcel id.
-    if (status.carrier === 'zr' && status.tracking && status.tracking !== o.zr.tracking) {
-      update['zr.tracking'] = status.tracking;
-    }
-    await ref.update(update);
-    return status;
+    await new Promise((r) => setTimeout(r, REFRESH_GAP_MS));
+  }
+
+  const result = { ok, fail, scanned: snap.size, targets: targets.length, truncated };
+  console.log('[parcels] nightly refresh:', JSON.stringify(result));
+  return result;
+}
+
+// Parcel creation time, for ordering the run newest-first (mirrors
+// confirmStamp in the admin panel).
+function confirmStampOf(o) {
+  if (o.noest && o.noest.tracking) return Number(o.noest.createdAt) || 0;
+  if (o.yalidine && o.yalidine.tracking) return Number(o.yalidine.createdAt) || 0;
+  if (o.zr && o.zr.tracking) return Number(o.zr.createdAt) || 0;
+  return 0;
+}
+
+exports.refreshAllParcels = onSchedule(
+  {
+    // 00:00 in the store's own timezone, not UTC.
+    schedule: '0 0 * * *',
+    timeZone: 'Africa/Algiers',
+    region: 'us-central1',
+    // 400 parcels paced at 350ms plus carrier latency needs far more than
+    // the 60s default; 9 minutes covers a full run with room to spare.
+    timeoutSeconds: 540,
+    memory: '512MiB',
+    // A failed night is picked up by the next night's run — retrying a
+    // partially-completed batch would just re-hit the carriers.
+    retryCount: 0,
+  },
+  async () => {
+    await runParcelRefresh();
   }
 );
 
@@ -1923,7 +2058,6 @@ exports.syncCarriers = onCall(
    `push_subs` collection; dead subscriptions are pruned on send.
    ─────────────────────────────────────────────────────────────── */
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { onSchedule } = require('firebase-functions/v2/scheduler');
 const webpush = require('web-push');
 const nodemailer = require('nodemailer');
 

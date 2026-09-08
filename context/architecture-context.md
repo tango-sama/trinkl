@@ -43,6 +43,7 @@
 
 - All callable functions are `onCall` in `us-central1`, invoked from the admin panel: `createYalidineParcel`, `createNoestParcel`, `createZrParcel`, `getParcelStatus`, `getNoestLabels`, `syncNoestFees`, `syncCarriers`, `getPushKey`, `sendTestEmail`.
 - Firestore triggers: `onNewOrder` and `onNewMessage` send web-push (and email) notifications to every subscription in `push_subs`.
+- Scheduled functions (`onSchedule`, timezone `Africa/Algiers`): `refreshAllParcels` at 00:00 refreshes every parcel that is not delivered yet; `syncMetaInsights` at 03:00 pulls Meta ad insights.
 - Pattern for every carrier function: validate `req.data` → throw typed `HttpsError` → load credentials from `private/*` and origin wilaya from `site_settings` → call the carrier API → write results back onto the order doc.
 - Parcel creation is idempotent: if the order already carries a tracking number for that carrier, return it instead of creating a duplicate parcel.
 
@@ -50,7 +51,7 @@
 
 - Three interchangeable carriers (Yalidine, Noest, ZR Express); the admin picks per order. Each has its own API base, credential shape in `private/*`, and result key on the order doc.
 - Fee grids and wilaya/commune lists are synced by function into `delivery_fees` / `delivery_data` so the storefront checkout can show shipping costs without ever touching carrier APIs or credentials.
-- Tracking status is fetched on demand (`getParcelStatus`) from the admin panel, not polled.
+- Tracking status is refreshed two ways, both through the same `refreshOrderStatus` helper: on demand (`getParcelStatus`) from the admin panel's per-order 🔄 button, and once nightly at 00:00 (`refreshAllParcels`) over every parcel that is not delivered yet. Delivered parcels are never re-asked, and nothing polls in a loop — one call per parcel per night, paced 350ms apart.
 
 ## Invariants
 
