@@ -784,17 +784,6 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     if (status && status.carrier === 'zr' && status.tracking && o.zr) o.zr.tracking = status.tracking;
   }
 
-  // Horizontally centre a stepper on its current/last-reached step by adjusting
-  // only the stepper's own scroll — never the page — so it's safe to run on many
-  // cards at once (delta-based, works in RTL too).
-  function centerStepper(pstep) {
-    var target = pstep.querySelector('.pstep-node.cur');
-    if (!target) { var done = pstep.querySelectorAll('.pstep-node.done'); target = done[done.length - 1] || null; }
-    if (!target) return;
-    var pr = pstep.getBoundingClientRect(), tr = target.getBoundingClientRect();
-    pstep.scrollLeft += (tr.left + tr.width / 2) - (pr.left + pr.width / 2);
-  }
-
   // After a refresh re-renders the list, bring this order's tracker into view and
   // scroll its (horizontally scrollable) stepper to the current/last-reached step,
   // so the latest parcel status is visible without scrolling by hand.
@@ -817,15 +806,6 @@ details[open] .ptrack-log-h::before{content:'▾ '}
     });
   }
 
-  // After refresh-all re-renders the list, snap every visible stepper to its own
-  // current step. Unlike scrollTrackerToCurrent this never scrolls the page —
-  // each stepper just jumps to where its parcel actually is.
-  function scrollAllSteppersToCurrent() {
-    requestAnimationFrame(function () {
-      document.querySelectorAll('.ocard[open] .pstep').forEach(centerStepper);
-    });
-  }
-
   function refreshTracking(orderId, btn) {
     if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
     var orig = btn ? btn.textContent : '';
@@ -844,50 +824,11 @@ details[open] .ptrack-log-h::before{content:'▾ '}
       });
   }
 
-  // Refreshes parcels one at a time (not in parallel) so we don't burst past
-  // Noest/Yalidine's rate limits when there are many orders. Only orders whose
-  // card is expanded on screen are refreshed — folded ones (old or already
-  // delivered) are skipped; expand a card to include it.
-  function refreshAllTracking(btn) {
-    if (typeof firebase === 'undefined' || !firebase.functions) { toast('الخدمة غير متوفرة'); return; }
-    var openIds = {};
-    document.querySelectorAll('.ocard[open] .ptrack-refresh').forEach(function (b) { openIds[String(b.dataset.track)] = true; });
-    var targets = state.orders.filter(function (o) { return orderCarrier(o) && openIds[String(o.id)]; });
-    if (!targets.length) { toast('لا توجد طلبات مفتوحة بها طرود لتحديثها'); return; }
-    var orig = btn ? btn.innerHTML : '';
-    if (btn) btn.disabled = true;
-    var i = 0, ok = 0, fail = 0;
-    function next() {
-      if (i >= targets.length) {
-        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-        views.orders();
-        scrollAllSteppersToCurrent();
-        toast('تم تحديث ' + ok + ' طرد' + (fail ? ' — تعذّر تحديث ' + fail : ''));
-        return;
-      }
-      var o = targets[i++];
-      if (btn) btn.textContent = '⏳ جاري التحديث... (' + i + '/' + targets.length + ')';
-      firebase.functions().httpsCallable('getParcelStatus')({ orderId: o.id })
-        .then(function (res) { applyTrackingResult(o, res.data); ok++; })
-        .catch(function (err) { console.error('getParcelStatus', o.id, err); fail++; })
-        .then(function () { setTimeout(next, 350); });
-    }
-    next();
-  }
-
   views.orders = function () {
     var list = state.orders.slice().sort(function (a, b) { return orderStamp(b) - orderStamp(a); });
-    // The count reflects the expanded (unfolded) cards — the only ones the
-    // refresh-all button touches; the bar shows whenever any parcel exists so a
-    // manually expanded card can still be bulk-refreshed.
-    var anyTracked = list.some(function (o) { return !!orderCarrier(o); });
-    var trackedCount = list.filter(function (o) { return orderCarrier(o) && !startsFolded(o); }).length;
-    var refreshAllBar = anyTracked ? '<div class="toolbar"><div class="row-actions">' +
-      '<button class="btn btn-blue btn-sm" id="refreshAllTrack">🔄 تحديث حالة الطرود المفتوحة (' + trackedCount + ')</button>' +
-      '</div></div>' : '';
     var printBar = '<div id="noestBar" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:300;background:#1E73E8;border-radius:100px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:.35rem .5rem">' +
       '<button class="btn btn-sm" id="printNoest" style="background:transparent;color:#fff;font-weight:800;border:none">🖨️ طباعة الوصول المحددة (<span id="noestCount">0</span>)</button></div>';
-    $('#view').innerHTML = refreshAllBar + printBar + (list.length ? list.map(function (o) {
+    $('#view').innerHTML = printBar + (list.length ? list.map(function (o) {
       var oco = CO[o.deliveryCompany] || CO.yalidine; // customer's chosen carrier (tag colors)
       var phone = String(o.phone || '').replace(/\s/g, '');
       var intl = phone.replace(/^0/, '213');
@@ -951,8 +892,6 @@ details[open] .ptrack-log-h::before{content:'▾ '}
       };
     });
     document.querySelectorAll('.ptrack-refresh').forEach(function (b) { b.onclick = function () { refreshTracking(b.dataset.track, b); }; });
-    var refreshAllBtn = document.getElementById('refreshAllTrack');
-    if (refreshAllBtn) refreshAllBtn.onclick = function () { refreshAllTracking(refreshAllBtn); };
     document.querySelectorAll('.note-inp').forEach(function (i) {
       i.onchange = function () {
         var o = state.orders.find(function (x) { return String(x.id) === String(i.dataset.notefor); });

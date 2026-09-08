@@ -55,9 +55,18 @@ Update this file whenever the current phase, active feature, or implementation s
   refreshes every order that has a carrier tracking number and is not
   finished yet — the owner asked for the admin panel's
   «تحديث حالة الطرود المفتوحة» button to be deleted and the work to happen by
-  itself every night. That button is already gone from the ghost panel
-  (branch `claude/admin-orders-auto-update-a8zq9v` there); the per-order 🔄
-  button stays.
+  itself every night.
+
+  The button is now gone from BOTH panels: `amelhadj.html` here (the one
+  actually live at www.desertshop.fit/amelhadj) and the ghost rebuild
+  (branch `claude/admin-orders-auto-update-a8zq9v` there). It was removed
+  from ghost first by mistake — ghost is not deployed, so that alone would
+  have left the live panel unchanged. Removed alongside it here:
+  `refreshAllTracking`, the toolbar bar and its `anyTracked`/`trackedCount`
+  counts, the `#refreshAllTrack` click wiring, and
+  `scrollAllSteppersToCurrent` + its only helper `centerStepper`. The
+  per-order 🔄 button, `refreshTracking`, `applyTrackingResult`,
+  `scrollTrackerToCurrent` and `startsFolded` all stay and are still used.
 
   The per-parcel work was factored out of `getParcelStatus` into
   `refreshOrderStatus(db, ref, o)`, and both the callable and the schedule
