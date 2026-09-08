@@ -53,7 +53,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Nightly parcel refresh (2026-09-08, owner-requested): new
   `refreshAllParcels` (`onSchedule`, 00:00 `Africa/Algiers`, us-central1)
   refreshes every order that has a carrier tracking number and is not
-  delivered yet — the owner asked for the admin panel's
+  finished yet — the owner asked for the admin panel's
   «تحديث حالة الطرود المفتوحة» button to be deleted and the work to happen by
   itself every night. That button is already gone from the ghost panel
   (branch `claude/admin-orders-auto-update-a8zq9v` there); the per-order 🔄
@@ -63,10 +63,16 @@ Update this file whenever the current phase, active feature, or implementation s
   `refreshOrderStatus(db, ref, o)`, and both the callable and the schedule
   call it — same reason `syncMetaInsightsNow` shares a code path with
   `syncMetaInsights`: a hand refresh and the nightly run cannot drift apart.
-  «Delivered» is read off the status already stored on the order, using the
-  panel's own test (last stage reached, no active alert) and only trusting a
+  «Finished» is read off the status already stored on the order, and the
+  decision is `outcomeFromStatus`'s — the same normalizer every write path
+  already uses to stamp `outcome` — so there is no second opinion to drift.
+  Finished = `delivered`, `returned` or `cancelled` (that last one covers
+  `notFoundAtCarrier`, i.e. deleted from the carrier's own dashboard). Only a
   stored status that still matches the order's current carrier + tracking
-  number — so a re-created parcel reads as not-delivered and gets refreshed.
+  number is trusted, so a re-created parcel reads as unfinished and gets
+  refreshed. Transient alerts — «الزبون لا يجيب», «تأجيل التوصيل» — are NOT
+  finished and keep being refreshed, which is the same distinction
+  `outcomeFromStatus` already draws for the `outcome` field.
 
   Nothing needs pushing to the panel: `refreshOrderStatus` writes
   `trackingStatus`/`outcome` onto the order doc and the admin panel watches
@@ -88,10 +94,13 @@ Update this file whenever the current phase, active feature, or implementation s
   registering, and `refreshAllParcels.__endpoint` reads back the intended
   deployment config (`schedule '0 0 * * *'`, `timeZone 'Africa/Algiers'`,
   540s, 512MiB, retryCount 0, us-central1). The parcel-selection rule
-  (`parcelCarrier` / `storedAsDelivered` / newest-first ordering) was
-  exercised against 11 order shapes — delivered, delivered-but-alerting,
-  delivered-under-an-old-tracking-number, no-status-yet, legacy status with
-  no `stageLabels`, multi-carrier precedence — all green.
+  (`parcelCarrier` / `parcelIsFinished` / newest-first ordering) was
+  exercised against 15 order shapes — delivered; returned via both «مرتجع»
+  and «إرجاع»; cancelled via «ملغى»; deleted via `notFoundAtCarrier`;
+  delivered-then-returned; the transient alerts that must NOT be skipped
+  («الزبون لا يجيب», «تأجيل التوصيل»); finished-under-an-old-tracking-number;
+  finished-under-a-different-carrier; no-status-yet; multi-carrier
+  precedence — all green.
 
   **NOT deployed, and not yet run against real carrier APIs.** The owner has
   to `firebase deploy --only functions` from this repo; the first deploy also
@@ -101,11 +110,19 @@ Update this file whenever the current phase, active feature, or implementation s
   for the real `targets` count, since that is what tells us whether the 400
   cap is anywhere near being hit.
 
-  Open: only DELIVERED parcels are skipped, exactly as asked. Parcels that
-  are terminal for other reasons (returned, cancelled, deleted at the
-  carrier) are still re-asked every night forever, and they can never change.
-  Skipping those too is a one-line change to `storedAsDelivered` — the
-  `outcome` field already records them — but it was not assumed. Owner's call.
+  Skipping returned/cancelled/deleted alongside delivered was the owner's
+  explicit call (2026-09-08), asked and answered in the same session: the
+  first cut skipped delivered only, which meant every dead parcel was re-asked
+  every night forever and the nightly cost tracked orders ever placed rather
+  than parcels in flight.
+
+  The one cost of skipping `cancelled`: if a carrier ever 404s a LIVE parcel
+  long enough for the fetchers to set `notFoundAtCarrier` (they wait out
+  `NOT_FOUND_GRACE_MS` = 15 min first, so a freshly created parcel is never
+  mistaken for a deleted one), the nightly run writes it off and stops asking.
+  The panel's per-order 🔄 button still refreshes it by hand. Judged a fair
+  trade — a parcel that has been missing at the carrier for over 15 minutes is
+  almost always genuinely gone.
 
 - Meta Pixel + CAPI: code complete, verified locally (client-side logic end-to-end; server functions syntax-checked but not deployed). Still needed before it does anything live: deploy `functions` (adds `logMetaEvent` + `onOrderCreatedMetaPurchase`), then enter the Pixel ID + Conversions API access token in the admin Settings page ("Meta Pixel + Conversions API" card).
 

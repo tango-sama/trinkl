@@ -1325,8 +1325,14 @@ exports.getParcelStatus = onCall(
    panel. Owner-requested (2026-09-08), and the reason the panel's manual
    «تحديث حالة الطرود المفتوحة» button was removed.
 
-   Delivered parcels are skipped: their tracking is final, so re-asking
-   the carrier about them only burns rate limit.
+   Finished parcels are skipped — delivered, returned, cancelled, or
+   deleted at the carrier. None of those can change again, so re-asking
+   the carrier about them only burns rate limit, and the set of them only
+   grows. Everything else is refreshed, however old.
+
+   The one cost: if a carrier ever 404s a live parcel long enough for the
+   fetchers to mark it notFoundAtCarrier, the nightly run writes it off and
+   stops asking. The panel's per-order 🔄 button still refreshes it by hand.
 
    Nothing has to be pushed to the panel — refreshOrderStatus writes
    trackingStatus/outcome onto the order doc, and the admin panel already
@@ -1342,19 +1348,27 @@ function parcelCarrier(o) {
   return null;
 }
 
-// Delivered according to the status ALREADY stored on the order — the same
-// test the admin's stepper applies (last stage reached, no active alert),
-// and it only trusts a stored status that still belongs to the order's
-// current carrier and tracking number. A re-created parcel therefore reads
-// as not-delivered and gets refreshed, which is right.
-function storedAsDelivered(o) {
+// A parcel whose story is over: delivered, returned, cancelled, or deleted
+// from the carrier's own dashboard. None of those can change again, so the
+// nightly run skips them instead of spending rate limit on them forever.
+//
+// The call is outcomeFromStatus's, not a second opinion — that is the same
+// normalizer every write path already uses to stamp `outcome` on the doc —
+// read off the status ALREADY stored on the order. Only a stored status
+// that still belongs to the order's current carrier and tracking number is
+// trusted, so a re-created parcel reads as unfinished and gets refreshed.
+//
+// `cancelled` covers notFoundAtCarrier, which the fetchers only set once a
+// parcel has been missing for longer than NOT_FOUND_GRACE_MS — a parcel
+// created minutes ago is never mistaken for a deleted one.
+const FINISHED_OUTCOMES = { delivered: true, returned: true, cancelled: true };
+
+function parcelIsFinished(o) {
   const carrier = parcelCarrier(o);
   const ts = o.trackingStatus;
   if (!carrier || !ts) return false;
   if (ts.carrier !== carrier || ts.tracking !== o[carrier].tracking) return false;
-  const labels = ts.stageLabels || [];
-  return !ts.alert && typeof ts.stage === 'number' && labels.length > 0
-    && ts.stage >= labels.length - 1;
+  return FINISHED_OUTCOMES[outcomeFromStatus(ts)] === true;
 }
 
 // One carrier call at a time with this gap between them — the same pacing
@@ -1374,7 +1388,7 @@ async function runParcelRefresh() {
   snap.forEach((doc) => {
     const o = doc.data();
     if (!parcelCarrier(o)) return;
-    if (storedAsDelivered(o)) return;
+    if (parcelIsFinished(o)) return;
     targets.push({ ref: doc.ref, id: doc.id, data: o });
   });
 
