@@ -111,13 +111,19 @@ Update this file whenever the current phase, active feature, or implementation s
   finished-under-a-different-carrier; no-status-yet; multi-carrier
   precedence — all green.
 
-  **NOT deployed, and not yet run against real carrier APIs.** The owner has
-  to `firebase deploy --only functions` from this repo; the first deploy also
-  has to enable Cloud Scheduler on the project if it is not already (the
-  existing `syncMetaInsights` schedule means it most likely is). Worth
-  watching the first night's log line — `[parcels] nightly refresh: {...}` —
-  for the real `targets` count, since that is what tells us whether the 400
-  cap is anywhere near being hit.
+  **DEPLOYED to production 2026-09-08 13:48 UTC** via the repo's own CI
+  (`firebase-hosting-merge.yml` on a push to `main`, run #53, all steps
+  green): hosting shipped the button removal, `refreshAllParcels` logged
+  `Successful create operation` as a new Node 20 2nd-gen function in
+  us-central1 (the deploy enabled `cloudscheduler.googleapis.com` as part of
+  it), `getParcelStatus` updated alongside it, and firestore rules re-released
+  unchanged.
+
+  **NOT yet run against real carrier APIs** — first firing is 00:00
+  Africa/Algiers. Worth reading that first night's log line,
+  `[parcels] nightly refresh: {...}`, for the real `targets` count: that is
+  what says whether the 400 cap is anywhere near being hit, and whether the
+  540s timeout is comfortable.
 
   Skipping returned/cancelled/deleted alongside delivered was the owner's
   explicit call (2026-09-08), asked and answered in the same session: the
