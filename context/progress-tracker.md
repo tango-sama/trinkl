@@ -21,6 +21,15 @@ Update this file whenever the current phase, active feature, or implementation s
 - Security lockdown (2026-07-19): admin panel gated by Firebase Auth email/password; `firestore.rules` tightened — catalog public-read/admin-write, orders & messages create-only for clients, customer data and expenses admin-only.
 - WhatsApp site-wide toggle (2026-07-19): `site_settings.waEnabled` + admin Settings button; hides every WA surface via `html.no-wa` and guards JS openers.
 - Context docs (2026-07-19): `CLAUDE.md` + `context/` folder; internal files excluded from Hosting (were publicly downloadable).
+- Parcel refresh moved to 16:00 (2026-09-14, owner-requested): the
+  `refreshAllParcels` schedule now runs at `0 16 * * *` `Africa/Algiers`
+  instead of `0 0 * * *`. Nothing else about the run changed — same
+  `runParcelRefresh`, same 350ms pacing, same 400-parcel cap, same 540s
+  timeout, same "skip finished parcels" rule. The run is no longer
+  overnight, so its log line is now `[parcels] daily refresh: {...}` (was
+  `nightly refresh`) and the comments that said "nightly"/"00:00" were
+  corrected to match. `syncMetaInsights` is untouched and still runs at
+  03:00.
 - Growth Phase 1 — canonical order outcome (2026-09-04): every place that writes
   `trackingStatus` now also writes a flat `outcome` string
   (`new`/`confirmed`/`shipped`/`delivered`/`returned`/`cancelled`) plus

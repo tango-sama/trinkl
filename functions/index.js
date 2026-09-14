@@ -740,9 +740,9 @@ exports.cancelZrParcel = onCall(
 
    Two things refresh a parcel, and both go through refreshOrderStatus
    below: this callable, from the panel's per-order 🔄 button, and the
-   nightly refreshAllParcels schedule (00:00 Africa/Algiers), which sweeps
+   daily refreshAllParcels schedule (16:00 Africa/Algiers), which sweeps
    every parcel that is not delivered yet. Nothing polls in a loop — each
-   carrier is asked at most once a night per parcel, paced.
+   carrier is asked at most once a day per parcel, paced.
    ─────────────────────────────────────────────────────────────── */
 const STAGE_LABELS = ['تم إنشاء الطلب', 'تم التأكيد والشحن', 'في مركز الفرز', 'خرج للتوصيل', 'تم الاستلام'];
 // stage = index of the furthest step the parcel has REACHED (that step and every
@@ -1279,8 +1279,8 @@ async function fetchZrStatus(db, o) {
 // The refresh itself, with none of the callable's request plumbing: ask
 // whichever carrier owns the parcel, write the normalized status (plus the
 // two flags a refresh can heal) back onto the order, return it. Shared by
-// the getParcelStatus callable and the nightly refreshAllParcels schedule,
-// so a hand refresh and the 00:00 run can never drift apart.
+// the getParcelStatus callable and the daily refreshAllParcels schedule,
+// so a hand refresh and the 16:00 run can never drift apart.
 async function refreshOrderStatus(db, ref, o) {
   let status;
   if (o.noest && o.noest.tracking) status = await fetchNoestStatus(db, o);
@@ -1320,7 +1320,7 @@ exports.getParcelStatus = onCall(
 );
 
 /* ───────────────────────────────────────────────────────────────
-   refreshAllParcels: the nightly run that keeps every still-moving
+   refreshAllParcels: the daily run that keeps every still-moving
    parcel's tracking current without anyone having to open the admin
    panel. Owner-requested (2026-09-08), and the reason the panel's manual
    «تحديث حالة الطرود المفتوحة» button was removed.
@@ -1331,7 +1331,7 @@ exports.getParcelStatus = onCall(
    grows. Everything else is refreshed, however old.
 
    The one cost: if a carrier ever 404s a live parcel long enough for the
-   fetchers to mark it notFoundAtCarrier, the nightly run writes it off and
+   fetchers to mark it notFoundAtCarrier, the daily run writes it off and
    stops asking. The panel's per-order 🔄 button still refreshes it by hand.
 
    Nothing has to be pushed to the panel — refreshOrderStatus writes
@@ -1350,7 +1350,7 @@ function parcelCarrier(o) {
 
 // A parcel whose story is over: delivered, returned, cancelled, or deleted
 // from the carrier's own dashboard. None of those can change again, so the
-// nightly run skips them instead of spending rate limit on them forever.
+// daily run skips them instead of spending rate limit on them forever.
 //
 // The call is outcomeFromStatus's, not a second opinion — that is the same
 // normalizer every write path already uses to stamp `outcome` on the doc —
@@ -1372,10 +1372,10 @@ function parcelIsFinished(o) {
 }
 
 // One carrier call at a time with this gap between them — the same pacing
-// the panel's old bulk refresh used, so a night's run cannot burst past a
+// the panel's old bulk refresh used, so a run cannot burst past a
 // carrier's rate limit.
 const REFRESH_GAP_MS = 350;
-// Ceiling on one night's run. The function's own timeout is the real limit
+// Ceiling on one run. The function's own timeout is the real limit
 // (below); this keeps the run from ever reaching it, and a truncated run is
 // logged loudly rather than passing silently.
 const REFRESH_MAX_PARCELS = 400;
@@ -1419,7 +1419,7 @@ async function runParcelRefresh() {
   }
 
   const result = { ok, fail, scanned: snap.size, targets: targets.length, truncated };
-  console.log('[parcels] nightly refresh:', JSON.stringify(result));
+  console.log('[parcels] daily refresh:', JSON.stringify(result));
   return result;
 }
 
@@ -1434,15 +1434,15 @@ function confirmStampOf(o) {
 
 exports.refreshAllParcels = onSchedule(
   {
-    // 00:00 in the store's own timezone, not UTC.
-    schedule: '0 0 * * *',
+    // 16:00 in the store's own timezone, not UTC.
+    schedule: '0 16 * * *',
     timeZone: 'Africa/Algiers',
     region: 'us-central1',
     // 400 parcels paced at 350ms plus carrier latency needs far more than
     // the 60s default; 9 minutes covers a full run with room to spare.
     timeoutSeconds: 540,
     memory: '512MiB',
-    // A failed night is picked up by the next night's run — retrying a
+    // A failed run is picked up by the next day's run — retrying a
     // partially-completed batch would just re-hit the carriers.
     retryCount: 0,
   },
