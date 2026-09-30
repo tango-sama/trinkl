@@ -98,7 +98,16 @@ exports.createYalidineParcel = onCall(
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
       : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
-    const codPrice = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
+    // Yalidine's `price` is the PRODUCT value only: it independently computes
+    // its own freight from destination/weight and adds it on top to get what
+    // the driver collects. `parcelPrice` / `total` already include OUR
+    // deliveryFee estimate, so sending them as-is charges delivery twice.
+    // Strip our fee back out. The bare `subtotal` fallback never had delivery
+    // baked in, so it is left alone.
+    const desiredTotal = Number(o.parcelPrice != null ? o.parcelPrice : (o.total != null ? o.total : o.subtotal)) || 0;
+    const includesDelivery = o.parcelPrice != null || o.total != null;
+    const ourDeliveryFee = includesDelivery ? (Number(o.deliveryFee) || 0) : 0;
+    const codPrice = Math.max(0, desiredTotal - ourDeliveryFee);
     const useStopdesk = isStopdesk && !!stopdeskCenter;
 
     const parcel = {
