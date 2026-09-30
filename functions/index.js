@@ -669,6 +669,7 @@ exports.createZrParcel = onCall(
     }
     const useStopdesk = deliveryType === 'pickup-point';
 
+    // ZR limits orderedProducts[].productName to 2–100 chars (description takes 250).
     const productList = (o.deliveryLabel && String(o.deliveryLabel).trim())
       ? String(o.deliveryLabel).trim().slice(0, 250)
       : ((o.items || []).map((it) => `${it.title} x${it.qty || 1}`).join(', ') || 'منتجات').slice(0, 250);
@@ -677,7 +678,7 @@ exports.createZrParcel = onCall(
     const payload = {
       customer: {
         customerId: zrUuid(),
-        name: (String(o.customer || '').trim() || 'Client').slice(0, 100),
+        name: (String(o.customer || '').trim() || 'Client').slice(0, 100).padEnd(2, '.'),
         phone: { number1: zrPhone(o.phone) },
       },
       deliveryAddress: {
@@ -689,7 +690,7 @@ exports.createZrParcel = onCall(
           String(o.communeFr || '').trim() || '—').slice(0, 200),
       },
       orderedProducts: [{
-        productName: productList, unitPrice: amount, quantity: 1, stockType: 'none',
+        productName: productList.slice(0, 100).padEnd(2, '.'), unitPrice: amount, quantity: 1, stockType: 'none',
         length: 20, width: 10, height: 1, weight: 1,
       }],
       amount,
