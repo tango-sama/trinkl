@@ -238,6 +238,40 @@ exports.cancelYalidineParcel = onCall(
    ─────────────────────────────────────────────────────────────── */
 const NOEST_BASE = 'https://app.noest-dz.com';
 
+// Noest sits behind an nginx/WAF that intermittently answers a bare
+// "403 Forbidden" HTML page to server-side requests (default Node/undici
+// User-Agent, bursts, datacenter IPs). That page never reaches the API, so it
+// is safe to retry for every call. 5xx/429 are retried too, except for
+// non-idempotent creates where a 5xx may have already created the parcel
+// (opts.idempotent === false → only 403/429, which are rejected up front).
+const NOEST_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+async function noestFetch(url, init, opts) {
+  init = init || {};
+  const idempotent = !(opts && opts.idempotent === false);
+  const retryOn = idempotent ? [403, 429, 502, 503, 504] : [403, 429];
+  const headers = Object.assign({ 'User-Agent': NOEST_UA }, init.headers || {});
+  let res;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      res = await fetch(url, Object.assign({}, init, { headers }));
+    } catch (e) {
+      if (!idempotent || attempt === 3) throw e;
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+      continue;
+    }
+    if (!retryOn.includes(res.status) || attempt === 3) return res;
+    await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.random() * 300));
+  }
+  return res;
+}
+// Short message for error toasts: never show a raw HTML error page.
+function noestErrText(body, status) {
+  if (typeof body === 'string' && /<html|<body/i.test(body)) {
+    return 'Noest رفض الطلب مؤقتاً (HTTP ' + status + ') — أعيدي المحاولة بعد لحظات.';
+  }
+  return typeof body === 'string' ? body : JSON.stringify(body || {});
+}
+
 exports.createNoestParcel = onCall(
   { region: 'us-central1' },
   async (req) => {
@@ -279,7 +313,7 @@ exports.createNoestParcel = onCall(
     }
     if (isStopdesk && !stationCode) {
       try {
-        const dRes = await fetch(NOEST_BASE + '/api/public/desks', { headers });
+        const dRes = await noestFetch(NOEST_BASE + '/api/public/desks', { headers });
         if (dRes.ok) {
           const desks = await dRes.json();
           const norm = (s) => String(s || '').toLowerCase()
@@ -328,14 +362,14 @@ exports.createNoestParcel = onCall(
 
     let res, text;
     try {
-      res = await fetch(NOEST_BASE + '/api/public/create/order', { method: 'POST', headers, body: JSON.stringify(payload) });
+      res = await noestFetch(NOEST_BASE + '/api/public/create/order', { method: 'POST', headers, body: JSON.stringify(payload) }, { idempotent: false });
       text = await res.text();
     } catch (e) {
       throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
     }
     let body; try { body = JSON.parse(text); } catch (e) { body = text; }
     if (!res.ok || !body || body.success !== true || !body.tracking) {
-      throw new HttpsError('internal', 'فشل إنشاء طلب Noest: ' + (typeof body === 'string' ? body : JSON.stringify(body)));
+      throw new HttpsError('internal', 'فشل إنشاء طلب Noest: ' + noestErrText(body, res.status));
     }
     const tracking = body.tracking;
 
@@ -387,7 +421,7 @@ exports.cancelNoestParcel = onCall(
 
     let res, text;
     try {
-      res = await fetch(NOEST_BASE + '/api/public/delete/order', {
+      res = await noestFetch(NOEST_BASE + '/api/public/delete/order', {
         method: 'POST', headers,
         body: JSON.stringify({ tracking, user_guid: guid }),
       });
@@ -406,11 +440,14 @@ exports.cancelNoestParcel = onCall(
       await ref.update({ noest: admin.firestore.FieldValue.delete() });
       return { ok: true, tracking, alreadyGone: true };
     }
+    if ([403, 429, 502, 503, 504].includes(res.status)) {
+      throw new HttpsError('unavailable', 'Noest: ' + noestErrText(body, res.status));
+    }
     if (!res.ok || (body && body.success === false)) {
       throw new HttpsError(
         'failed-precondition',
         'تعذّر إلغاء طرد Noest — تحققي من حالته في لوحة Noest: ' +
-          (typeof body === 'string' ? body : JSON.stringify(body || {}))
+          noestErrText(body, res.status)
       );
     }
 
@@ -933,7 +970,7 @@ async function fetchNoestStatus(db, o) {
     // Noest's API doc marks api_token AND user_guid as required body fields for
     // get/trackings/info. Without user_guid the lookup isn't scoped to the
     // account and Noest answers "Trackings non trouvés" for parcels that exist.
-    res = await fetch(NOEST_BASE + '/api/public/get/trackings/info', {
+    res = await noestFetch(NOEST_BASE + '/api/public/get/trackings/info', {
       method: 'POST', headers,
       body: JSON.stringify({ api_token: token, user_guid: guid, trackings: [o.noest.tracking] }),
     });
@@ -1535,7 +1572,7 @@ async function lookupNoest(db, tracking) {
 
   let res, body;
   try {
-    res = await fetch(NOEST_BASE + '/api/public/get/trackings/info', {
+    res = await noestFetch(NOEST_BASE + '/api/public/get/trackings/info', {
       method: 'POST', headers,
       body: JSON.stringify({ api_token: token, user_guid: guid, trackings: [tracking] }),
     });
@@ -1688,7 +1725,7 @@ exports.getNoestLabels = onCall(
     for (const tr of trackings) {
       let res;
       try {
-        res = await fetch(NOEST_BASE + '/api/public/get/order/label?tracking=' + encodeURIComponent(tr), { headers });
+        res = await noestFetch(NOEST_BASE + '/api/public/get/order/label?tracking=' + encodeURIComponent(tr), { headers });
       } catch (e) {
         throw new HttpsError('unavailable', 'تعذّر الاتصال بـ Noest: ' + e.message);
       }
@@ -1736,7 +1773,7 @@ exports.syncNoestFees = onCall(
 
     let res, body;
     try {
-      res = await fetch(NOEST_BASE + '/api/public/fees', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+      res = await noestFetch(NOEST_BASE + '/api/public/fees', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
       body = await res.json();
     } catch (e) {
       throw new HttpsError('unavailable', 'تعذّر جلب أسعار Noest: ' + e.message);
@@ -1825,7 +1862,7 @@ async function writeCarrierData(db, name, wilayaIds, communesByW, feeTable, cent
 // Noest bearer token.
 async function noestFeeTable(headers) {
   try {
-    const res = await fetch(NOEST_BASE + '/api/public/fees', { headers });
+    const res = await noestFetch(NOEST_BASE + '/api/public/fees', { headers });
     if (!res.ok) return {};
     const body = await res.json();
     const delivery = (body && body.tarifs && body.tarifs.delivery) || {};
@@ -1927,7 +1964,7 @@ async function yalidineCenters(headers) {
 async function noestCenters(headers) {
   const byW = {};
   try {
-    const res = await fetch(NOEST_BASE + '/api/public/desks', { headers });
+    const res = await noestFetch(NOEST_BASE + '/api/public/desks', { headers });
     if (!res.ok) return byW;
     const raw = await res.json();
     const arr = Array.isArray(raw) ? raw : Object.values(raw);
@@ -2015,9 +2052,9 @@ exports.syncCarriers = onCall(
     if (no.apiToken) {
       try {
         const h = { Authorization: 'Bearer ' + String(no.apiToken), Accept: 'application/json' };
-        const wRaw = await (await fetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
+        const wRaw = await (await noestFetch('https://app.noest-dz.com/api/public/get/wilayas', { headers: h })).json();
         const wArr = (Array.isArray(wRaw) ? wRaw : Object.values(wRaw)).filter((w) => w.is_active != 0);
-        const cRaw = await (await fetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
+        const cRaw = await (await noestFetch('https://app.noest-dz.com/api/public/get/communes', { headers: h })).json();
         const cArr = Array.isArray(cRaw) ? cRaw : Object.values(cRaw);
         const byW = {};
         cArr.forEach((c) => { if (c.is_active != 0) { (byW[c.wilaya_id] = byW[c.wilaya_id] || []).push(c.nom); } });
